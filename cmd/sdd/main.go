@@ -10,7 +10,11 @@ import (
 )
 
 func main() {
-	env := cli.IO{
+	os.Exit(cli.Run(os.Args[1:], defaultIO()))
+}
+
+func defaultIO() cli.IO {
+	return cli.IO{
 		In:          os.Stdin,
 		Out:         os.Stdout,
 		Err:         os.Stderr,
@@ -25,7 +29,6 @@ func main() {
 			return h
 		},
 	}
-	os.Exit(cli.Run(os.Args[1:], env))
 }
 
 func isTerminal(f *os.File) bool {

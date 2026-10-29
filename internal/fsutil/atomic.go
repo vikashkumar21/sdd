@@ -27,6 +27,11 @@ func WriteAtomic(path string, data []byte, perm fs.FileMode) error {
 		cleanup()
 		return fmt.Errorf("write %s: %w", path, err)
 	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		cleanup()
+		return fmt.Errorf("sync %s: %w", path, err)
+	}
 	if err := tmp.Close(); err != nil {
 		cleanup()
 		return fmt.Errorf("close %s: %w", path, err)
