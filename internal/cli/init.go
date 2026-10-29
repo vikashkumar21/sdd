@@ -45,13 +45,13 @@ func runInit(args []string, env IO) int {
 		return parseExit(err)
 	}
 	if len(pos) > 0 {
-		fmt.Fprintf(env.Err, "sdd init: unexpected argument %q\n", pos[0])
+		fprintf(env.Err, "sdd init: unexpected argument %q\n", pos[0])
 		return 2
 	}
 	given := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { given[f.Name] = true })
 	fail := func(format string, a ...any) int {
-		fmt.Fprintf(env.Err, "sdd init: "+format+"\n", a...)
+		fprintf(env.Err, "sdd init: "+format+"\n", a...)
 		return 1
 	}
 
@@ -84,7 +84,7 @@ func runInit(args []string, env IO) int {
 	var pr *prompter
 	if env.Interactive && !o.yes {
 		pr = newPrompter(env.In, env.Out)
-		fmt.Fprintln(env.Out, "\nAnswer each question, or press Enter to accept the value in brackets.")
+		fprintln(env.Out, "\nAnswer each question, or press Enter to accept the value in brackets.")
 	}
 	ans, err := collectAnswers(env, pr, o, given, det, root)
 	if err != nil {
@@ -99,17 +99,17 @@ func runInit(args []string, env IO) int {
 		return fail("%v", err)
 	}
 
-	fmt.Fprintf(env.Out, "\nPlan for %s (%s):\n", root, plan.Data.Mode)
+	fprintf(env.Out, "\nPlan for %s (%s):\n", root, plan.Data.Mode)
 	for _, l := range plan.Lines() {
-		fmt.Fprintf(env.Out, "  %s\n", l)
+		fprintf(env.Out, "  %s\n", l)
 	}
-	fmt.Fprintf(env.Out, "  %-8s %s\n", "create", scaffold.ManifestPath)
+	fprintf(env.Out, "  %-8s %s\n", "create", scaffold.ManifestPath)
 	if o.dryRun {
-		fmt.Fprintln(env.Out, "\nDry run: nothing was written.")
+		fprintln(env.Out, "\nDry run: nothing was written.")
 		return 0
 	}
 	if pr != nil && !pr.confirm("\nWrite these files?") {
-		fmt.Fprintln(env.Out, "Aborted. Nothing was written.")
+		fprintln(env.Out, "Aborted. Nothing was written.")
 		return 1
 	}
 
@@ -121,21 +121,21 @@ func runInit(args []string, env IO) int {
 	for _, e := range rep.Entries {
 		counts[e.Kind]++
 	}
-	fmt.Fprintf(env.Out, "\nDone: %d created, %d merged, %d replaced, %d skipped.\n",
+	fprintf(env.Out, "\nDone: %d created, %d merged, %d replaced, %d skipped.\n",
 		counts[scaffold.KindCreate], counts[scaffold.KindMerge], counts[scaffold.KindReplace], counts[scaffold.KindSkip])
 	if rep.BackupDir != "" {
-		fmt.Fprintf(env.Out, "Originals backed up in %s\n", rep.BackupDir)
+		fprintf(env.Out, "Originals backed up in %s\n", rep.BackupDir)
 	}
-	fmt.Fprintf(env.Out, "\nNext steps:\n")
-	fmt.Fprintf(env.Out, "  1. Review the generated files. Nothing is committed; you commit (agents never do).\n")
-	fmt.Fprintf(env.Out, "  2. Fill the %d %s placeholder(s), or let the agent propose them in T-001 under the gates.\n", rep.Todos, scaffold.Todo)
-	fmt.Fprintf(env.Out, "  3. Run `sdd check`.\n")
-	fmt.Fprintf(env.Out, "  4. Hand over to an agent: `sdd prompt gemini` (or claude, agents).\n")
+	fprintf(env.Out, "\nNext steps:\n")
+	fprintf(env.Out, "  1. Review the generated files. Nothing is committed; you commit (agents never do).\n")
+	fprintf(env.Out, "  2. Fill the %d %s placeholder(s), or let the agent propose them in T-001 under the gates.\n", rep.Todos, scaffold.Todo)
+	fprintf(env.Out, "  3. Run `sdd check`.\n")
+	fprintf(env.Out, "  4. Hand over to an agent: `sdd prompt gemini` (or claude, agents).\n")
 	return 0
 }
 
 func printDetected(env IO, det detect.Result) {
-	fmt.Fprintln(env.Out, "Detected (unverified; you confirm or correct each value):")
+	fprintln(env.Out, "Detected (unverified; you confirm or correct each value):")
 	langs := strings.Join(det.Languages, ", ")
 	if langs == "" {
 		langs = "none"
@@ -143,12 +143,12 @@ func printDetected(env IO, det detect.Result) {
 	if len(det.Other) > 0 {
 		langs += "  (other: " + strings.Join(det.Other, ", ") + ")"
 	}
-	fmt.Fprintf(env.Out, "  languages      %s\n", langs)
-	fmt.Fprintf(env.Out, "  source files   %d%s\n", det.SourceFiles, map[bool]string{true: " (scan capped)", false: ""}[det.Capped])
-	fmt.Fprintf(env.Out, "  git repository %s\n", map[bool]string{true: "yes", false: "no"}[det.HasGit])
-	fmt.Fprintf(env.Out, "  suggested mode %s\n", det.SuggestedMode)
+	fprintf(env.Out, "  languages      %s\n", langs)
+	fprintf(env.Out, "  source files   %d%s\n", det.SourceFiles, map[bool]string{true: " (scan capped)", false: ""}[det.Capped])
+	fprintf(env.Out, "  git repository %s\n", map[bool]string{true: "yes", false: "no"}[det.HasGit])
+	fprintf(env.Out, "  suggested mode %s\n", det.SuggestedMode)
 	if det.Build+det.Test+det.Lint+det.Format != "" {
-		fmt.Fprintf(env.Out, "  commands       build=%q test=%q lint=%q format=%q\n", det.Build, det.Test, det.Lint, det.Format)
+		fprintf(env.Out, "  commands       build=%q test=%q lint=%q format=%q\n", det.Build, det.Test, det.Lint, det.Format)
 	}
 	var existing []string
 	for _, n := range []string{"README.md", "CLAUDE.md", "GEMINI.md", "AGENTS.md", "MISSION.md", "TECH_STACK.md", "ROADMAP.md", "SKILLS.md"} {
@@ -157,7 +157,7 @@ func printDetected(env IO, det detect.Result) {
 		}
 	}
 	if len(existing) > 0 {
-		fmt.Fprintf(env.Out, "  existing docs  %s\n", strings.Join(existing, ", "))
+		fprintf(env.Out, "  existing docs  %s\n", strings.Join(existing, ", "))
 	}
 }
 

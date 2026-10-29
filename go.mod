@@ -1,3 +1,3 @@
 module github.com/vikashkumar21/sdd
 
-go 1.22
+go 1.27

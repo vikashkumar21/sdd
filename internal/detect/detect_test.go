@@ -66,10 +66,10 @@ func TestDetectLanguages(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !reflect.DeepEqual(res.Languages, tc.wantLangs) && !(len(res.Languages) == 0 && len(tc.wantLangs) == 0) {
+			if !reflect.DeepEqual(res.Languages, tc.wantLangs) && (len(res.Languages) != 0 || len(tc.wantLangs) != 0) {
 				t.Errorf("languages = %v, want %v", res.Languages, tc.wantLangs)
 			}
-			if !reflect.DeepEqual(res.Other, tc.wantOther) && !(len(res.Other) == 0 && len(tc.wantOther) == 0) {
+			if !reflect.DeepEqual(res.Other, tc.wantOther) && (len(res.Other) != 0 || len(tc.wantOther) != 0) {
 				t.Errorf("other = %v, want %v", res.Other, tc.wantOther)
 			}
 			if res.Build != tc.wantBuild || res.Test != tc.wantTest {

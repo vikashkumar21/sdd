@@ -9,7 +9,7 @@
 
 The workflow it installs: the agent drafts requirements and a plan, **the human approves before any code**, the agent implements and verifies, and **the human reviews and commits**. The anthem: *always be deterministic, and take human approval or decisions to accomplish that determinism.*
 
-> Status: **v0.1.0, built and tested on Go 1.22 / Linux.** Not yet verified on macOS or with Go 1.27. See [ROADMAP.md](ROADMAP.md).
+> Status: **v0.1.0, built and verified on Linux and macOS with Go 1.27.** See [ROADMAP.md](ROADMAP.md).
 
 ## Install
 

@@ -64,7 +64,7 @@ Exit codes: 0 success, 1 failure or findings, 2 usage error.
 // Run executes one sdd command and returns the process exit code.
 func Run(args []string, env IO) int {
 	if len(args) == 0 {
-		fmt.Fprint(env.Err, usageText)
+		fprint(env.Err, usageText)
 		return 2
 	}
 	switch args[0] {
@@ -77,16 +77,20 @@ func Run(args []string, env IO) int {
 	case "prompt":
 		return runPrompt(args[1:], env)
 	case "version", "--version", "-v":
-		fmt.Fprintf(env.Out, "sdd %s (templates %s)\n", version.Version, templates.Version)
+		fprintf(env.Out, "sdd %s (templates %s)\n", version.Version, templates.Version)
 		return 0
 	case "help", "-h", "--help":
-		fmt.Fprint(env.Out, usageText)
+		fprint(env.Out, usageText)
 		return 0
 	default:
-		fmt.Fprintf(env.Err, "sdd: unknown command %q\n\n%s", args[0], usageText)
+		fprintf(env.Err, "sdd: unknown command %q\n\n%s", args[0], usageText)
 		return 2
 	}
 }
+
+func fprint(w io.Writer, a ...any)                 { _, _ = fmt.Fprint(w, a...) }
+func fprintf(w io.Writer, format string, a ...any) { _, _ = fmt.Fprintf(w, format, a...) }
+func fprintln(w io.Writer, a ...any)               { _, _ = fmt.Fprintln(w, a...) }
 
 func newFlagSet(name string, env IO) *flag.FlagSet {
 	fs := flag.NewFlagSet("sdd "+name, flag.ContinueOnError)

@@ -103,8 +103,10 @@ func TestFreshKitHasNoErrors(t *testing.T) {
 
 func TestCheckIsDeterministic(t *testing.T) {
 	root := generate(t)
-	if dump(run(t, root)) != dump(run(t, root)) {
-		t.Fatal("two runs gave different reports")
+	first := dump(run(t, root))
+	second := dump(run(t, root))
+	if first != second {
+		t.Fatalf("two runs gave different reports:\n--- first ---\n%s\n--- second ---\n%s", first, second)
 	}
 }
 

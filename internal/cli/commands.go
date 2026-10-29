@@ -22,17 +22,17 @@ func runCheck(args []string, env IO) int {
 		return parseExit(err)
 	}
 	if len(pos) > 0 {
-		fmt.Fprintf(env.Err, "sdd check: unexpected argument %q\n", pos[0])
+		fprintf(env.Err, "sdd check: unexpected argument %q\n", pos[0])
 		return 2
 	}
 	root, err := filepath.Abs(*dir)
 	if err != nil {
-		fmt.Fprintf(env.Err, "sdd check: %v\n", err)
+		fprintf(env.Err, "sdd check: %v\n", err)
 		return 1
 	}
 	rep, err := check.Run(root)
 	if err != nil {
-		fmt.Fprintf(env.Err, "sdd check: %v\n", err)
+		fprintf(env.Err, "sdd check: %v\n", err)
 		return 1
 	}
 	for _, f := range rep.Findings {
@@ -42,9 +42,9 @@ func runCheck(args []string, env IO) int {
 		} else if f.Line > 0 {
 			loc = fmt.Sprintf("%s:%d", f.File, f.Line)
 		}
-		fmt.Fprintf(env.Out, "%-5s %s  %s\n", f.Severity, loc, f.Message)
+		fprintf(env.Out, "%-5s %s  %s\n", f.Severity, loc, f.Message)
 	}
-	fmt.Fprintf(env.Out, "\n%d error(s), %d warning(s), %d note(s)\n", rep.Count(check.Error), rep.Count(check.Warn), rep.Count(check.Info))
+	fprintf(env.Out, "\n%d error(s), %d warning(s), %d note(s)\n", rep.Count(check.Error), rep.Count(check.Warn), rep.Count(check.Info))
 	if rep.Failed(*strict) {
 		return 1
 	}
@@ -53,7 +53,7 @@ func runCheck(args []string, env IO) int {
 
 func runFeature(args []string, env IO) int {
 	if len(args) == 0 || args[0] != "new" {
-		fmt.Fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--dir <project>]")
+		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--dir <project>]")
 		return 2
 	}
 	fs := newFlagSet("feature new", env)
@@ -64,27 +64,27 @@ func runFeature(args []string, env IO) int {
 		return parseExit(err)
 	}
 	if len(pos) != 2 {
-		fmt.Fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--dir <project>]")
+		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--dir <project>]")
 		return 2
 	}
 	root, err := filepath.Abs(*dir)
 	if err != nil {
-		fmt.Fprintf(env.Err, "sdd feature: %v\n", err)
+		fprintf(env.Err, "sdd feature: %v\n", err)
 		return 1
 	}
 	res, err := feature.New(root, pos[0], pos[1], *title)
 	if err != nil {
-		fmt.Fprintf(env.Err, "sdd feature: %v\n", err)
+		fprintf(env.Err, "sdd feature: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(env.Out, "Created %s:\n", res.Dir)
+	fprintf(env.Out, "Created %s:\n", res.Dir)
 	for _, f := range res.Files {
-		fmt.Fprintf(env.Out, "  %s\n", f)
+		fprintf(env.Out, "  %s\n", f)
 	}
 	if res.StatusUpdated {
-		fmt.Fprintf(env.Out, "ROADMAP.md: %s is now Specifying.\n", pos[0])
+		fprintf(env.Out, "ROADMAP.md: %s is now Specifying.\n", pos[0])
 	}
-	fmt.Fprintf(env.Out, "\nNext: draft requirements.md, plan.md and validation.md (no code), then stop for `APPROVED %s`.\n", pos[0])
+	fprintf(env.Out, "\nNext: draft requirements.md, plan.md and validation.md (no code), then stop for `APPROVED %s`.\n", pos[0])
 	return 0
 }
 
@@ -120,11 +120,11 @@ func runPrompt(args []string, env IO) int {
 		return parseExit(err)
 	}
 	if len(pos) != 1 {
-		fmt.Fprintln(env.Err, "usage: sdd prompt <agent> [--task T-xxx] [--dir <project>]   (agent: claude, gemini, agents, or any name)")
+		fprintln(env.Err, "usage: sdd prompt <agent> [--task T-xxx] [--dir <project>]   (agent: claude, gemini, agents, or any name)")
 		return 2
 	}
 	fail := func(format string, a ...any) int {
-		fmt.Fprintf(env.Err, "sdd prompt: "+format+"\n", a...)
+		fprintf(env.Err, "sdd prompt: "+format+"\n", a...)
 		return 1
 	}
 	root, err := filepath.Abs(*dir)
@@ -180,7 +180,7 @@ func runPrompt(args []string, env IO) int {
 	if err != nil {
 		return fail("%v", err)
 	}
-	fmt.Fprint(env.Out, out)
+	fprint(env.Out, out)
 	return 0
 }
 
