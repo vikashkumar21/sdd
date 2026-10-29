@@ -52,6 +52,7 @@ Status: living document · Last updated: 2026-10-26
 | T-002 | Verify on the maintainer's Mac: Go 1.27, golangci-lint v2, macOS binary; fix findings | S | T-001 | `make check` passes locally; the macOS binary runs; D-015 decided; results recorded in validation.md | D-004, D-015 | Not started |
 | T-003 | sdd upgrade: refresh generated files from newer templates without overwriting human edits | M | T-002 | Uses the manifest hashes: untouched files are replaced, edited files get a side-by-side proposal; never overwrites | D-017 | Not started |
 | T-004 | sdd adopt: write a manifest for kits created before sdd (for example dbguard) | S | T-002 | A hand-made kit gains a manifest and passes `sdd check` without modification | D-017 | Not started |
+| T-005 | Independent review, adaptive-design proposals, and improvement plan (docs only until approved) | M | T-001 | A written review answering the six review questions with evidence; a prioritised, gated improvement plan; proposals for self-checking, self-healing, self-analysis, and adaptation to change | D-015 | Awaiting review |
 
 ## 5. Unknown-technology protocol (spikes)
 
