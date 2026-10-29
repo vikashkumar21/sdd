@@ -1,0 +1,9 @@
+- **Style:** PEP 8 and PEP 257; formatter and linter per the Decision register, enforced in CI.
+- **Typing:** type hints on every public function and module-level value (PEP 484); a type checker per the Decision register; no untyped public API.
+- **Errors:** raise specific exceptions; never use a bare `except:`; preserve the cause (`raise ... from err`); no exceptions for control flow.
+- **Structure:** small modules and functions; no mutable default arguments; no import-time side effects; avoid global state; `dataclasses` (or equivalent) for plain data.
+- **Resources:** context managers (`with`) for files, connections, and locks; `pathlib` for paths.
+- **Logging:** the `logging` module in library code, never `print`; no secrets in logs.
+- **Dependencies:** pinned and reproducible (a lock file); isolated environments; never install into the system interpreter.
+- **Determinism:** inject clocks and random sources; seed randomness in tests; do not depend on set ordering (dicts keep insertion order, sets do not).
+- **Tests:** table-driven or parametrised tests (framework per the Decision register); no network or wall-clock dependence; fixtures are synthetic.

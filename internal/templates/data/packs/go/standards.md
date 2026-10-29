@@ -1,0 +1,10 @@
+- **Formatting and imports:** `gofmt` and `goimports` clean; `go vet` clean; linter per the Decision register.
+- **Style references:** *Effective Go*, *Go Code Review Comments*, the Google Go Style Guide. Idiomatic over clever.
+- **Naming:** short, clear, no stutter (`audit.Log`, not `audit.AuditLog`); package names are lowercase, singular, no underscores.
+- **Interfaces:** small, defined in the consumer package; accept interfaces, return concrete types; no interface until there are two implementations or a test seam is needed.
+- **Structure:** everything not meant as public API goes in `internal/`; no package-level mutable state; no `init()` side effects; constructors take their dependencies explicitly.
+- **Errors:** wrap with `fmt.Errorf("doing X: %w", err)`; lowercase messages without trailing punctuation; sentinel or typed errors (`errors.Is` / `errors.As`) for anything a caller must branch on; no `panic` outside `main` and tests; never ignore an error silently.
+- **Context and concurrency:** `context.Context` is the first parameter of anything that does I/O or can block; never store a context in a struct; every goroutine has an owner, a stop condition, and error propagation; prefer synchronous code unless a measured need exists.
+- **Determinism:** inject a clock and an ID generator; never call `time.Now()` or a random source inside decision logic; never rely on map iteration order.
+- **Tests:** table-driven with named cases; golden files for large expected outputs; `t.Parallel()` only when provably safe; integration tests behind a build tag.
+- **Comments:** every exported identifier has a doc comment starting with its name; comment *why*, not *what*.

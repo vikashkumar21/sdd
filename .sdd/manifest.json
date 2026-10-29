@@ -1,0 +1,100 @@
+{
+  "schema": 1,
+  "tool": {
+    "name": "sdd",
+    "version": "0.1.0"
+  },
+  "templates": {
+    "version": "1.0.0"
+  },
+  "generated": "2026-10-26",
+  "answers": {
+    "project": "sdd",
+    "purpose": "Generate and check a spec-driven development kit (agent contracts, living documents, task templates) for any project, so any AI coding agent can take over under human-approved gates.",
+    "mode": "brownfield",
+    "maintainer": "Vikash",
+    "languages": [
+      "go"
+    ],
+    "build": "make build",
+    "test": "make test",
+    "lint": "make lint",
+    "format": "make fmt",
+    "agents": [
+      "claude",
+      "gemini",
+      "agents"
+    ],
+    "extraRules": [
+      "Standard library only: add no third-party dependency without an approved decision.",
+      "A change to any template or to the contract bumps templates.Version, and is verified by regenerating a kit in a temporary directory and running sdd check on it."
+    ]
+  },
+  "files": [
+    {
+      "path": "CLAUDE.md",
+      "kind": "block",
+      "state": "created",
+      "sha256": "49e099afd4f7d7d16adeb37648176bbdb6a0cad51e76be3aaf949f8998d1f5a8"
+    },
+    {
+      "path": "GEMINI.md",
+      "kind": "block",
+      "state": "created",
+      "sha256": "49e099afd4f7d7d16adeb37648176bbdb6a0cad51e76be3aaf949f8998d1f5a8"
+    },
+    {
+      "path": "AGENTS.md",
+      "kind": "block",
+      "state": "created",
+      "sha256": "49e099afd4f7d7d16adeb37648176bbdb6a0cad51e76be3aaf949f8998d1f5a8"
+    },
+    {
+      "path": "MISSION.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "d646b11d160f3e629f4afa4f385515734a2231083090bfb05e6590be0b7595f7"
+    },
+    {
+      "path": "TECH_STACK.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "3612b231426b60da230083fc2dbd38e1aaa50f7d5f119adb2a13ab600050d9a6"
+    },
+    {
+      "path": "ROADMAP.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "27c2c3a55dcf6f8ba7db0eabd751c14a9c46c812f9a98c8857aa8c7686345d76"
+    },
+    {
+      "path": "SKILLS.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "1200a7abfe1bc517ca7508b572a7e1fa2f169e17aaa13daad2f9d77061178be9"
+    },
+    {
+      "path": "README.md",
+      "kind": "file",
+      "state": "existing"
+    },
+    {
+      "path": "features/_templates/requirements.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "fdca3003938a0da3aae3be9b13b17df81f2b6dde4f33808feba590fc399b23cd"
+    },
+    {
+      "path": "features/_templates/plan.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "fa2e1cf0c720b5cc9f9983e72761da6ef6891c5b90359428b026a5b50580c5eb"
+    },
+    {
+      "path": "features/_templates/validation.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "f658580deb7575664d38ac419dc8948caeeb1e3fd7d8bd696e087022cc9995f5"
+    }
+  ]
+}

@@ -1,0 +1,71 @@
+# TECH_STACK — {{.Project}}
+
+> **ALWAYS BE DETERMINISTIC. Human approval resolves every decision.**
+
+Status: living document · Last updated: {{.Date}}
+
+**How to read this file.** Every decision has an ID (`D-xxx`) in the Decision register (§6) with a status:
+
+- **Approved** — human-approved, binding.
+- **Proposed** — agent or tool recommendation, not binding.
+- **Open** — needs a decision at the named task.
+
+Anything `sdd init` inferred from file names (commands, directories, CI, dependency manifests) is **unverified** until a task verifies it. Nothing marked Proposed or Open may be encoded in code until it is Approved.
+
+## 1. Stack at a glance
+
+| Layer | Choice | Status | Decision |
+|---|---|---|---|
+| Language(s) | {{.LanguageList}} | Approved | D-003 |
+| Build | {{if .Build}}`{{.Build}}`{{else}}TODO(human){{end}} | {{if .Build}}Proposed{{else}}Open{{end}} | D-004 |
+| Test | {{if .Test}}`{{.Test}}`{{else}}TODO(human){{end}} | {{if .Test}}Proposed{{else}}Open{{end}} | D-004 |
+| Lint | {{if .Lint}}`{{.Lint}}`{{else}}TODO(human){{end}} | {{if .Lint}}Proposed{{else}}Open{{end}} | D-004 |
+| Format | {{if .Format}}`{{.Format}}`{{else}}TODO(human){{end}} | {{if .Format}}Proposed{{else}}Open{{end}} | D-004 |
+
+## 2. Design principles
+
+TODO(human): The few design rules that every change must respect (for example: pure core with I/O at the edges, fail closed, one orchestrator).
+
+## 3. Architecture
+
+TODO(human): Components, data flow, and trust boundaries. A diagram helps.
+
+## 4. Directory layout
+{{if .Brownfield}}
+Top-level directories *detected* by `sdd init` (unverified):
+{{if .Detected.TopDirs}}
+{{range .Detected.TopDirs}}- `{{.}}/`
+{{end}}{{else}}
+- (none found)
+{{end}}{{else}}
+TODO(human): The planned layout, created task by task. Do not create empty placeholder packages.
+{{end}}
+## 5. Conventions
+
+- **Commit convention:** TODO(human) (see D-005; Conventional Commits is a common choice).
+- **Verification commands:** record the exact commands in each task's `validation.md`.
+{{if .Detected.CI}}- **CI detected (unverified):** {{join .Detected.CI ", "}}.
+{{end}}
+## 6. Decision register
+
+| ID | Decision | Status | Resolve at | Notes |
+|---|---|---|---|---|
+| D-001 | Project name `{{.Project}}` and its location | **Approved** {{.Date}} | n/a | Chosen at `sdd init` |
+| D-002 | Spec-driven workflow with human gates; the human commits; agent contracts in {{join .AgentFiles ", "}} | **Approved** {{.Date}} | n/a | Chosen at `sdd init`; see the agent files |
+| D-003 | Language(s): {{.LanguageList}} | **Approved** {{.Date}} | n/a | Chosen at `sdd init` |
+| D-004 | Build, test, lint, and format toolchain | Open | T-001 | {{if or .Build .Test .Lint .Format}}Suggested commands in §1 are unverified{{else}}Nothing detected{{end}} |
+| D-005 | Commit message convention | Open | T-001 | Recommend Conventional Commits |
+
+## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
+
+| Date | Fact | Source | Re-verify at |
+|---|---|---|---|
+| | (none yet) | | |
+
+## 8. Dependency register
+{{if .Detected.Manifests}}
+Dependency manifests *detected* (unverified): {{join .Detected.Manifests ", "}}. List the approved dependencies below as they are verified.
+{{end}}
+| Dependency | Purpose | Status |
+|---|---|---|
+| | (none recorded yet) | |

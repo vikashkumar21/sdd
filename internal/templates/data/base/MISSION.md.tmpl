@@ -1,0 +1,55 @@
+# MISSION — {{.Project}}
+
+> **ALWAYS BE DETERMINISTIC. Human approval resolves every decision.**
+
+Status: living document · Last updated: {{.Date}} · Maintainer: {{.Maintainer}} (human)
+{{if .Brownfield}}
+> **Brownfield project.** This project existed before `sdd init`. Sections marked `TODO(human)` are filled during the Discovery task (T-001) as *proposals*; nothing here counts as verified until the human approves it.
+{{end}}
+## 1. One-liner
+
+{{.Purpose}}
+
+## 2. The problem
+
+TODO(human): What goes wrong today, for whom, and why does it matter? Be concrete: symptoms and consequences, not solutions.
+
+## 3. Who it is for
+
+TODO(human): The first users or stakeholders, and what they need from this project.
+
+## 4. Scope
+
+**In scope (first usable version)**
+
+- TODO(human)
+
+**Out of scope for now** (move items to the ROADMAP Parking lot rather than deleting them)
+
+- TODO(human)
+
+## 5. Principles
+
+1. **Deterministic.** Same input and same configuration give the same result. Humans resolve ambiguity.
+2. **Fail safe.** Unknown or ambiguous means the most restrictive outcome, or stop and ask.
+3. **Human in the loop for the irreversible.** Destructive or hard-to-undo actions need explicit, specific approval.
+4. **Small and shippable.** Thin vertical slices; each task independently reviewable and committable.
+5. TODO(human): add the principles that are specific to this project.
+
+## 6. Known limits
+
+TODO(human): What this project deliberately does not do or cannot guarantee. State it plainly.
+
+## 7. Success criteria (propose; the human approves the thresholds)
+
+| # | Criterion | Measure |
+|---|---|---|
+| S1 | TODO(human) | TODO(human) |
+
+## 8. Hypotheses still to validate (NOT facts)
+
+- **H1** — TODO(human): what you believe but have not yet verified, and how you will test it.
+
+## 9. Business intent (north star)
+
+TODO(human): Why this is worth doing, and what a good outcome looks like in the near and long term.

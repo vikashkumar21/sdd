@@ -1,0 +1,5 @@
+- PEP 8 / PEP 257; formatter, linter, and type checker per the Decision register.
+- Type hints on all public API; specific exceptions, never a bare `except:`; preserve causes.
+- No mutable default arguments, no import-time side effects, no global state; `logging`, not `print`.
+- Pinned, reproducible dependencies in an isolated environment.
+- Parametrised tests; no network or wall-clock dependence.

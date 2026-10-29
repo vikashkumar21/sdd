@@ -1,0 +1,15 @@
+# Build output
+/bin/
+/dist/
+*.test
+*.out
+coverage.html
+
+# sdd backups made by `sdd init --force` (inspect them, do not commit them)
+/.sdd/backup/
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,5 @@
+- `gofmt` / `goimports` clean; `go vet` clean; linter per the Decision register.
+- Follow *Effective Go* and *Go Code Review Comments*. Idiomatic over clever.
+- `context.Context` first for anything that does I/O or can block; wrap errors with `%w`; no `panic` outside `main` and tests.
+- Small interfaces defined where they are consumed; no package-level mutable state; no `init()` side effects.
+- Table-driven tests; `internal/` for everything that is not public API.

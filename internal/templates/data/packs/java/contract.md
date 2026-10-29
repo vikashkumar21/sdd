@@ -1,0 +1,5 @@
+- Follow the team's formatter and style configuration (see the Decision register); keep code and tests lint-clean.
+- Prefer immutability; never return `null` for collections; `Optional` for return types only.
+- Never swallow exceptions; preserve causes; `try-with-resources` for every `AutoCloseable`.
+- Constructor injection; no static mutable state; inject `Clock` and random/ID sources.
+- JUnit 5 tests, one behaviour per test; no network or wall-clock dependence.

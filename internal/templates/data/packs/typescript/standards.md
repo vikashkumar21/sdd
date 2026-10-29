@@ -1,0 +1,9 @@
+- **Compiler settings:** `strict` mode on; no implicit `any`; compiler and linter warnings are errors in CI.
+- **Types:** no `any` (use `unknown` and narrow it); explicit types on exported functions and public APIs; prefer discriminated unions and `readonly` data; avoid non-null assertions (`!`) and type assertions (`as`) unless justified in a comment.
+- **Errors and async:** `async`/`await` with explicit error handling; never leave a promise floating (await it, return it, or handle it); throw `Error` subclasses, never strings.
+- **Modules and structure:** ES modules; small modules with explicit exports; no circular imports; no global mutable state; no side effects at import time.
+- **Style and tooling:** formatter and linter per the Decision register, enforced in CI; `PascalCase` types, `camelCase` values.
+- **Dependencies:** lock file committed; add dependencies only through the decision protocol; check licences and maintenance.
+- **Determinism:** inject clocks, random sources, and IDs; no wall-clock or network dependence in tests.
+- **Tests:** runner per the Decision register; table-driven cases; test behaviour through public interfaces; fixtures are synthetic.
+- **Security:** validate and parse all external input at the boundary (runtime validation, not only types); never log secrets.

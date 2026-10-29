@@ -1,0 +1,33 @@
+# {{.Project}}
+
+{{.Purpose}}
+
+> **Status: scaffolded with [sdd](https://github.com/vikashkumar21/sdd).** The project documents below are living documents; progress is tracked in [ROADMAP.md](ROADMAP.md).
+
+## Project documents
+
+| File | Purpose |
+|---|---|
+| [MISSION.md](MISSION.md) | Why, scope, principles, non-goals, success criteria |
+| [TECH_STACK.md](TECH_STACK.md) | Stack, architecture, decision register, verified facts |
+| [ROADMAP.md](ROADMAP.md) | Milestones and small, approvable tasks |
+| [SKILLS.md](SKILLS.md) | Standards, playbooks, and human feedback rules |
+{{range .AgentFiles}}| [{{.}}]({{.}}) | Agent operating contract (identical rules in every agent file) |
+{{end}}| `features/` | One folder per task: `requirements.md`, `plan.md`, `validation.md` |
+
+## How we build
+
+Spec-driven and human-gated. For every task, the agent drafts requirements, plan, and validation docs; the **human approves before any code is written**; the agent implements and verifies; the **human reviews and commits**. The anthem: *always be deterministic, and take human approval or decisions to accomplish that determinism.*
+
+## Development
+
+{{if or .Build .Test .Lint}}Suggested commands (detected, unverified; confirm in T-001):
+
+{{if .Build}}- build: `{{.Build}}`
+{{end}}{{if .Test}}- test: `{{.Test}}`
+{{end}}{{if .Lint}}- lint: `{{.Lint}}`
+{{end}}{{else}}TODO(human): how to build, test, and run this project.
+{{end}}
+## Maintainer
+
+{{.Maintainer}}

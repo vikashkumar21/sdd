@@ -1,0 +1,5 @@
+- `strict` TypeScript; no `any` (use `unknown`); explicit types on exported APIs; no unjustified `!` or `as`.
+- `async`/`await` with explicit error handling; no floating promises; throw `Error` subclasses.
+- ES modules; no global mutable state; no import-time side effects.
+- Formatter, linter, and test runner per the Decision register; lock file committed.
+- Validate external input at runtime, at the boundary; never log secrets.

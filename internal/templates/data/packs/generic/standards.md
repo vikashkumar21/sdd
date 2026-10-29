@@ -1,0 +1,1 @@
+TODO(human): No language pack exists for this stack yet. During the first task (Discovery or mission definition) the agent proposes standards drawn from the code and the team's existing conventions, and the human approves them here. Cover at least: formatting and linting, naming, error handling, concurrency, testing, and dependency management.

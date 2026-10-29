@@ -1,0 +1,10 @@
+- **Style:** follow the team's formatter and style configuration (decision in the Decision register); `UpperCamelCase` types, `lowerCamelCase` members, `UPPER_SNAKE_CASE` constants.
+- **Immutability first:** prefer `final` fields, immutable value types (records where the language level allows), and unmodifiable collections; no static mutable state.
+- **Null handling:** never return `null` for a collection or array (return an empty one); use `Optional` for return types only, never for fields or parameters; validate constructor arguments (`Objects.requireNonNull`).
+- **Exceptions:** unchecked exceptions for programming errors, checked exceptions only where a caller can recover; never swallow an exception; always preserve the cause; no `catch (Exception)` without a stated reason; no exceptions for control flow.
+- **Resources:** `try-with-resources` for anything `AutoCloseable`.
+- **Design:** constructor injection; small classes and interfaces; program to interfaces at module boundaries; consistent `equals`/`hashCode`/`toString` for value types, covered by tests; no raw types; `java.time` instead of legacy date classes.
+- **Concurrency:** prefer `java.util.concurrent` utilities over raw threads; document thread-safety; keep shared mutable state out.
+- **Determinism:** inject a `Clock` and ID/random sources; never rely on `HashMap` iteration order.
+- **Tests:** JUnit 5; one behaviour per test with a descriptive name; parameterised tests for tables of cases; no network or wall-clock dependence; assertion library per the Decision register.
+- **Documentation:** Javadoc on public API describes the contract, not the implementation.

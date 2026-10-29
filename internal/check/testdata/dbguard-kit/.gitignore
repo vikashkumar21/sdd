@@ -1,0 +1,29 @@
+# dbguard .gitignore (Proposed; reviewed in T-001)
+
+# Build output
+/bin/
+/dist/
+*.exe
+*.test
+*.out
+*.prof
+coverage.html
+
+# Local configuration and secrets: never commit
+.env
+.env.*
+*.local.yaml
+*.local.yml
+
+# Local state (audit log, approvals, SQLite files)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# OS and editors
+.DS_Store
+.idea/
+.vscode/
+*.swp
