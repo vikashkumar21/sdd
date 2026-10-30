@@ -140,3 +140,10 @@ func TestMissingTemplatesIsAnError(t *testing.T) {
 		t.Error("nothing may be created when a template is missing")
 	}
 }
+
+func TestNewConfinedRoot(t *testing.T) {
+	nonExistent := filepath.Join(t.TempDir(), "does-not-exist")
+	if _, err := New(nonExistent, "T-001", "scope", ""); err == nil {
+		t.Fatal("expected error opening non-existent root, got nil")
+	}
+}

@@ -30,7 +30,7 @@ Status: living document · Last updated: 2026-10-26
 | M0 | Project initialisation | T-000 | n/a | Scaffolding reviewed and committed |
 | M1 | sdd v1 | T-001 | 9 | init, check, feature new, prompt, and version implemented, tested, and dogfooded |
 | M2 | Verification and v1.1 | T-002 – T-005 | 16 | Verified on a real Mac with Go 1.27; upgrade and adopt commands; review completed |
-| M3 | Modernisation and Adaptive Architecture | T-006 – T-013 | 28 | Linter clean, os.Root confinement, robust parsing, JSON output, repair, and drift detection |
+| M3 | Modernisation and Adaptive Architecture | T-006 – T-013, T-018 | 33 | Linter clean, os.Root confinement, robust parsing, JSON output, repair, drift detection, Windows support |
 | M4 | Context and Task Ingestion | T-014 – T-017 | 12 | Ingest raw text strings, files, PDFs, and Jira issues into staged context |
 
 ## 4. Tasks
@@ -60,14 +60,15 @@ Status: living document · Last updated: 2026-10-26
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
-| T-006 | P-02: Test suite and coverage for fsutil and cmd/sdd | S | T-002 | Coverage above 85 percent for fsutil and cmd/sdd; fsync and permissions tested | none | Awaiting review |
-| T-007 | P-03: Filesystem confinement via os.Root | M | T-002 | os.OpenRoot used for path-confined file operations in scaffold and fsutil | D-015 | Not started |
+| T-006 | P-02: Test suite and coverage for fsutil and cmd/sdd | S | T-002 | Coverage above 85 percent for fsutil and cmd/sdd; fsync and permissions tested | none | Done |
+| T-007 | P-03: Filesystem confinement via os.Root | M | T-002 | os.OpenRoot used for path-confined file operations in scaffold and fsutil | D-015, D-021 | Awaiting review |
 | T-008 | P-04: Robust markdown parser in check | M | T-002 | Deterministic state machine handling nested fences, escaped pipes, and indented tables | none | Not started |
 | T-009 | P-05: Machine-readable JSON output for sdd check | S | T-002 | sdd check --json outputs structured findings | none | Not started |
 | T-010 | P-07: Monorepo and polyglot detection enhancement | M | T-002 | Manifest scan depth 4, multi-language command suggestions | none | Not started |
 | T-011 | P-08: Verified-facts expiry and roadmap drift checker | S | T-002 | Check warns on past-due re-verify milestones | none | Not started |
 | T-012 | P-09: Safe interactive repair command (sdd check --fix) | M | T-008 | Diff preview, human confirmation, backup before fix | none | Not started |
 | T-013 | P-10: Agent permission manifest generation | M | T-002 | Optional generation of agent configuration denying git writes | none | Not started |
+| T-018 | Full Windows platform compatibility (paths, CRLF, unsafe drive roots, .exe in dist) | M | T-007 | Native Windows support, cross-compilation in dist, CRLF normalisation | D-021 | Not started |
 
 ### M4 — Context and Task Ingestion
 
@@ -95,7 +96,6 @@ Unfamiliar technology derails projects. To prevent that:
 
 ## 7. Parking lot (do not start without a new approved task)
 
-- Windows support
 - Language packs for Rust, Kotlin, C#
 - Generating per-agent permission settings that deny git writes (needs verified syntax for each agent)
 - `sdd status` (summarise the roadmap)

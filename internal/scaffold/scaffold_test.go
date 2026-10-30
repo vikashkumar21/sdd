@@ -297,13 +297,36 @@ func TestNormalizeAppliesDefaultsAndCanonicalOrder(t *testing.T) {
 }
 
 func TestSafeRel(t *testing.T) {
-	for _, bad := range []string{"", "/etc/passwd", "../x", "a/../../x"} {
+	for _, bad := range []string{"", "/etc/passwd", "../x", "a/../../x", "nul", "NUL.txt", "con.md", "aux", "com1", "lpt2"} {
 		if err := safeRel(bad); err == nil {
 			t.Errorf("safeRel(%q) should fail", bad)
 		}
 	}
 	if err := safeRel("features/_templates/plan.md"); err != nil {
 		t.Errorf("safeRel rejected a normal path: %v", err)
+	}
+}
+
+func TestApplyConfinedRoot(t *testing.T) {
+	root := t.TempDir()
+	p := Plan{
+		Root: root,
+		Ops: []Op{
+			{Path: "../escaped.txt", Kind: KindCreate, Content: "bad"},
+		},
+	}
+	if _, err := Apply(p, fixedNow, ""); err == nil {
+		t.Fatal("expected error applying plan with escaping path, got nil")
+	}
+
+	reservedPlan := Plan{
+		Root: root,
+		Ops: []Op{
+			{Path: "nul.txt", Kind: KindCreate, Content: "bad"},
+		},
+	}
+	if _, err := Apply(reservedPlan, fixedNow, ""); err == nil {
+		t.Fatal("expected error applying plan with reserved device name, got nil")
 	}
 }
 

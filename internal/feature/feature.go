@@ -32,6 +32,7 @@ type Result struct {
 // New creates features/<id>-<slug>/ with the three documents. The task must
 // already exist in ROADMAP.md; planning a task comes before specifying it.
 // When title is empty, the title from the ROADMAP row is used.
+// All operations are confined to root via os.Root.
 func New(root, id, slug, title string) (Result, error) {
 	if !idRe.MatchString(id) {
 		return Result{}, fmt.Errorf("task ID %q must look like T-001", id)
@@ -42,8 +43,14 @@ func New(root, id, slug, title string) (Result, error) {
 	if !slugRe.MatchString(slug) {
 		return Result{}, fmt.Errorf("slug %q must be lower-case words joined by hyphens (for example project-skeleton)", slug)
 	}
-	roadmapPath := filepath.Join(root, "ROADMAP.md")
-	data, err := os.ReadFile(roadmapPath)
+
+	rootHandle, err := os.OpenRoot(root)
+	if err != nil {
+		return Result{}, fmt.Errorf("feature: open root %s: %w", root, err)
+	}
+	defer func() { _ = rootHandle.Close() }()
+
+	data, err := rootHandle.ReadFile("ROADMAP.md")
 	if err != nil {
 		return Result{}, fmt.Errorf("read ROADMAP.md: %w", err)
 	}
@@ -66,11 +73,14 @@ func New(root, id, slug, title string) (Result, error) {
 		return Result{}, errors.New("title must be a single line")
 	}
 
-	featuresDir := filepath.Join(root, "features")
-	if entries, err := os.ReadDir(featuresDir); err == nil {
-		for _, e := range entries {
-			if e.IsDir() && strings.HasPrefix(e.Name(), id+"-") {
-				return Result{}, fmt.Errorf("%s already has a feature folder: features/%s", id, e.Name())
+	if f, err := rootHandle.Open("features"); err == nil {
+		entries, readErr := f.ReadDir(-1)
+		_ = f.Close()
+		if readErr == nil {
+			for _, e := range entries {
+				if e.IsDir() && strings.HasPrefix(e.Name(), id+"-") {
+					return Result{}, fmt.Errorf("%s already has a feature folder: features/%s", id, e.Name())
+				}
 			}
 		}
 	}
@@ -78,7 +88,7 @@ func New(root, id, slug, title string) (Result, error) {
 	rendered := make(map[string]string, len(templateNames))
 	for _, name := range templateNames {
 		rel := "features/_templates/" + name
-		tpl, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(rel)))
+		tpl, err := rootHandle.ReadFile(filepath.FromSlash(rel))
 		if err != nil {
 			return Result{}, fmt.Errorf("template %s is missing (run `sdd init`, or restore it): %w", rel, err)
 		}
@@ -91,14 +101,14 @@ func New(root, id, slug, title string) (Result, error) {
 	res := Result{Dir: dirRel}
 	for _, name := range templateNames {
 		rel := dirRel + "/" + name
-		if err := fsutil.WriteAtomic(filepath.Join(root, filepath.FromSlash(rel)), []byte(rendered[name]), 0o644); err != nil {
+		if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(rel), []byte(rendered[name]), 0o644); err != nil {
 			return res, err
 		}
 		res.Files = append(res.Files, rel)
 	}
 
 	if updated, ok := roadmap.SetStatus(roadmapText, id, "Not started", "Specifying"); ok {
-		if err := fsutil.WriteAtomic(roadmapPath, []byte(updated), 0o644); err != nil {
+		if err := fsutil.WriteAtomicRoot(rootHandle, "ROADMAP.md", []byte(updated), 0o644); err != nil {
 			return res, err
 		}
 		res.StatusUpdated = true
