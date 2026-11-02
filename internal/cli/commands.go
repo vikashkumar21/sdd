@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/vikashkumar21/sdd/internal/check"
+	"github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/feature"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
@@ -90,11 +91,24 @@ func runFeature(args []string, env IO) int {
 
 type taskView struct{ ID, Title, Status string }
 
+type contextView struct {
+	ID     string
+	Source string
+	Origin string
+	Path   string
+	Task   string
+	Format string
+	Bytes  int64
+}
+
 type promptData struct {
 	Project, Root, AgentName, AgentFile, Date string
 	AgentFiles                                []string
 	OpenTasks                                 []taskView
 	FocusTask                                 string
+	FocusTaskID                               string
+	StagedContext                             []contextView
+	TaskContext                               []contextView
 }
 
 func agentFor(name string) (display, file string) {
@@ -166,11 +180,30 @@ func runPrompt(args []string, env IO) int {
 			data.OpenTasks = append(data.OpenTasks, taskView{ID: t.ID, Title: t.Title, Status: roadmap.Normalize(t.Status)})
 		}
 	}
-	focus, ferr := pickFocus(all, *task)
+	focus, focusID, ferr := pickFocus(all, *task)
 	if ferr != nil {
 		return fail("%v", ferr)
 	}
 	data.FocusTask = focus
+	data.FocusTaskID = focusID
+
+	if cm, ok, err := context.ReadManifest(root); err == nil && ok {
+		for _, e := range cm.Entries {
+			cv := contextView{
+				ID:     e.ID,
+				Source: e.Source,
+				Origin: e.Origin,
+				Path:   e.Path,
+				Task:   e.Task,
+				Format: e.Format,
+				Bytes:  e.Bytes,
+			}
+			data.StagedContext = append(data.StagedContext, cv)
+			if focusID != "" && e.Task == focusID {
+				data.TaskContext = append(data.TaskContext, cv)
+			}
+		}
+	}
 
 	set, err := templates.New(*tpl)
 	if err != nil {
@@ -184,23 +217,23 @@ func runPrompt(args []string, env IO) int {
 	return 0
 }
 
-func pickFocus(all []roadmap.Task, wanted string) (string, error) {
+func pickFocus(all []roadmap.Task, wanted string) (string, string, error) {
 	describe := func(t roadmap.Task) string {
 		return fmt.Sprintf("%s — %s (%s)", t.ID, t.Title, roadmap.Normalize(t.Status))
 	}
 	if wanted != "" {
 		for _, t := range all {
 			if t.ID == wanted {
-				return describe(t), nil
+				return describe(t), t.ID, nil
 			}
 		}
-		return "", fmt.Errorf("%s is not a task in ROADMAP.md", wanted)
+		return "", "", fmt.Errorf("%s is not a task in ROADMAP.md", wanted)
 	}
 	for _, t := range all {
 		switch roadmap.Kind(t.Status) {
 		case "not started", "specifying", "awaiting plan approval", "implementing", "awaiting review":
-			return describe(t), nil
+			return describe(t), t.ID, nil
 		}
 	}
-	return "", nil
+	return "", "", nil
 }
