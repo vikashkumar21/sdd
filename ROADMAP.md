@@ -61,7 +61,7 @@ Status: living document · Last updated: 2026-10-26
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
 | T-006 | P-02: Test suite and coverage for fsutil and cmd/sdd | S | T-002 | Coverage above 85 percent for fsutil and cmd/sdd; fsync and permissions tested | none | Done |
-| T-007 | P-03: Filesystem confinement via os.Root | M | T-002 | os.OpenRoot used for path-confined file operations in scaffold and fsutil | D-015, D-021 | Awaiting review |
+| T-007 | P-03: Filesystem confinement via os.Root | M | T-002 | os.OpenRoot used for path-confined file operations in scaffold and fsutil | D-015, D-021 | Done |
 | T-008 | P-04: Robust markdown parser in check | M | T-002 | Deterministic state machine handling nested fences, escaped pipes, and indented tables | none | Not started |
 | T-009 | P-05: Machine-readable JSON output for sdd check | S | T-002 | sdd check --json outputs structured findings | none | Not started |
 | T-010 | P-07: Monorepo and polyglot detection enhancement | M | T-002 | Manifest scan depth 4, multi-language command suggestions | none | Not started |
@@ -74,7 +74,7 @@ Status: living document · Last updated: 2026-10-26
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
-| T-014 | Context staging pipeline and sdd ingest command | M | T-002 | sdd init and sdd ingest accept files, stdin, and raw text strings | D-018 | Not started |
+| T-014 | Context staging pipeline and sdd ingest command | M | T-002 | sdd init and sdd ingest accept files, stdin, and raw text strings | D-018 | Awaiting review |
 | T-015 | Jira issue ingestion (JSON, Markdown, and text) | S | T-014 | Import Jira issue summary and acceptance criteria into task templates | D-019 | Not started |
 | T-016 | Handover prompt enrichment for staged context | S | T-014 | sdd prompt includes context digest to guide agent spec extraction | D-018 | Not started |
 | T-017 | Document and PDF ingestion protocol | M | T-014 | Multimodal agent staging and text extraction for PDF documents | D-020 | Not started |

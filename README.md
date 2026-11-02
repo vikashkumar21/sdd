@@ -37,6 +37,10 @@ sdd check --strict       # warnings (such as unresolved TODO(human) placeholders
 
 sdd feature new T-003 upgrade-command         # creates features/T-003-upgrade-command/ from your templates
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
+
+sdd ingest --file notes.txt --name meeting    # stage external files into .sdd/context/
+sdd ingest --text "meeting notes..."          # stage raw text strings as context
+cat transcript.txt | sdd ingest               # stage piped stdin
 ```
 
 ### Greenfield and brownfield

@@ -49,6 +49,9 @@ flowchart TD
     C --> F["feature: new task folder"]
     F --> R
     F --> U
+    C --> X["context: staged kickoff context and sdd ingest"]
+    X --> U
+    K --> X
 ```
 
 ### Data flow of `sdd init`

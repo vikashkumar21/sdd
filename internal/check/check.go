@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/vikashkumar21/sdd/internal/block"
+	"github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 )
@@ -152,6 +153,28 @@ func (c *checker) run() {
 		c.checkManifestDrift(manifest)
 	}
 	c.checkOptionalAgents(agents)
+	c.checkContextManifest()
+}
+
+func (c *checker) checkContextManifest() {
+	m, ok, err := context.ReadManifest(c.root)
+	if !ok {
+		return
+	}
+	if err != nil {
+		c.add(Error, context.ManifestPath, 0, "%v", err)
+		return
+	}
+	for _, entry := range m.Entries {
+		if entry.Path == "" {
+			c.add(Error, context.ManifestPath, 0, "entry %s has empty path", entry.ID)
+			continue
+		}
+		path := filepath.Join(c.root, filepath.FromSlash(entry.Path))
+		if _, err := os.Stat(path); err != nil {
+			c.add(Error, context.ManifestPath, 0, "staged context file %s does not exist: %s", entry.ID, entry.Path)
+		}
+	}
 }
 
 func (c *checker) requireFiles(agents []string) {

@@ -222,3 +222,51 @@ func TestNotADirectory(t *testing.T) {
 		t.Fatal("expected an error")
 	}
 }
+
+func TestCheckContextManifest(t *testing.T) {
+	root := generate(t)
+
+	// Corrupted context manifest
+	contextDir := filepath.Join(root, ".sdd", "context")
+	if err := os.MkdirAll(contextDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(contextDir, "manifest.json")
+	if err := os.WriteFile(manifestPath, []byte("invalid json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := run(t, root)
+	if !has(r, Error, "parse manifest") {
+		t.Fatalf("expected error on invalid manifest json:\n%s", dump(r))
+	}
+
+	// Missing staged file referenced in manifest
+	validJSON := `{
+  "schema": 1,
+  "updated": "2026-10-30T10:00:00Z",
+  "entries": [
+    {
+      "id": "ctx-001",
+      "source": "raw-text",
+      "origin": "test",
+      "path": ".sdd/context/missing.txt"
+    }
+  ]
+}`
+	if err := os.WriteFile(manifestPath, []byte(validJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r = run(t, root)
+	if !has(r, Error, "staged context file ctx-001 does not exist") {
+		t.Fatalf("expected error on missing staged file:\n%s", dump(r))
+	}
+
+	// Valid manifest with existing file
+	if err := os.WriteFile(filepath.Join(contextDir, "missing.txt"), []byte("content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r = run(t, root)
+	if has(r, Error, "staged context file") {
+		t.Fatalf("unexpected error when file exists:\n%s", dump(r))
+	}
+}

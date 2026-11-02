@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/detect"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 	"github.com/vikashkumar21/sdd/internal/templates"
@@ -19,6 +20,8 @@ type initOpts struct {
 	name, purpose, mode, lang, maintainer        string
 	build, test, lint, format, agents, templates string
 	rules                                        stringList
+	contextFiles                                 stringList
+	contextText                                  string
 }
 
 func runInit(args []string, env IO) int {
@@ -40,6 +43,8 @@ func runInit(args []string, env IO) int {
 	fs.StringVar(&o.agents, "agents", "", "comma-separated agent files: "+strings.Join(scaffold.AgentIDs(), ", ")+" (default: all)")
 	fs.StringVar(&o.templates, "templates", "", "directory whose files override the embedded templates")
 	fs.Var(&o.rules, "rule", "extra hard rule for the agent contract (repeatable)")
+	fs.Var(&o.contextFiles, "context-file", "external file to stage into .sdd/context/ as kickoff requirements (repeatable)")
+	fs.StringVar(&o.contextText, "context-text", "", "raw text string to stage into .sdd/context/ as kickoff requirements")
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return parseExit(err)
@@ -117,6 +122,36 @@ func runInit(args []string, env IO) int {
 	if err != nil {
 		return fail("%v", err)
 	}
+
+	// Stage kickoff context if provided
+	var stagedCount int
+	for _, f := range o.contextFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			return fail("read context file %s: %v", f, err)
+		}
+		item := context.Item{
+			Source: "file",
+			Origin: filepath.Base(f),
+			Data:   data,
+		}
+		if _, err := context.Stage(plan.Root, item, env.now()); err != nil {
+			return fail("stage context %s: %v", f, err)
+		}
+		stagedCount++
+	}
+	if o.contextText != "" {
+		item := context.Item{
+			Source: "raw-text",
+			Origin: "kickoff-context",
+			Data:   []byte(o.contextText),
+		}
+		if _, err := context.Stage(plan.Root, item, env.now()); err != nil {
+			return fail("stage context text: %v", err)
+		}
+		stagedCount++
+	}
+
 	counts := map[scaffold.Kind]int{}
 	for _, e := range rep.Entries {
 		counts[e.Kind]++
@@ -125,6 +160,9 @@ func runInit(args []string, env IO) int {
 		counts[scaffold.KindCreate], counts[scaffold.KindMerge], counts[scaffold.KindReplace], counts[scaffold.KindSkip])
 	if rep.BackupDir != "" {
 		fprintf(env.Out, "Originals backed up in %s\n", rep.BackupDir)
+	}
+	if stagedCount > 0 {
+		fprintf(env.Out, "Staged %d context item(s) in %s\n", stagedCount, context.ManifestPath)
 	}
 	fprintf(env.Out, "\nNext steps:\n")
 	fprintf(env.Out, "  1. Review the generated files. Nothing is committed; you commit (agents never do).\n")

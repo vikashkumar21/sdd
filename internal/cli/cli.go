@@ -55,6 +55,7 @@ commands:
   check                      verify the kit is consistent: files, agent contracts, references, tables, statuses
   feature new <T-xxx> <slug> create features/T-xxx-<slug>/ from the project's templates
   prompt <agent>             print a handover prompt for an agent (claude, gemini, agents, or any name)
+  ingest                     stage external context (text, files, stdin) into .sdd/context/
   version                    print the sdd version
 
 Run "sdd <command> -h" for the flags of a command.
@@ -76,6 +77,8 @@ func Run(args []string, env IO) int {
 		return runFeature(args[1:], env)
 	case "prompt":
 		return runPrompt(args[1:], env)
+	case "ingest":
+		return runIngest(args[1:], env)
 	case "version", "--version", "-v":
 		fprintf(env.Out, "sdd %s (templates %s)\n", version.Version, templates.Version)
 		return 0
