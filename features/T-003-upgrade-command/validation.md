@@ -55,4 +55,4 @@ Feedback-rule compliance (SKILLS.md, "Human feedback rules"): none active.
 
 ## 8. Sign-off
 Suggested commit message: `feat(upgrade): add sdd upgrade command with hash checking and proposal generation (T-003)`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-003`
+Reviewed by: Vikash   Date: 2026-11-02   Reply received: `COMMITTED T-003`

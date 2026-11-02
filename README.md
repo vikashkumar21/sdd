@@ -54,6 +54,11 @@ sdd upgrade                               # refresh kit files from newer templat
 sdd upgrade --dry-run                     # preview planned updates and diffs without writing files
 sdd upgrade --yes                         # apply updates and write proposals without prompting
 sdd upgrade --force                       # overwrite edited files (always creates backups in .sdd/backup/)
+
+sdd adopt                                 # adopt a hand-crafted kit by generating .sdd/manifest.json with zero file mutations
+sdd adopt --dry-run                       # preview planned manifest JSON without writing
+sdd adopt --yes                           # adopt without interactive confirmation
+sdd adopt --force                         # re-adopt if a manifest already exists (backs up existing manifest)
 ```
 
 ### Greenfield and brownfield
@@ -63,7 +68,7 @@ sdd upgrade --force                       # overwrite edited files (always creat
 - **Greenfield** seeds `T-001 Define mission and scope`.
 - **Brownfield** seeds `T-001 Discovery`: the agent reads the codebase under the same gates and drafts the facts for your approval. The tool itself only looks at file names and a few manifests, so everything it detects is marked *unverified*.
 - It **never overwrites**. Existing files are skipped; existing `CLAUDE.md`/`GEMINI.md`/`AGENTS.md` get a clearly marked managed block appended and your text is kept; `README.md` is never touched. `--force` replaces generated files after backing the originals up in `.sdd/backup/`.
-- It refuses to run in `$HOME` or `/`, and refuses a project that already has a hand-made kit (all four core documents) but no manifest, because it would append a second contract to the agent files. Use `sdd check` on such projects; `sdd adopt` is planned (T-004).
+- It refuses to run in `$HOME` or `/`, and refuses a project that already has a hand-made kit (all four core documents) but no manifest, because it would append a second contract to the agent files. Run `sdd adopt` on such projects to generate `.sdd/manifest.json` with zero changes to existing files.
 
 ## What `sdd check` verifies
 

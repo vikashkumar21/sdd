@@ -58,6 +58,7 @@ commands:
   ingest                     stage external context (text, files, stdin) into .sdd/context/
   permissions                generate agent permission configs denying git state writes
   upgrade                    refresh kit files from newer templates without overwriting human edits
+  adopt                      adopt an existing hand-crafted kit by generating .sdd/manifest.json
   version                    print the sdd version
 
 Run "sdd <command> -h" for the flags of a command.
@@ -85,6 +86,8 @@ func Run(args []string, env IO) int {
 		return runPermissions(args[1:], env)
 	case "upgrade":
 		return runUpgrade(args[1:], env)
+	case "adopt":
+		return runAdopt(args[1:], env)
 	case "version", "--version", "-v":
 		fprintf(env.Out, "sdd %s (templates %s)\n", version.Version, templates.Version)
 		return 0
