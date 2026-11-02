@@ -5,6 +5,7 @@
 package check
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -32,10 +33,24 @@ const (
 
 // Finding is one problem (or note) found by Run.
 type Finding struct {
-	Severity Severity
-	File     string
-	Line     int // 0 when not applicable
-	Message  string
+	Severity Severity `json:"severity"`
+	File     string   `json:"file"`
+	Line     int      `json:"line,omitempty"` // 0 when not applicable
+	Message  string   `json:"message"`
+}
+
+// Summary provides aggregate counts by severity.
+type Summary struct {
+	Errors   int `json:"errors"`
+	Warnings int `json:"warnings"`
+	Notes    int `json:"notes"`
+}
+
+// JSONReport is the machine-readable output structure for sdd check.
+type JSONReport struct {
+	Valid    bool      `json:"valid"`
+	Summary  Summary   `json:"summary"`
+	Findings []Finding `json:"findings"`
 }
 
 // Report is the result of Run.
@@ -56,6 +71,24 @@ func (r Report) Count(s Severity) int {
 // strict mode.
 func (r Report) Failed(strict bool) bool {
 	return r.Count(Error) > 0 || (strict && r.Count(Warn) > 0)
+}
+
+// JSON renders the report as indented, machine-readable JSON.
+func (r Report) JSON(strict bool) ([]byte, error) {
+	findings := r.Findings
+	if findings == nil {
+		findings = []Finding{}
+	}
+	jr := JSONReport{
+		Valid: !r.Failed(strict),
+		Summary: Summary{
+			Errors:   r.Count(Error),
+			Warnings: r.Count(Warn),
+			Notes:    r.Count(Info),
+		},
+		Findings: findings,
+	}
+	return json.MarshalIndent(jr, "", "  ")
 }
 
 var (

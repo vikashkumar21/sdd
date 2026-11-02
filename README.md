@@ -34,6 +34,7 @@ sdd init --dry-run --yes                       # show the plan, write nothing
 
 sdd check                # mechanical consistency check of the kit (exit 1 on errors)
 sdd check --strict       # warnings (such as unresolved TODO(human) placeholders) also fail
+sdd check --json         # machine-readable JSON output for CI pipelines and scripts
 
 sdd feature new T-003 upgrade-command         # creates features/T-003-upgrade-command/ from your templates
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)

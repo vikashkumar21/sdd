@@ -18,6 +18,7 @@ func runCheck(args []string, env IO) int {
 	fs := newFlagSet("check", env)
 	dir := fs.String("dir", ".", "project root")
 	strict := fs.Bool("strict", false, "treat warnings (including unresolved TODO(human) placeholders) as failures")
+	jsonOut := fs.Bool("json", false, "output findings as structured JSON")
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return parseExit(err)
@@ -36,6 +37,20 @@ func runCheck(args []string, env IO) int {
 		fprintf(env.Err, "sdd check: %v\n", err)
 		return 1
 	}
+
+	if *jsonOut {
+		data, jerr := rep.JSON(*strict)
+		if jerr != nil {
+			fprintf(env.Err, "sdd check: marshal json: %v\n", jerr)
+			return 1
+		}
+		fprintln(env.Out, string(data))
+		if rep.Failed(*strict) {
+			return 1
+		}
+		return 0
+	}
+
 	for _, f := range rep.Findings {
 		loc := f.File
 		if loc == "" {

@@ -1,6 +1,7 @@
 package check
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -287,5 +288,63 @@ func TestCheckTablesWithPipesInCodeAndEscaped(t *testing.T) {
 	r := run(t, root)
 	if has(r, Error, "columns") || has(r, Error, "pipes") {
 		t.Fatalf("expected tables with code pipes and escaped pipes to pass cleanly:\n%s", dump(r))
+	}
+}
+
+func TestCheckJSONOutput(t *testing.T) {
+	root := generate(t)
+	r, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := r.JSON(false)
+	if err != nil {
+		t.Fatalf("r.JSON(false) failed: %v", err)
+	}
+
+	var jr JSONReport
+	if err := json.Unmarshal(data, &jr); err != nil {
+		t.Fatalf("json.Unmarshal failed: %v\nJSON:\n%s", err, string(data))
+	}
+
+	if !jr.Valid {
+		t.Errorf("expected Valid to be true for clean kit, got false")
+	}
+	if jr.Summary.Errors != 0 {
+		t.Errorf("expected 0 errors, got %d", jr.Summary.Errors)
+	}
+
+	// Now introduce an error
+	if err := os.Remove(filepath.Join(root, "MISSION.md")); err != nil {
+		t.Fatal(err)
+	}
+	rFail, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	failData, err := rFail.JSON(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var jrFail JSONReport
+	if err := json.Unmarshal(failData, &jrFail); err != nil {
+		t.Fatal(err)
+	}
+	if jrFail.Valid {
+		t.Errorf("expected Valid to be false when MISSION.md is missing")
+	}
+	if jrFail.Summary.Errors == 0 {
+		t.Errorf("expected >0 errors, got %d", jrFail.Summary.Errors)
+	}
+	found := false
+	for _, f := range jrFail.Findings {
+		if f.Severity == Error && f.File == "MISSION.md" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected finding for MISSION.md in %+v", jrFail.Findings)
 	}
 }
