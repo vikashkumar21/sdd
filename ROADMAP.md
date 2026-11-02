@@ -78,7 +78,7 @@ Status: living document · Last updated: 2026-10-26
 | T-014 | Context staging pipeline and sdd ingest command | M | T-002 | sdd init and sdd ingest accept files, stdin, and raw text strings | D-018 | Done |
 | T-015 | Jira issue ingestion (JSON, Markdown, and text) | S | T-014 | Import Jira issue summary and acceptance criteria into task templates | D-019 | Done |
 | T-016 | Handover prompt enrichment for staged context | S | T-014 | sdd prompt includes context digest to guide agent spec extraction | D-018 | Done |
-| T-017 | Document and PDF ingestion protocol | M | T-014 | Multimodal agent staging and text extraction for PDF documents | D-020 | Awaiting review |
+| T-017 | Document and PDF ingestion protocol | M | T-014 | Multimodal agent staging and text extraction for PDF documents | D-020 | Done |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -106,7 +106,7 @@ Unfamiliar technology derails projects. To prevent that:
 ## 8. Next action
 
 1. M0, M1, M2, and M3 are complete.
-2. Implement M4 remaining tasks (T-015 Jira issue ingestion, T-017 Document/PDF ingestion protocol).
+2. Cut release v1.0.0 per Decision D-023.
 
 ## 9. Change log
 

@@ -62,4 +62,4 @@ Feedback-rule compliance (SKILLS.md, "Human feedback rules"): none active.
 
 ## 8. Sign-off
 Suggested commit message: `feat(doc): add document and PDF ingestion protocol for multimodal context staging (T-017)`
-Reviewed by: Vikash   Date: 2026-11-02   Reply received: Pending GATE 2
+Reviewed by: Vikash   Date: 2026-11-02   Reply received: `COMMITTED T-017`
