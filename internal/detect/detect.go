@@ -36,7 +36,7 @@ type Result struct {
 
 const (
 	maxVisited   = 20000
-	maxMarkDepth = 2
+	maxMarkDepth = 4
 )
 
 var ignoredDirs = map[string]bool{
@@ -44,6 +44,11 @@ var ignoredDirs = map[string]bool{
 	"build": true, "dist": true, "bin": true, "obj": true, "out": true, ".venv": true,
 	"venv": true, "env": true, "__pycache__": true, ".idea": true, ".vscode": true,
 	".gradle": true, ".next": true, "coverage": true, ".mypy_cache": true, ".pytest_cache": true,
+	".turbo": true, ".pnpm-store": true, "bower_components": true, ".cache": true, ".terraform": true, ".yarn": true,
+}
+
+func isTableSafe(s string) bool {
+	return !strings.ContainsAny(s, "|`\r\n")
 }
 
 var extLang = map[string]string{".go": "go", ".java": "java", ".py": "python", ".ts": "typescript", ".tsx": "typescript"}
@@ -85,6 +90,7 @@ func Detect(root string) (Result, error) {
 	langExt := map[string]int{}
 	otherExtCount := map[string]int{}
 	manifests := map[string]bool{}
+	var packageJSONPaths []string
 	rootPackage := false
 	nestedPackage := false
 
@@ -143,6 +149,7 @@ func Detect(root string) (Result, error) {
 			langs["typescript"] = true
 		case "package.json":
 			manifests[slashRel] = true
+			packageJSONPaths = append(packageJSONPaths, slashRel)
 			if depth == 0 {
 				rootPackage = true
 			} else {
@@ -164,12 +171,50 @@ func Detect(root string) (Result, error) {
 		return nil
 	})
 
-	var scripts map[string]string
-	if rootPackage {
-		pkg := readPackageJSON(filepath.Join(root, "package.json"))
-		scripts = pkg.Scripts
+	scripts := map[string]string{}
+	sort.Slice(packageJSONPaths, func(i, j int) bool {
+		depthI := strings.Count(packageJSONPaths[i], "/")
+		depthJ := strings.Count(packageJSONPaths[j], "/")
+		if depthI != depthJ {
+			return depthI < depthJ
+		}
+		return packageJSONPaths[i] < packageJSONPaths[j]
+	})
+
+	for _, pRel := range packageJSONPaths {
+		pkg := readPackageJSON(filepath.Join(root, filepath.FromSlash(pRel)))
 		if pkg.hasDep("typescript") {
 			langs["typescript"] = true
+		}
+		dir := filepath.ToSlash(filepath.Dir(pRel))
+		prefix := "npm "
+		if dir != "." {
+			prefix = "npm --prefix " + dir + " "
+		}
+
+		if val, ok := pkg.Scripts["build"]; ok && scripts["build"] == "" && isTableSafe(val) && isTableSafe(prefix) {
+			cmd := prefix + "run build"
+			if isTableSafe(cmd) {
+				scripts["build"] = cmd
+			}
+		}
+		if val, ok := pkg.Scripts["test"]; ok && scripts["test"] == "" && isTableSafe(val) && isTableSafe(prefix) {
+			cmd := prefix + "test"
+			if isTableSafe(cmd) {
+				scripts["test"] = cmd
+			}
+		}
+		if val, ok := pkg.Scripts["lint"]; ok && scripts["lint"] == "" && isTableSafe(val) && isTableSafe(prefix) {
+			cmd := prefix + "run lint"
+			if isTableSafe(cmd) {
+				scripts["lint"] = cmd
+			}
+		}
+		if val, ok := pkg.Scripts["format"]; ok && scripts["format"] == "" && isTableSafe(val) && isTableSafe(prefix) {
+			cmd := prefix + "run format"
+			if isTableSafe(cmd) {
+				scripts["format"] = cmd
+			}
 		}
 	}
 	if (rootPackage || nestedPackage) && !langs["typescript"] {
@@ -256,6 +301,13 @@ func makeTargets(root string) []string {
 	return sortedKeys(seen)
 }
 
+type langCommands struct {
+	build  string
+	test   string
+	lint   string
+	format string
+}
+
 func suggest(res *Result, scripts map[string]string) {
 	has := func(t string) bool {
 		for _, x := range res.MakeTargets {
@@ -280,62 +332,111 @@ func suggest(res *Result, scripts map[string]string) {
 	case has("format"):
 		res.Format = "make format"
 	}
-	primary := ""
-	for _, l := range []string{"go", "java", "typescript", "python"} {
-		for _, have := range res.Languages {
-			if have == l && primary == "" {
-				primary = l
-			}
-		}
-	}
-	fill := func(dst *string, v string) {
-		if *dst == "" {
-			*dst = v
-		}
-	}
+
 	exists := func(name string) bool {
 		_, err := os.Stat(filepath.Join(res.Root, name))
 		return err == nil
 	}
-	switch primary {
-	case "go":
-		fill(&res.Build, "go build ./...")
-		fill(&res.Test, "go test ./...")
-		fill(&res.Lint, "go vet ./...")
-		fill(&res.Format, "gofmt -l .")
-	case "java":
-		switch {
-		case exists("gradlew"):
-			fill(&res.Build, "./gradlew build")
-			fill(&res.Test, "./gradlew test")
-		case exists("mvnw"):
-			fill(&res.Build, "./mvnw -q package")
-			fill(&res.Test, "./mvnw test")
-		case exists("pom.xml"):
-			fill(&res.Build, "mvn -q package")
-			fill(&res.Test, "mvn test")
-		case exists("build.gradle") || exists("build.gradle.kts"):
-			fill(&res.Build, "gradle build")
-			fill(&res.Test, "gradle test")
+
+	langCmds := map[string]langCommands{}
+	for _, lang := range res.Languages {
+		var lc langCommands
+		switch lang {
+		case "go":
+			lc.build = "go build ./..."
+			lc.test = "go test ./..."
+			lc.lint = "go vet ./..."
+			lc.format = "gofmt -l ."
+		case "java":
+			switch {
+			case exists("gradlew"):
+				lc.build = "./gradlew build"
+				lc.test = "./gradlew test"
+			case exists("mvnw"):
+				lc.build = "./mvnw -q package"
+				lc.test = "./mvnw test"
+			case exists("pom.xml"):
+				lc.build = "mvn -q package"
+				lc.test = "mvn test"
+			case exists("build.gradle") || exists("build.gradle.kts"):
+				lc.build = "gradle build"
+				lc.test = "gradle test"
+			default:
+				for _, m := range res.Manifests {
+					base := filepath.Base(m)
+					dir := filepath.ToSlash(filepath.Dir(m))
+					if base == "pom.xml" {
+						if dir == "." {
+							lc.build = "mvn -q package"
+							lc.test = "mvn test"
+						} else {
+							lc.build = "mvn -f " + dir + "/pom.xml -q package"
+							lc.test = "mvn -f " + dir + "/pom.xml test"
+						}
+						break
+					} else if strings.HasPrefix(base, "build.gradle") {
+						if dir == "." {
+							lc.build = "gradle build"
+							lc.test = "gradle test"
+						} else {
+							lc.build = "gradle -p " + dir + " build"
+							lc.test = "gradle -p " + dir + " test"
+						}
+						break
+					}
+				}
+			}
+		case "typescript":
+			lc.build = scripts["build"]
+			lc.test = scripts["test"]
+			lc.lint = scripts["lint"]
+			lc.format = scripts["format"]
+		case "python":
+			hasPytest := exists("tests") || exists("test") ||
+				fileMentions(filepath.Join(res.Root, "pyproject.toml"), "pytest") ||
+				fileMentions(filepath.Join(res.Root, "requirements.txt"), "pytest")
+			if !hasPytest {
+				for _, m := range res.Manifests {
+					if strings.HasSuffix(m, "pyproject.toml") || strings.HasSuffix(m, "requirements.txt") {
+						if fileMentions(filepath.Join(res.Root, filepath.FromSlash(m)), "pytest") {
+							hasPytest = true
+							break
+						}
+					}
+				}
+			}
+			if hasPytest {
+				lc.test = "pytest"
+			}
 		}
-	case "typescript":
-		if _, ok := scripts["build"]; ok {
-			fill(&res.Build, "npm run build")
+		langCmds[lang] = lc
+	}
+
+	canonicalLangs := []string{"go", "java", "python", "typescript"}
+	combine := func(getField func(lc langCommands) string) string {
+		var parts []string
+		for _, lang := range canonicalLangs {
+			if lc, ok := langCmds[lang]; ok {
+				val := strings.TrimSpace(getField(lc))
+				if val != "" && isTableSafe(val) {
+					parts = append(parts, val)
+				}
+			}
 		}
-		if _, ok := scripts["test"]; ok {
-			fill(&res.Test, "npm test")
-		}
-		if _, ok := scripts["lint"]; ok {
-			fill(&res.Lint, "npm run lint")
-		}
-		if _, ok := scripts["format"]; ok {
-			fill(&res.Format, "npm run format")
-		}
-	case "python":
-		if exists("tests") || exists("test") || fileMentions(filepath.Join(res.Root, "pyproject.toml"), "pytest") ||
-			fileMentions(filepath.Join(res.Root, "requirements.txt"), "pytest") {
-			fill(&res.Test, "pytest")
-		}
+		return strings.Join(parts, " && ")
+	}
+
+	if res.Build == "" {
+		res.Build = combine(func(lc langCommands) string { return lc.build })
+	}
+	if res.Test == "" {
+		res.Test = combine(func(lc langCommands) string { return lc.test })
+	}
+	if res.Lint == "" {
+		res.Lint = combine(func(lc langCommands) string { return lc.lint })
+	}
+	if res.Format == "" {
+		res.Format = combine(func(lc langCommands) string { return lc.format })
 	}
 }
 

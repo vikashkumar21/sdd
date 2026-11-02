@@ -155,3 +155,187 @@ func TestDetectIsDeterministic(t *testing.T) {
 		t.Fatalf("two scans differ:\n%+v\n%+v", a, b)
 	}
 }
+
+func TestDetectMonorepoDepth(t *testing.T) {
+	root := t.TempDir()
+	// Depth 1: services/go.mod
+	write(t, root, "services/go.mod", "module s\n")
+	// Depth 2: apps/web/package.json
+	write(t, root, "apps/web/package.json", `{"devDependencies":{"typescript":"^5"}}`)
+	// Depth 3: backend/services/billing/pom.xml
+	write(t, root, "backend/services/billing/pom.xml", "<project/>")
+	// Depth 4: a/b/c/d/pyproject.toml
+	write(t, root, "a/b/c/d/pyproject.toml", "[project]\n")
+	// Depth 5: a/b/c/d/e/Cargo.toml (should be skipped because depth > 4)
+	write(t, root, "a/b/c/d/e/Cargo.toml", "[package]\n")
+
+	res, err := Detect(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantLangs := []string{"go", "java", "python", "typescript"}
+	if !reflect.DeepEqual(res.Languages, wantLangs) {
+		t.Errorf("languages = %v, want %v", res.Languages, wantLangs)
+	}
+
+	// Verify manifests recorded
+	hasManifest := func(p string) bool {
+		for _, m := range res.Manifests {
+			if m == p {
+				return true
+			}
+		}
+		return false
+	}
+	if !hasManifest("services/go.mod") {
+		t.Errorf("missing services/go.mod in %v", res.Manifests)
+	}
+	if !hasManifest("apps/web/package.json") {
+		t.Errorf("missing apps/web/package.json in %v", res.Manifests)
+	}
+	if !hasManifest("backend/services/billing/pom.xml") {
+		t.Errorf("missing backend/services/billing/pom.xml in %v", res.Manifests)
+	}
+	if !hasManifest("a/b/c/d/pyproject.toml") {
+		t.Errorf("missing a/b/c/d/pyproject.toml in %v", res.Manifests)
+	}
+	if hasManifest("a/b/c/d/e/Cargo.toml") {
+		t.Errorf("Cargo.toml at depth 5 should NOT be in %v", res.Manifests)
+	}
+}
+
+func TestDetectNestedPackageJSON(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "apps/web/package.json", `{"scripts":{"build":"vite build","test":"vitest","lint":"eslint .","format":"prettier -w ."},"dependencies":{"typescript":"^5.0.0"}}`)
+
+	res, err := Detect(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantLangs := []string{"typescript"}
+	if !reflect.DeepEqual(res.Languages, wantLangs) {
+		t.Fatalf("languages = %v, want %v", res.Languages, wantLangs)
+	}
+
+	if res.Build != "npm --prefix apps/web run build" {
+		t.Errorf("build = %q, want %q", res.Build, "npm --prefix apps/web run build")
+	}
+	if res.Test != "npm --prefix apps/web test" {
+		t.Errorf("test = %q, want %q", res.Test, "npm --prefix apps/web test")
+	}
+	if res.Lint != "npm --prefix apps/web run lint" {
+		t.Errorf("lint = %q, want %q", res.Lint, "npm --prefix apps/web run lint")
+	}
+	if res.Format != "npm --prefix apps/web run format" {
+		t.Errorf("format = %q, want %q", res.Format, "npm --prefix apps/web run format")
+	}
+}
+
+func TestDetectPrunesHeavyDirs(t *testing.T) {
+	root := t.TempDir()
+	pruned := []string{
+		".turbo/cache/x.json",
+		".pnpm-store/v3/files/00/abc",
+		"bower_components/lib/index.js",
+		".cache/yarn/v6/file",
+		".terraform/providers/aws",
+		".yarn/cache/package.zip",
+	}
+	for _, p := range pruned {
+		write(t, root, p, "")
+	}
+	write(t, root, "main.go", "package main\n")
+
+	res, err := Detect(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if res.SourceFiles != 1 {
+		t.Errorf("source files = %d, want 1", res.SourceFiles)
+	}
+	if len(res.Other) != 0 {
+		t.Errorf("other = %v, want empty", res.Other)
+	}
+}
+
+func TestDetectPolyglotCommands(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "go.mod", "module x\n")
+	write(t, root, "main.go", "package main\n")
+	write(t, root, "apps/web/package.json", `{"scripts":{"build":"next build","test":"jest","lint":"eslint","format":"prettier"},"devDependencies":{"typescript":"^5"}}`)
+	write(t, root, "services/worker/pyproject.toml", "[tool.pytest]\n")
+	write(t, root, "services/worker/worker.py", "import pytest\n")
+
+	res, err := Detect(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	wantLangs := []string{"go", "python", "typescript"}
+	if !reflect.DeepEqual(res.Languages, wantLangs) {
+		t.Fatalf("languages = %v, want %v", res.Languages, wantLangs)
+	}
+
+	wantBuild := "go build ./... && npm --prefix apps/web run build"
+	if res.Build != wantBuild {
+		t.Errorf("build = %q, want %q", res.Build, wantBuild)
+	}
+
+	wantTest := "go test ./... && pytest && npm --prefix apps/web test"
+	if res.Test != wantTest {
+		t.Errorf("test = %q, want %q", res.Test, wantTest)
+	}
+
+	wantLint := "go vet ./... && npm --prefix apps/web run lint"
+	if res.Lint != wantLint {
+		t.Errorf("lint = %q, want %q", res.Lint, wantLint)
+	}
+
+	wantFormat := "gofmt -l . && npm --prefix apps/web run format"
+	if res.Format != wantFormat {
+		t.Errorf("format = %q, want %q", res.Format, wantFormat)
+	}
+}
+
+func TestDetectMakefilePrecedence(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "go.mod", "module x\n")
+	write(t, root, "package.json", `{"scripts":{"test":"vitest","build":"tsc"},"devDependencies":{"typescript":"^5"}}`)
+	write(t, root, "Makefile", "test:\n\tgo test && npm test\n")
+
+	res, err := Detect(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Makefile has test, so test is "make test", but build falls back to combined
+	if res.Test != "make test" {
+		t.Errorf("test = %q, want %q", res.Test, "make test")
+	}
+	wantBuild := "go build ./... && npm run build"
+	if res.Build != wantBuild {
+		t.Errorf("build = %q, want %q", res.Build, wantBuild)
+	}
+}
+
+func TestDetectCommandTableSafety(t *testing.T) {
+	root := t.TempDir()
+	// Malformed script names with pipe and backticks
+	write(t, root, "package.json", `{"scripts":{"build":"echo 'build' | cat","test":"npm test `+"`bad`"+`"},"devDependencies":{"typescript":"^5"}}`)
+
+	res, err := Detect(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Commands with pipe or backticks must be rejected to protect markdown tables
+	if res.Build != "" {
+		t.Errorf("build = %q, want empty due to unsafe character", res.Build)
+	}
+	if res.Test != "" {
+		t.Errorf("test = %q, want empty due to unsafe character", res.Test)
+	}
+}

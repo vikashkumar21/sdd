@@ -126,6 +126,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-10-29 | golangci-lint v2.15.0 on darwin/arm64 fails with 12 issues (SA4000, QF1001, errcheck) | Run on host machine (T-005 review) | T-002 |
 | 2026-10-29 | Hypothesis H2 validated: neither Spec Kit nor OpenSpec provides exact gate phrases, human-only commits, or decision registers | Research in T-005 review.md | H2 closed |
 | 2026-10-30 | Go 1.27 os.Root on Windows rejects reserved device names (NUL, COM1..9, LPT1..9) via filepathlite.IsLocal and confines operations using native NT handles | Go stdlib src/os/root_windows.go inspection | T-007 |
+| 2026-11-02 | Monorepo detection up to depth 4, cache directory pruning (.turbo, .pnpm-store, etc.), and deterministic multi-language command composition verified | Run in internal/detect tests (T-010) | T-010 |
 
 ## 8. Dependency register
 
