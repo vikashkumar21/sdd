@@ -53,6 +53,10 @@ flowchart TD
     X --> U
     K --> X
     K --> P["markdown: robust fence and table scanner"]
+    C --> Y["repair: safe mechanical repair engine"]
+    Y --> U
+    Y --> B
+    Y --> P
 ```
 
 ### Data flow of `sdd init`
@@ -77,6 +81,7 @@ internal/feature/     creation of features/T-xxx-<slug>/
 internal/roadmap/     parsing and editing of task rows
 internal/block/       managed contract block markers
 internal/fsutil/      atomic file writes
+internal/repair/      safe interactive mechanical repair engine (contract parity, table alignment)
 internal/version/     build version (set with -ldflags)
 ```
 
@@ -128,6 +133,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-10-30 | Go 1.27 os.Root on Windows rejects reserved device names (NUL, COM1..9, LPT1..9) via filepathlite.IsLocal and confines operations using native NT handles | Go stdlib src/os/root_windows.go inspection | T-018 |
 | 2026-11-02 | Monorepo detection up to depth 4, cache directory pruning (.turbo, .pnpm-store, etc.), and deterministic multi-language command composition verified | Run in internal/detect tests (T-010) | T-018 |
 | 2026-11-02 | Verified-facts expiry, prerequisite dependency drift, and feature status drift checkers active | Run in internal/check tests (T-011) | T-018 |
+| 2026-11-02 | Safe interactive repair engine (sdd check --fix) with unified diff preview, selective confirmation, and atomic backups verified | Run in internal/repair and cli tests (T-012) | T-018 |
 
 ## 8. Dependency register
 

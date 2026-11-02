@@ -9,6 +9,7 @@ import (
 	"github.com/vikashkumar21/sdd/internal/check"
 	"github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/feature"
+	"github.com/vikashkumar21/sdd/internal/repair"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 	"github.com/vikashkumar21/sdd/internal/templates"
@@ -19,6 +20,10 @@ func runCheck(args []string, env IO) int {
 	dir := fs.String("dir", ".", "project root")
 	strict := fs.Bool("strict", false, "treat warnings (including unresolved TODO(human) placeholders) as failures")
 	jsonOut := fs.Bool("json", false, "output findings as structured JSON")
+	fix := fs.Bool("fix", false, "safely repair mechanical issues (contract parity, table alignment)")
+	dryRun := fs.Bool("dry-run", false, "preview repairs without applying changes")
+	yes := fs.Bool("yes", false, "apply repairs without interactive confirmation")
+	fileFlag := fs.String("file", "", "restrict repairs to specified comma-separated file(s)")
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return parseExit(err)
@@ -32,6 +37,83 @@ func runCheck(args []string, env IO) int {
 		fprintf(env.Err, "sdd check: %v\n", err)
 		return 1
 	}
+
+	if *fix {
+		var filterFiles []string
+		if *fileFlag != "" {
+			for _, part := range strings.Split(*fileFlag, ",") {
+				p := strings.TrimSpace(part)
+				if p != "" {
+					filterFiles = append(filterFiles, p)
+				}
+			}
+		}
+		plan, perr := repair.PlanRepairs(root, filterFiles)
+		if perr != nil {
+			fprintf(env.Err, "sdd check --fix: %v\n", perr)
+			return 1
+		}
+		if len(plan.Patches) == 0 {
+			fprintln(env.Out, "No mechanical repairs needed.")
+			return 0
+		}
+
+		fprintln(env.Out, "Proposed repairs:")
+		for _, p := range plan.Patches {
+			fprintf(env.Out, "\n%s (%s):\n", p.Path, p.Description)
+			fprintln(env.Out, strings.TrimRight(p.Diff, "\n"))
+		}
+
+		if *dryRun {
+			fprintf(env.Out, "\nDry run: %d file(s) would be repaired. No changes written.\n", len(plan.Patches))
+			return 0
+		}
+
+		approved := map[string]bool{}
+		if *yes {
+			for _, p := range plan.Patches {
+				approved[p.Path] = true
+			}
+		} else {
+			p := newPrompter(env.In, env.Out)
+			if len(plan.Patches) == 1 {
+				if p.confirm(fmt.Sprintf("\nApply repair to %s?", plan.Patches[0].Path)) {
+					approved[plan.Patches[0].Path] = true
+				}
+			} else {
+				answer := p.ask("\nApply repairs? [y]es to all / [n]o / [p]er-file", "n")
+				switch strings.ToLower(strings.TrimSpace(answer)) {
+				case "y", "yes":
+					for _, patch := range plan.Patches {
+						approved[patch.Path] = true
+					}
+				case "p", "per-file":
+					for _, patch := range plan.Patches {
+						if p.confirm(fmt.Sprintf("Apply repair to %s?", patch.Path)) {
+							approved[patch.Path] = true
+						}
+					}
+				default:
+					fprintln(env.Out, "Repairs aborted. No changes written.")
+					return 0
+				}
+			}
+		}
+
+		if len(approved) == 0 {
+			fprintln(env.Out, "No repairs selected. No changes written.")
+			return 0
+		}
+
+		res, aerr := repair.Apply(root, plan, approved, env.now())
+		if aerr != nil {
+			fprintf(env.Err, "sdd check --fix: apply: %v\n", aerr)
+			return 1
+		}
+		fprintf(env.Out, "\nRepaired %d file(s). Original(s) backed up in %s/\n", len(res.Repaired), res.BackupDir)
+		return 0
+	}
+
 	rep, err := check.Run(root)
 	if err != nil {
 		fprintf(env.Err, "sdd check: %v\n", err)
