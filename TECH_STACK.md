@@ -60,6 +60,8 @@ flowchart TD
     Y --> P
     Y --> W
     W --> U
+    C --> Z["permissions: agent permission configs (Claude, Cursor, Gemini)"]
+    Z --> U
 ```
 
 ### Data flow of `sdd init`
@@ -84,6 +86,7 @@ internal/feature/     creation of features/T-xxx-<slug>/
 internal/roadmap/     parsing and editing of task rows
 internal/block/       managed contract block markers
 internal/fsutil/      atomic file writes
+internal/permissions/ agent permission manifest generation (.claude, .cursor, .gemini)
 internal/repair/      safe interactive mechanical repair engine (contract parity, table alignment)
 internal/suppress/    finding waivers and baseline suppression register (.sdd/suppressions.json)
 internal/version/     build version (set with -ldflags)
@@ -121,6 +124,7 @@ internal/version/     build version (set with -ldflags)
 | D-019 | Jira task integration method | **Approved** 2026-10-29 | n/a | Option A for v1 (file/text-based JSON/Markdown/text ingestion), Option B (REST API client) as follow-up plugin |
 | D-020 | Document/PDF ingestion protocol | **Approved** 2026-10-29 | n/a | Option A: text/string input directly, local CLI extraction or staging for multimodal agents, preserves D-007 stdlib purity |
 | D-021 | Windows compatibility scope and sequencing | **Approved** 2026-10-30 | n/a | Option A: Harden T-007 for cross-platform os.Root determinism (filepath.IsLocal, device name rejection, Windows cross-build verification); schedule T-018 in M3 for full Windows support |
+| D-022 | Agent permission manifest generation targets and merge behaviour | **Approved** 2026-11-02 | n/a | Option A: Native multi-agent manifests (Claude Code, Cursor, Gemini/Antigravity) with non-destructive merge |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 
@@ -139,6 +143,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-02 | Verified-facts expiry, prerequisite dependency drift, and feature status drift checkers active | Run in internal/check tests (T-011) | T-018 |
 | 2026-11-02 | Safe interactive repair engine (sdd check --fix) with unified diff preview, selective confirmation, and atomic backups verified | Run in internal/repair and cli tests (T-012) | T-018 |
 | 2026-11-02 | Finding suppressions, waiver register (.sdd/suppressions.json), interactive waivers, and stale waiver pruning verified | Run in internal/suppress, check, and cli tests (T-019) | T-018 |
+| 2026-11-02 | Agent permission manifest generation for Claude Code, Cursor, and Gemini/Antigravity with non-destructive merge verified | Run in internal/permissions and cli tests (T-013) | T-018 |
 
 ## 8. Dependency register
 

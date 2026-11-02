@@ -10,13 +10,14 @@ import (
 
 	"github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/detect"
+	"github.com/vikashkumar21/sdd/internal/permissions"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 	"github.com/vikashkumar21/sdd/internal/templates"
 )
 
 type initOpts struct {
 	dir                                          string
-	yes, dryRun, force                           bool
+	yes, dryRun, force, permissions              bool
 	name, purpose, mode, lang, maintainer        string
 	build, test, lint, format, agents, templates string
 	rules                                        stringList
@@ -31,6 +32,7 @@ func runInit(args []string, env IO) int {
 	fs.BoolVar(&o.yes, "yes", false, "accept detected values and defaults without prompting")
 	fs.BoolVar(&o.dryRun, "dry-run", false, "show the plan and write nothing")
 	fs.BoolVar(&o.force, "force", false, "replace existing generated files (originals are backed up; README.md is never touched)")
+	fs.BoolVar(&o.permissions, "permissions", false, "generate agent permission manifests denying git writes")
 	fs.StringVar(&o.name, "name", "", "project name (default: directory name)")
 	fs.StringVar(&o.purpose, "purpose", "", "one-line purpose")
 	fs.StringVar(&o.mode, "mode", "", "greenfield or brownfield (default: detected)")
@@ -150,6 +152,16 @@ func runInit(args []string, env IO) int {
 			return fail("stage context text: %v", err)
 		}
 		stagedCount++
+	}
+
+	if o.permissions {
+		permPlan, perr := permissions.BuildPlan(plan.Root, ans.Agents, o.force)
+		if perr != nil {
+			return fail("permissions plan: %v", perr)
+		}
+		if perr := permissions.Apply(plan.Root, permPlan, o.force, env.now()); perr != nil {
+			return fail("permissions apply: %v", perr)
+		}
 	}
 
 	counts := map[scaffold.Kind]int{}

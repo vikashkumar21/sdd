@@ -67,9 +67,9 @@ Status: living document · Last updated: 2026-10-26
 | T-010 | P-07: Monorepo and polyglot detection enhancement | M | T-002 | Manifest scan depth 4, multi-language command suggestions | none | Done |
 | T-011 | P-08: Verified-facts expiry and roadmap drift checker | S | T-002 | Check warns on past-due re-verify milestones | none | Done |
 | T-012 | P-09: Safe interactive repair command (sdd check --fix) | M | T-008 | Diff preview, human confirmation, backup before fix | none | Done |
-| T-013 | P-10: Agent permission manifest generation | M | T-002 | Optional generation of agent configuration denying git writes | none | Not started |
+| T-013 | P-10: Agent permission manifest generation | M | T-002 | Optional generation of agent configuration denying git writes | D-022 | Awaiting review |
 | T-018 | Full Windows platform compatibility (paths, CRLF, unsafe drive roots, .exe in dist) | M | T-007 | Native Windows support, cross-compilation in dist, CRLF normalisation | D-021 | Not started |
-| T-019 | Finding suppressions and baseline waiver register | S | T-012 | Suppress findings in sdd check, surface in --fix with repair prompt | none | Awaiting review |
+| T-019 | Finding suppressions and baseline waiver register | S | T-012 | Suppress findings in sdd check, surface in --fix with repair prompt | none | Done |
 
 ### M4 — Context and Task Ingestion
 

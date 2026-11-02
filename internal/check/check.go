@@ -228,6 +228,17 @@ func (c *checker) run() {
 	}
 	c.checkOptionalAgents(agents)
 	c.checkContextManifest()
+	c.checkPermissions()
+}
+
+func (c *checker) checkPermissions() {
+	claudePath := filepath.Join(c.root, ".claude", "settings.json")
+	if data, err := os.ReadFile(claudePath); err == nil {
+		var obj map[string]any
+		if err := json.Unmarshal(data, &obj); err != nil {
+			c.add(Error, ".claude/settings.json", 0, "permissions-syntax", "invalid JSON in Claude settings: %v", err)
+		}
+	}
 }
 
 func (c *checker) checkContextManifest() {

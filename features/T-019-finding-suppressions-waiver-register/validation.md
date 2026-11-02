@@ -59,4 +59,4 @@ Feedback-rule compliance (SKILLS.md, "Human feedback rules"): none active.
 
 ## 8. Sign-off
 Suggested commit message: `feat(suppress): add finding suppressions and baseline waiver register (T-019)`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-019`
+Reviewed by: Vikash   Date: 2026-11-02   Reply received: `COMMITTED T-019`

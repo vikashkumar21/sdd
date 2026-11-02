@@ -45,6 +45,10 @@ sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini
 sdd ingest --file notes.txt --name meeting    # stage external files into .sdd/context/
 sdd ingest --text "meeting notes..."          # stage raw text strings as context
 cat transcript.txt | sdd ingest               # stage piped stdin
+
+sdd permissions                               # generate agent permission configs denying git writes
+sdd permissions --agents claude,cursor        # generate for specific agents
+sdd permissions --dry-run                     # preview planned manifests without writing
 ```
 
 ### Greenfield and brownfield

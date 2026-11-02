@@ -715,3 +715,43 @@ func TestCheckStaleSuppressionDetection(t *testing.T) {
 		t.Fatalf("expected stale-waiver finding in %+v", r.Findings)
 	}
 }
+
+func TestCheckPermissions(t *testing.T) {
+	root := generate(t)
+
+	// Valid settings.json produces no error
+	claudeDir := filepath.Join(root, ".claude")
+	_ = os.MkdirAll(claudeDir, 0o755)
+	validJSON := `{"permissions":{"deny":["git commit *"]}}`
+	if err := os.WriteFile(filepath.Join(claudeDir, "settings.json"), []byte(validJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range r.Findings {
+		if f.Rule == "permissions-syntax" {
+			t.Fatalf("unexpected permissions-syntax finding for valid JSON: %+v", f)
+		}
+	}
+
+	// Corrupted settings.json produces permissions-syntax error
+	if err := os.WriteFile(filepath.Join(claudeDir, "settings.json"), []byte("{broken json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rBad, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range rBad.Findings {
+		if f.Rule == "permissions-syntax" && f.Severity == Error {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected permissions-syntax error in %+v", rBad.Findings)
+	}
+}
