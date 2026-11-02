@@ -35,13 +35,15 @@ verify: fmt-check vet test
 
 check: fmt-check vet lint test
 
-# Cross-compiles static binaries (no cgo) for macOS and Linux and writes SHA256SUMS.
+# Cross-compiles static binaries (no cgo) for macOS, Linux, and Windows and writes SHA256SUMS.
 dist:
 	rm -rf dist && mkdir -p dist
-	@for t in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64; do \
+	@for t in darwin/arm64 darwin/amd64 linux/amd64 linux/arm64 windows/amd64 windows/arm64; do \
 		os=$${t%/*}; arch=$${t#*/}; \
+		ext=""; \
+		if [ "$$os" = "windows" ]; then ext=".exe"; fi; \
 		echo "building $$os/$$arch"; \
-		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o dist/sdd_$${os}_$${arch} ./cmd/sdd || exit 1; \
+		CGO_ENABLED=0 GOOS=$$os GOARCH=$$arch go build -trimpath -ldflags "$(LDFLAGS)" -o dist/sdd_$${os}_$${arch}$${ext} ./cmd/sdd || exit 1; \
 	done
 	@cd dist && if command -v sha256sum >/dev/null 2>&1; then sha256sum sdd_* > SHA256SUMS; else shasum -a 256 sdd_* > SHA256SUMS; fi
 

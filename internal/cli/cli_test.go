@@ -347,3 +347,35 @@ func TestInitRefusesHandMadeKitWithoutManifest(t *testing.T) {
 		t.Errorf("--force should override the refusal: %+v", r)
 	}
 }
+
+func TestInitDriveRootRefusals(t *testing.T) {
+	for _, root := range []string{"/", `\`, `C:\`, `D:/`, `c:`, `\\server\share`} {
+		r := exec(t, "", false, "", "init", "--yes", "--dir", root)
+		if r.code != 1 || !strings.Contains(r.err, "refusing to run in the filesystem root") {
+			t.Errorf("expected drive root refusal for %q, got: %+v", root, r)
+		}
+	}
+}
+
+func TestInitMaintainerWindowsFallback(t *testing.T) {
+	root := t.TempDir()
+	var out, errb bytes.Buffer
+	env := IO{
+		In: strings.NewReader(""), Out: &out, Err: &errb, Interactive: false, Now: fixedNow,
+		Getenv: func(k string) string {
+			if k == "USERNAME" {
+				return "winuser"
+			}
+			return ""
+		},
+		Home: func() string { return "" },
+	}
+	code := Run([]string{"init", "--yes", "--dir", root, "--name", "winproj"}, env)
+	if code != 0 {
+		t.Fatalf("expected 0, got %d; err: %s", code, errb.String())
+	}
+	content := read(t, root, "MISSION.md")
+	if !strings.Contains(content, "winuser") {
+		t.Errorf("expected maintainer 'winuser' in MISSION.md, got:\n%s", content)
+	}
+}

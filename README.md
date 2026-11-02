@@ -9,7 +9,7 @@
 
 The workflow it installs: the agent drafts requirements and a plan, **the human approves before any code**, the agent implements and verifies, and **the human reviews and commits**. The anthem: *always be deterministic, and take human approval or decisions to accomplish that determinism.*
 
-> Status: **v0.1.0, built and verified on Linux and macOS with Go 1.27.** See [ROADMAP.md](ROADMAP.md).
+> Status: **v0.1.0, built and verified on Linux, macOS, and Windows with Go 1.27.** See [ROADMAP.md](ROADMAP.md).
 
 ## Install
 
@@ -22,7 +22,7 @@ which sdd           # check that no other `sdd` shadows it
 sdd version
 ```
 
-Or use a prebuilt, **unsigned** binary from `dist/` (macOS may quarantine a downloaded binary: `xattr -d com.apple.quarantine sdd_darwin_arm64`).
+Or use a prebuilt, **unsigned** binary from `dist/` (macOS may quarantine a downloaded binary: `xattr -d com.apple.quarantine sdd_darwin_arm64`; on Windows use `sdd_windows_amd64.exe` or `sdd_windows_arm64.exe`).
 
 ## Use
 
@@ -75,7 +75,7 @@ Templates are embedded in the binary. To change them without rebuilding, point `
 ```bash
 make verify     # gofmt -s check, go vet, tests (Go toolchain only)
 make check      # verify + golangci-lint v2
-make dist       # static binaries for darwin/linux (amd64, arm64) + SHA256SUMS
+make dist       # static binaries for darwin/linux/windows (amd64, arm64) + SHA256SUMS
 ```
 
 Standard library only; no third-party dependencies. This repository is itself developed with its own kit: start with [CLAUDE.md](CLAUDE.md) and [ROADMAP.md](ROADMAP.md).

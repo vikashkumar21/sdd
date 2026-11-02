@@ -329,3 +329,46 @@ func TestIsReservedDeviceName(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateLocalRelPathWindows(t *testing.T) {
+	invalid := []string{
+		"C:file.txt",
+		"D:/path/file",
+		"foo:stream",
+		"sub/dir:ads",
+		"CON",
+		"con.txt",
+		"PRN",
+		"AUX",
+		"NUL",
+		"nul.json",
+		"COM1",
+		"COM9.txt",
+		"LPT1",
+		"sub/NUL/file",
+		"a/b/COM3",
+	}
+	for _, p := range invalid {
+		t.Run("invalid/"+p, func(t *testing.T) {
+			if err := ValidateLocalRelPath(p); err == nil {
+				t.Errorf("expected error for %q, got nil", p)
+			}
+		})
+	}
+
+	valid := []string{
+		"file.txt",
+		"sub/dir/file.md",
+		"README.md",
+		".sdd/manifest.json",
+		"features/T-001/plan.md",
+		"constants.go",
+	}
+	for _, p := range valid {
+		t.Run("valid/"+p, func(t *testing.T) {
+			if err := ValidateLocalRelPath(p); err != nil {
+				t.Errorf("expected nil error for %q, got: %v", p, err)
+			}
+		})
+	}
+}

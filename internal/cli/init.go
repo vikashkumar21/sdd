@@ -62,6 +62,10 @@ func runInit(args []string, env IO) int {
 		return 1
 	}
 
+	if isDriveRoot(o.dir) {
+		return fail("refusing to run in the filesystem root")
+	}
+
 	root, err := filepath.Abs(o.dir)
 	if err != nil {
 		return fail("%v", err)
@@ -261,7 +265,11 @@ func collectAnswers(env IO, pr *prompter, o initOpts, given map[string]bool, det
 	}
 	a.Languages = splitList(langs)
 
-	a.Maintainer = str("maintainer", o.maintainer, "Maintainer (the human who approves and commits)", env.getenv("USER"))
+	maintainerDef := env.getenv("USER")
+	if maintainerDef == "" {
+		maintainerDef = env.getenv("USERNAME")
+	}
+	a.Maintainer = str("maintainer", o.maintainer, "Maintainer (the human who approves and commits)", maintainerDef)
 	a.Build = str("build", o.build, "Build command (blank if unknown)", det.Build)
 	a.Test = str("test", o.test, "Test command (blank if unknown)", det.Test)
 	a.Lint = str("lint", o.lint, "Lint command (blank if unknown)", det.Lint)
@@ -285,9 +293,51 @@ func collectAnswers(env IO, pr *prompter, o initOpts, given map[string]bool, det
 	return a, nil
 }
 
+// isDriveRoot reports whether p represents a filesystem root on Unix or Windows
+// (e.g. "/", "\", "C:\", "D:/", "c:", "\\server\share").
+func isDriveRoot(p string) bool {
+	clean := strings.ReplaceAll(strings.TrimSpace(p), "\\", "/")
+	if clean == "/" || clean == "" {
+		return true
+	}
+	if p == filepath.Dir(p) && (p == "/" || strings.HasSuffix(p, ":\\") || strings.HasSuffix(p, ":/")) {
+		return true
+	}
+	// UNC path roots: //server/share or \\server\share
+	if strings.HasPrefix(clean, "//") {
+		trimmed := strings.Trim(clean, "/")
+		if trimmed == "" {
+			return true
+		}
+		parts := strings.Split(trimmed, "/")
+		if len(parts) <= 2 {
+			return true
+		}
+	}
+	// Windows drive letter: C:, C:/, C:\, etc.
+	if len(clean) >= 2 && clean[1] == ':' {
+		letter := clean[0]
+		if (letter >= 'a' && letter <= 'z') || (letter >= 'A' && letter <= 'Z') {
+			rest := strings.Trim(clean[2:], "/")
+			if rest == "" {
+				return true
+			}
+		}
+	}
+	vol := filepath.VolumeName(p)
+	if vol != "" {
+		rest := strings.TrimPrefix(p[len(vol):], "/")
+		rest = strings.TrimPrefix(rest, "\\")
+		if rest == "" {
+			return true
+		}
+	}
+	return false
+}
+
 // guardRoot refuses to initialise a directory that is clearly not a project.
 func guardRoot(root, home string) error {
-	if root == filepath.Dir(root) {
+	if isDriveRoot(root) {
 		return errors.New("refusing to run in the filesystem root")
 	}
 	if home != "" && samePath(root, home) {

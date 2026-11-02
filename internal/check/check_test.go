@@ -755,3 +755,69 @@ func TestCheckPermissions(t *testing.T) {
 		t.Fatalf("expected permissions-syntax error in %+v", rBad.Findings)
 	}
 }
+
+func TestCheckCRLFInvariance(t *testing.T) {
+	root := generate(t)
+
+	// Baseline run on pure LF files
+	baseRes, err := Run(root)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if baseRes.Count(Error) != 0 {
+		t.Fatalf("expected 0 errors on clean generated kit, got %d", baseRes.Count(Error))
+	}
+
+	// 1. Asymmetric CRLF test: convert only CLAUDE.md to CRLF
+	claudePath := filepath.Join(root, "CLAUDE.md")
+	claudeData, err := os.ReadFile(claudePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claudeCRLF := strings.ReplaceAll(string(claudeData), "\r\n", "\n")
+	claudeCRLF = strings.ReplaceAll(claudeCRLF, "\n", "\r\n")
+	if err := os.WriteFile(claudePath, []byte(claudeCRLF), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	asymRes, err := Run(root)
+	if err != nil {
+		t.Fatalf("Run failed on asymmetric CRLF: %v", err)
+	}
+	for _, f := range asymRes.Findings {
+		if f.Rule == "parity-match" {
+			t.Fatalf("parity check broke on asymmetric CRLF: %+v", f)
+		}
+	}
+
+	// 2. Convert all markdown and JSON files to CRLF
+	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(path, ".md") || strings.HasSuffix(path, ".json") {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			crlf := strings.ReplaceAll(string(data), "\r\n", "\n")
+			crlf = strings.ReplaceAll(crlf, "\n", "\r\n")
+			return os.WriteFile(path, []byte(crlf), 0o644)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	crlfRes, err := Run(root)
+	if err != nil {
+		t.Fatalf("Run failed on all CRLF: %v", err)
+	}
+	if crlfRes.Count(Error) != 0 {
+		t.Fatalf("expected 0 errors on CRLF kit, got %d: %+v", crlfRes.Count(Error), crlfRes.Findings)
+	}
+	if len(crlfRes.Findings) != len(baseRes.Findings) {
+		t.Errorf("findings count mismatch: LF has %d, CRLF has %d", len(baseRes.Findings), len(crlfRes.Findings))
+	}
+}

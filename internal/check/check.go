@@ -394,7 +394,7 @@ func contractText(content string) string {
 	}
 	lines := strings.Split(text, "\n")
 	for i := range lines {
-		lines[i] = strings.TrimRight(lines[i], " \t")
+		lines[i] = strings.TrimRight(lines[i], " \r\t")
 	}
 	return strings.Trim(strings.Join(lines, "\n"), "\n")
 }

@@ -55,6 +55,9 @@ func ValidateLocalRelPath(relPath string) error {
 		return fmt.Errorf("unsafe path %q: must be a local relative path beneath root", relPath)
 	}
 	cleaned := filepath.ToSlash(filepath.Clean(relPath))
+	if strings.Contains(cleaned, ":") {
+		return fmt.Errorf("unsafe path %q: must not contain drive letters or stream separators", relPath)
+	}
 	for _, part := range strings.Split(cleaned, "/") {
 		if part == "" || part == "." {
 			continue
