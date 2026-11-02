@@ -258,3 +258,50 @@ Provide /healthz for Kubernetes probes.
 		t.Errorf("context manifest missing task T-001: %s", string(mdata))
 	}
 }
+
+func TestNewFromDocPDF(t *testing.T) {
+	root := kit(t)
+	pdfData := []byte("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF")
+	now := time.Date(2026, 11, 2, 15, 0, 0, 0, time.UTC)
+	opts := Options{
+		FromDocData: pdfData,
+		FromDocPath: "architecture.pdf",
+		Now:         now,
+	}
+
+	res, err := NewWithOptions(root, "T-001", "arch-design", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if res.StagedContext == "" {
+		t.Fatal("expected StagedContext to be set")
+	}
+
+	req := read(t, root, "features/T-001-arch-design/requirements.md")
+	if !strings.Contains(req, "- Reference document: `"+res.StagedContext+"` (Format: pdf, Source: architecture.pdf)") {
+		t.Errorf("expected reference line in requirements.md:\n%s", req)
+	}
+
+	// Verify staged file in context
+	mdata := read(t, root, ".sdd/context/manifest.json")
+	if !strings.Contains(mdata, `"format": "pdf"`) {
+		t.Errorf("expected format pdf in manifest: %s", mdata)
+	}
+}
+
+func TestNewFromDocInvalidPDF(t *testing.T) {
+	root := kit(t)
+	opts := Options{
+		FromDocData: []byte("corrupted non-pdf file"),
+		FromDocPath: "bad.pdf",
+	}
+
+	_, err := NewWithOptions(root, "T-001", "bad-doc", opts)
+	if err == nil {
+		t.Fatal("expected error for invalid PDF signature, got nil")
+	}
+	if !strings.Contains(err.Error(), "missing %PDF- header signature") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}

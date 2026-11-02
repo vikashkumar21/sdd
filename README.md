@@ -41,11 +41,13 @@ sdd check --fix --yes    # apply repairs without confirmation (backs up to .sdd/
 
 sdd feature new T-003 upgrade-command         # creates features/T-003-upgrade-command/ from your templates
 sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements from Jira and stage into context
+sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
 
 sdd ingest --file notes.txt --name meeting    # stage external files into .sdd/context/
 sdd ingest --text "meeting notes..."          # stage raw text strings as context
 sdd ingest --jira --file issue.json           # validate and stage Jira issue export into .sdd/context/
+sdd ingest --pdf --file architecture.pdf      # validate and stage PDF document into .sdd/context/
 cat transcript.txt | sdd ingest               # stage piped stdin
 
 sdd permissions                               # generate agent permission configs denying git writes

@@ -200,19 +200,20 @@ func runCheck(args []string, env IO) int {
 
 func runFeature(args []string, env IO) int {
 	if len(args) == 0 || args[0] != "new" {
-		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--dir <project>]")
+		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--from-doc <file>] [--dir <project>]")
 		return 2
 	}
 	fs := newFlagSet("feature new", env)
 	dir := fs.String("dir", ".", "project root")
 	title := fs.String("title", "", "task title (default: the title in ROADMAP.md)")
 	fromJira := fs.String("from-jira", "", "path or raw text of a Jira issue to import into requirements.md and stage into context")
+	fromDoc := fs.String("from-doc", "", "path to reference document or PDF to stage into context and link in requirements.md")
 	pos, err := parseInterspersed(fs, args[1:])
 	if err != nil {
 		return parseExit(err)
 	}
 	if len(pos) != 2 {
-		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--dir <project>]")
+		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--from-doc <file>] [--dir <project>]")
 		return 2
 	}
 	root, err := filepath.Abs(*dir)
@@ -246,10 +247,33 @@ func runFeature(args []string, env IO) int {
 		}
 	}
 
+	var docData []byte
+	var docPath string
+	if *fromDoc != "" {
+		filePath := *fromDoc
+		if !filepath.IsAbs(filePath) {
+			if _, err := os.Stat(filePath); err != nil {
+				candidate := filepath.Join(root, filePath)
+				if _, err2 := os.Stat(candidate); err2 == nil {
+					filePath = candidate
+				}
+			}
+		}
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			fprintf(env.Err, "sdd feature: read doc file %s: %v\n", *fromDoc, err)
+			return 1
+		}
+		docData = data
+		docPath = filePath
+	}
+
 	opts := feature.Options{
 		Title:        *title,
 		FromJiraData: jiraData,
 		JiraOrigin:   jiraOrigin,
+		FromDocData:  docData,
+		FromDocPath:  docPath,
 		Now:          env.now(),
 	}
 	res, err := feature.NewWithOptions(root, pos[0], pos[1], opts)
@@ -265,7 +289,7 @@ func runFeature(args []string, env IO) int {
 		fprintf(env.Out, "ROADMAP.md: %s is now Specifying.\n", pos[0])
 	}
 	if res.StagedContext != "" {
-		fprintf(env.Out, "Staged Jira issue: %s\n", res.StagedContext)
+		fprintf(env.Out, "Staged context: %s\n", res.StagedContext)
 	}
 	fprintf(env.Out, "\nNext: draft requirements.md, plan.md and validation.md (no code), then stop for `APPROVED %s`.\n", pos[0])
 	return 0
@@ -371,13 +395,17 @@ func runPrompt(args []string, env IO) int {
 
 	if cm, ok, err := context.ReadManifest(root); err == nil && ok {
 		for _, e := range cm.Entries {
+			formatDisplay := e.Format
+			if strings.EqualFold(e.Format, "pdf") {
+				formatDisplay = "pdf (multimodal inspection)"
+			}
 			cv := contextView{
 				ID:     e.ID,
 				Source: e.Source,
 				Origin: e.Origin,
 				Path:   e.Path,
 				Task:   e.Task,
-				Format: e.Format,
+				Format: formatDisplay,
 				Bytes:  e.Bytes,
 			}
 			data.StagedContext = append(data.StagedContext, cv)

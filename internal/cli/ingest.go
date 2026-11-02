@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/vikashkumar21/sdd/internal/context"
+	"github.com/vikashkumar21/sdd/internal/doc"
 	"github.com/vikashkumar21/sdd/internal/jira"
 )
 
@@ -16,6 +17,7 @@ type ingestOpts struct {
 	name  string
 	task  string
 	jira  bool
+	pdf   bool
 	files stringList
 }
 
@@ -27,6 +29,7 @@ func runIngest(args []string, env IO) int {
 	fs.StringVar(&o.name, "name", "", "label or slug name for the staged file")
 	fs.StringVar(&o.task, "task", "", "task ID to associate context with (e.g. T-001)")
 	fs.BoolVar(&o.jira, "jira", false, "validate and stage context as a Jira issue")
+	fs.BoolVar(&o.pdf, "pdf", false, "validate and stage context as a PDF document")
 	fs.Var(&o.files, "file", "path to file to stage as context (repeatable)")
 
 	pos, err := parseInterspersed(fs, args)
@@ -110,6 +113,14 @@ func runIngest(args []string, env IO) int {
 			if it.Name == "" && iss.Key != "" {
 				it.Name = iss.Key
 			}
+		}
+
+		if o.pdf || doc.IsPDF(it.Origin, it.Data) {
+			if _, err := doc.ValidatePDF(it.Data); err != nil {
+				fprintf(env.Err, "sdd ingest: invalid pdf document: %v\n", err)
+				return 1
+			}
+			it.Format = "pdf"
 		}
 
 		entry, err := context.Stage(root, it, now)

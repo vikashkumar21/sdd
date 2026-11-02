@@ -62,4 +62,4 @@ Feedback-rule compliance (SKILLS.md, "Human feedback rules"): none active.
 
 ## 8. Sign-off
 Suggested commit message: `feat(jira): add Jira issue ingestion for task templates and context staging (T-015)`
-Reviewed by: Vikash   Date: 2026-11-02   Reply received: Pending GATE 2
+Reviewed by: Vikash   Date: 2026-11-02   Reply received: `COMMITTED T-015`

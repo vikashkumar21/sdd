@@ -222,8 +222,8 @@ Provide secure self-service password reset via signed email link.
 		t.Fatalf("feature new --from-jira failed with %d: %s", code, errBuf.String())
 	}
 
-	if !strings.Contains(out.String(), "Staged Jira issue:") {
-		t.Errorf("expected output to mention staged jira issue: %s", out.String())
+	if !strings.Contains(out.String(), "Staged context:") {
+		t.Errorf("expected output to mention staged context: %s", out.String())
 	}
 
 	reqBytes, err := os.ReadFile(filepath.Join(root, "features", "T-001-pwd-reset", "requirements.md"))
@@ -247,5 +247,111 @@ Provide secure self-service password reset via signed email link.
 	failCode := Run([]string{"feature", "new", "T-002", "fail", "--from-jira", "does-not-exist.json", "--dir", root}, env)
 	if failCode != 1 {
 		t.Errorf("expected exit code 1 for non-existent jira file, got %d", failCode)
+	}
+}
+
+func TestCLIIngestPDF(t *testing.T) {
+	root := t.TempDir()
+	pdfFile := filepath.Join(t.TempDir(), "spec.pdf")
+	if err := os.WriteFile(pdfFile, []byte("%PDF-1.4\n1 0 obj\n<<>>\nendobj\n%%EOF"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errBuf bytes.Buffer
+	env := IO{
+		Out: &out,
+		Err: &errBuf,
+		Now: func() time.Time { return time.Date(2026, 11, 2, 10, 0, 0, 0, time.UTC) },
+	}
+
+	code := Run([]string{"ingest", "--dir", root, "--pdf", "--file", pdfFile}, env)
+	if code != 0 {
+		t.Fatalf("ingest --pdf failed with %d: %s", code, errBuf.String())
+	}
+
+	m, ok, err := context.ReadManifest(root)
+	if err != nil || !ok {
+		t.Fatal(err)
+	}
+	if len(m.Entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(m.Entries))
+	}
+	if m.Entries[0].Format != "pdf" {
+		t.Errorf("expected format pdf, got %q", m.Entries[0].Format)
+	}
+}
+
+func TestCLIIngestPDFInvalid(t *testing.T) {
+	root := t.TempDir()
+	badFile := filepath.Join(t.TempDir(), "not-a-pdf.pdf")
+	if err := os.WriteFile(badFile, []byte("random text not pdf"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errBuf bytes.Buffer
+	env := IO{
+		Out: &out,
+		Err: &errBuf,
+		Now: func() time.Time { return time.Date(2026, 11, 2, 10, 0, 0, 0, time.UTC) },
+	}
+
+	code := Run([]string{"ingest", "--dir", root, "--pdf", "--file", badFile}, env)
+	if code != 1 {
+		t.Errorf("expected exit code 1 for invalid PDF, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "invalid pdf document") {
+		t.Errorf("expected 'invalid pdf document' in error output, got %q", errBuf.String())
+	}
+}
+
+func TestCLIFeatureNewFromDoc(t *testing.T) {
+	root := t.TempDir()
+	var out, errBuf bytes.Buffer
+	env := IO{
+		Out: &out,
+		Err: &errBuf,
+		Now: func() time.Time { return time.Date(2026, 11, 2, 10, 0, 0, 0, time.UTC) },
+	}
+
+	// Initialize kit
+	initCode := Run([]string{"init", "--yes", "--dir", root, "--name", "demo"}, env)
+	if initCode != 0 {
+		t.Fatalf("init failed: %s", errBuf.String())
+	}
+
+	pdfFile := filepath.Join(t.TempDir(), "auth-spec.pdf")
+	if err := os.WriteFile(pdfFile, []byte("%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out.Reset()
+	errBuf.Reset()
+	code := Run([]string{"feature", "new", "T-001", "oauth-service", "--from-doc", pdfFile, "--dir", root}, env)
+	if code != 0 {
+		t.Fatalf("feature new --from-doc failed with %d: %s", code, errBuf.String())
+	}
+
+	if !strings.Contains(out.String(), "Staged context:") {
+		t.Errorf("expected output to mention staged context: %s", out.String())
+	}
+
+	reqBytes, err := os.ReadFile(filepath.Join(root, "features", "T-001-oauth-service", "requirements.md"))
+	if err != nil {
+		t.Fatalf("reading requirements.md: %v", err)
+	}
+	req := string(reqBytes)
+	if !strings.Contains(req, "- Reference document: `") || !strings.Contains(req, "auth-spec.pdf") {
+		t.Errorf("expected reference line in requirements.md:\n%s", req)
+	}
+
+	// Test prompt includes multimodal guidance
+	out.Reset()
+	errBuf.Reset()
+	pCode := Run([]string{"prompt", "gemini", "--dir", root}, env)
+	if pCode != 0 {
+		t.Fatalf("prompt failed with %d: %s", pCode, errBuf.String())
+	}
+	if !strings.Contains(out.String(), "pdf (multimodal inspection)") {
+		t.Errorf("expected prompt to include 'pdf (multimodal inspection)':\n%s", out.String())
 	}
 }

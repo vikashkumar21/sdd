@@ -76,9 +76,9 @@ Status: living document · Last updated: 2026-10-26
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
 | T-014 | Context staging pipeline and sdd ingest command | M | T-002 | sdd init and sdd ingest accept files, stdin, and raw text strings | D-018 | Done |
-| T-015 | Jira issue ingestion (JSON, Markdown, and text) | S | T-014 | Import Jira issue summary and acceptance criteria into task templates | D-019 | Awaiting review |
+| T-015 | Jira issue ingestion (JSON, Markdown, and text) | S | T-014 | Import Jira issue summary and acceptance criteria into task templates | D-019 | Done |
 | T-016 | Handover prompt enrichment for staged context | S | T-014 | sdd prompt includes context digest to guide agent spec extraction | D-018 | Done |
-| T-017 | Document and PDF ingestion protocol | M | T-014 | Multimodal agent staging and text extraction for PDF documents | D-020 | Not started |
+| T-017 | Document and PDF ingestion protocol | M | T-014 | Multimodal agent staging and text extraction for PDF documents | D-020 | Awaiting review |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -117,3 +117,4 @@ Unfamiliar technology derails projects. To prevent that:
 | 2026-11-02 | T-003: sdd upgrade command with hash checking and proposal generation awaiting review |
 | 2026-11-02 | T-004: sdd adopt command for pre-existing hand-crafted kits awaiting review |
 | 2026-11-02 | T-015: Jira issue ingestion (JSON, Markdown, text, --from-jira, and --jira) awaiting review |
+| 2026-11-02 | T-017: Document and PDF ingestion protocol (--from-doc, --pdf, multimodal guidance) awaiting review |

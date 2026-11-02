@@ -13,6 +13,7 @@ import (
 	"time"
 
 	sddcontext "github.com/vikashkumar21/sdd/internal/context"
+	"github.com/vikashkumar21/sdd/internal/doc"
 	"github.com/vikashkumar21/sdd/internal/fsutil"
 	"github.com/vikashkumar21/sdd/internal/jira"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
@@ -38,6 +39,8 @@ type Options struct {
 	Title        string
 	FromJiraData []byte
 	JiraOrigin   string    // filename or label of Jira source
+	FromDocData  []byte    // raw document or PDF bytes
+	FromDocPath  string    // original filename / path of document
 	Now          time.Time // clock injection for staging context (defaults to time.Now())
 }
 
@@ -112,6 +115,40 @@ func NewWithOptions(root, id, slug string, opts Options) (Result, error) {
 		}
 	}
 
+	var docStagedPath string
+	var docFormat string
+	var docOrigin string
+	if len(opts.FromDocData) > 0 {
+		if doc.IsPDF(opts.FromDocPath, opts.FromDocData) {
+			if _, err := doc.ValidatePDF(opts.FromDocData); err != nil {
+				return Result{}, fmt.Errorf("feature: %w", err)
+			}
+			docFormat = "pdf"
+		}
+		now := opts.Now
+		if now.IsZero() {
+			now = time.Now()
+		}
+		docOrigin = filepath.Base(opts.FromDocPath)
+		if docOrigin == "" || docOrigin == "." {
+			docOrigin = "ref-doc"
+		}
+		docItem := sddcontext.Item{
+			Source: "file",
+			Origin: docOrigin,
+			Name:   "ref-doc",
+			Task:   id,
+			Format: docFormat,
+			Data:   opts.FromDocData,
+		}
+		entry, err := sddcontext.Stage(root, docItem, now)
+		if err != nil {
+			return Result{}, fmt.Errorf("feature: stage doc context: %w", err)
+		}
+		docStagedPath = entry.Path
+		docFormat = entry.Format
+	}
+
 	rendered := make(map[string]string, len(templateNames))
 	for _, name := range templateNames {
 		rel := "features/_templates/" + name
@@ -121,14 +158,19 @@ func NewWithOptions(root, id, slug string, opts Options) (Result, error) {
 		}
 		text := strings.ReplaceAll(string(tpl), "T-xxx", id)
 		text = strings.ReplaceAll(text, "<title>", title)
-		if name == "requirements.md" && jiraIssue != nil {
-			text = jira.InjectRequirements(text, *jiraIssue)
+		if name == "requirements.md" {
+			if jiraIssue != nil {
+				text = jira.InjectRequirements(text, *jiraIssue)
+			}
+			if docStagedPath != "" {
+				text = doc.InjectDocReference(text, docStagedPath, docOrigin, docFormat)
+			}
 		}
 		rendered[name] = text
 	}
 
 	dirRel := "features/" + id + "-" + slug
-	res := Result{Dir: dirRel}
+	res := Result{Dir: dirRel, StagedContext: docStagedPath}
 	for _, name := range templateNames {
 		rel := dirRel + "/" + name
 		if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(rel), []byte(rendered[name]), 0o644); err != nil {
