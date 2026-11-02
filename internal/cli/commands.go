@@ -12,6 +12,7 @@ import (
 	"github.com/vikashkumar21/sdd/internal/repair"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
+	"github.com/vikashkumar21/sdd/internal/suppress"
 	"github.com/vikashkumar21/sdd/internal/templates"
 )
 
@@ -53,64 +54,112 @@ func runCheck(args []string, env IO) int {
 			fprintf(env.Err, "sdd check --fix: %v\n", perr)
 			return 1
 		}
-		if len(plan.Patches) == 0 {
+
+		checkRep, _ := check.Run(root)
+
+		if len(plan.Patches) == 0 && len(checkRep.StaleWaivers) == 0 {
 			fprintln(env.Out, "No mechanical repairs needed.")
 			return 0
 		}
 
-		fprintln(env.Out, "Proposed repairs:")
-		for _, p := range plan.Patches {
-			fprintf(env.Out, "\n%s (%s):\n", p.Path, p.Description)
-			fprintln(env.Out, strings.TrimRight(p.Diff, "\n"))
-		}
+		p := newPrompter(env.In, env.Out)
 
-		if *dryRun {
-			fprintf(env.Out, "\nDry run: %d file(s) would be repaired. No changes written.\n", len(plan.Patches))
-			return 0
-		}
-
-		approved := map[string]bool{}
-		if *yes {
-			for _, p := range plan.Patches {
-				approved[p.Path] = true
+		if len(plan.Patches) > 0 {
+			fprintln(env.Out, "Proposed repairs:")
+			for _, patch := range plan.Patches {
+				if patch.Suppressed {
+					fprintf(env.Out, "\n%s (%s) [SUPPRESSED: %s]:\n", patch.Path, patch.Description, patch.SuppressReason)
+				} else {
+					fprintf(env.Out, "\n%s (%s):\n", patch.Path, patch.Description)
+				}
+				fprintln(env.Out, strings.TrimRight(patch.Diff, "\n"))
 			}
-		} else {
-			p := newPrompter(env.In, env.Out)
-			if len(plan.Patches) == 1 {
-				if p.confirm(fmt.Sprintf("\nApply repair to %s?", plan.Patches[0].Path)) {
-					approved[plan.Patches[0].Path] = true
+
+			if *dryRun {
+				fprintf(env.Out, "\nDry run: %d file(s) would be repaired. No changes written.\n", len(plan.Patches))
+				return 0
+			}
+
+			approved := map[string]bool{}
+			if *yes {
+				for _, patch := range plan.Patches {
+					approved[patch.Path] = true
 				}
 			} else {
-				answer := p.ask("\nApply repairs? [y]es to all / [n]o / [p]er-file", "n")
-				switch strings.ToLower(strings.TrimSpace(answer)) {
-				case "y", "yes":
-					for _, patch := range plan.Patches {
+				if len(plan.Patches) == 1 {
+					patch := plan.Patches[0]
+					ans := p.ask(fmt.Sprintf("\nApply repair to %s? [y]es / [n]o / [s]uppress", patch.Path), "n")
+					switch strings.ToLower(strings.TrimSpace(ans)) {
+					case "y", "yes":
 						approved[patch.Path] = true
+					case "s", "suppress":
+						reason := p.ask("Waiver reason", "")
+						if reason == "" {
+							reason = "waived via sdd check --fix"
+						}
+						_ = suppress.Add(root, suppress.Entry{
+							File:   patch.Path,
+							Rule:   patch.Rule,
+							Reason: reason,
+							Date:   env.now().Format("2006-01-02"),
+						})
+						fprintf(env.Out, "Recorded waiver for %s (%s).\n", patch.Path, patch.Rule)
 					}
-				case "p", "per-file":
-					for _, patch := range plan.Patches {
-						if p.confirm(fmt.Sprintf("Apply repair to %s?", patch.Path)) {
+				} else {
+					answer := p.ask("\nApply repairs? [y]es to all / [n]o / [p]er-file", "n")
+					switch strings.ToLower(strings.TrimSpace(answer)) {
+					case "y", "yes":
+						for _, patch := range plan.Patches {
 							approved[patch.Path] = true
 						}
+					case "p", "per-file":
+						for _, patch := range plan.Patches {
+							ans := p.ask(fmt.Sprintf("Apply repair to %s? [y]es / [n]o / [s]uppress", patch.Path), "n")
+							switch strings.ToLower(strings.TrimSpace(ans)) {
+							case "y", "yes":
+								approved[patch.Path] = true
+							case "s", "suppress":
+								reason := p.ask("Waiver reason", "")
+								if reason == "" {
+									reason = "waived via sdd check --fix"
+								}
+								_ = suppress.Add(root, suppress.Entry{
+									File:   patch.Path,
+									Rule:   patch.Rule,
+									Reason: reason,
+									Date:   env.now().Format("2006-01-02"),
+								})
+								fprintf(env.Out, "Recorded waiver for %s (%s).\n", patch.Path, patch.Rule)
+							}
+						}
+					default:
+						fprintln(env.Out, "Repairs aborted. No changes written.")
 					}
-				default:
-					fprintln(env.Out, "Repairs aborted. No changes written.")
-					return 0
+				}
+			}
+
+			if len(approved) > 0 {
+				res, aerr := repair.Apply(root, plan, approved, env.now())
+				if aerr != nil {
+					fprintf(env.Err, "sdd check --fix: apply: %v\n", aerr)
+					return 1
+				}
+				fprintf(env.Out, "\nRepaired %d file(s). Original(s) backed up in %s/\n", len(res.Repaired), res.BackupDir)
+			}
+		}
+
+		if len(checkRep.StaleWaivers) > 0 && !*dryRun {
+			fprintln(env.Out, "\nStale waiver(s) found in .sdd/suppressions.json (no longer triggered):")
+			for _, sw := range checkRep.StaleWaivers {
+				fprintf(env.Out, "  - %s (%s): %s\n", sw.File, sw.Rule, sw.Reason)
+			}
+			if *yes || p.confirm("Remove stale waiver(s) from .sdd/suppressions.json?") {
+				if err := suppress.RemoveEntries(root, checkRep.StaleWaivers); err == nil {
+					fprintf(env.Out, "Pruned %d stale waiver(s) from .sdd/suppressions.json.\n", len(checkRep.StaleWaivers))
 				}
 			}
 		}
 
-		if len(approved) == 0 {
-			fprintln(env.Out, "No repairs selected. No changes written.")
-			return 0
-		}
-
-		res, aerr := repair.Apply(root, plan, approved, env.now())
-		if aerr != nil {
-			fprintf(env.Err, "sdd check --fix: apply: %v\n", aerr)
-			return 1
-		}
-		fprintf(env.Out, "\nRepaired %d file(s). Original(s) backed up in %s/\n", len(res.Repaired), res.BackupDir)
 		return 0
 	}
 

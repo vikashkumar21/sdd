@@ -60,6 +60,8 @@ cat transcript.txt | sdd ingest               # stage piped stdin
 
 Required files exist · agent contracts are identical across agent files (managed block, or everything after the title line for older kits) · every `D-xxx` and `T-xxx` reference resolves · tables and code fences are intact · task statuses are valid and agree with `features/` folders · approval records and validation results are filled once a task is past those gates · `SKILLS.md` has the "Human feedback rules" section · unresolved `TODO(human)` placeholders are counted.
 
+Finding waivers registered in `.sdd/suppressions.json` are downgraded to informational notes so `--strict` does not exit with failure. In `sdd check --fix`, suppressed repairs are highlighted with `[SUPPRESSED]` badges and can be kept waived or repaired (which clears the waiver). You can also interactively record waivers during `sdd check --fix` by answering `s`. If an issue is resolved, stale waivers are reported in `sdd check` and can be interactively pruned in `sdd check --fix`.
+
 ## Improving the markdown later
 
 Templates are embedded in the binary. To change them without rebuilding, point `--templates <dir>` at a directory containing replacement files with the same relative paths (for example `base/MISSION.md.tmpl`, `packs/go/standards.md`, `features/plan.md`); anything you do not override falls back to the embedded version. Template syntax is Go `text/template`. The manifest records the template version and a hash of each generated file so a future `sdd upgrade` can tell untouched files from ones you edited.

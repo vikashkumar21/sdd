@@ -234,3 +234,182 @@ func TestCheckFixFileFlag(t *testing.T) {
 		t.Fatalf("CLAUDE.md should NOT have been repaired")
 	}
 }
+
+func TestCheckFixDisplaysSuppressedBadge(t *testing.T) {
+	root := makeKitWithDrift(t)
+
+	// Add suppression for GEMINI.md
+	suppJSON := `{
+  "schema": 1,
+  "suppressions": [
+    {
+      "file": "GEMINI.md",
+      "rule": "contract-parity",
+      "reason": "waived drift for spike",
+      "date": "2026-11-02"
+    }
+  ]
+}`
+	writeCheckFixFile(t, root, ".sdd/suppressions.json", suppJSON)
+
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:          bytes.NewReader(nil),
+		Out:         &stdout,
+		Err:         &stderr,
+		Now:         time.Now,
+		Interactive: true,
+	}
+
+	// Run dry-run to inspect proposed repairs
+	code := Run([]string{"check", "--dir", root, "--fix", "--dry-run"}, env)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d. stderr: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "GEMINI.md") || !strings.Contains(out, "[SUPPRESSED: waived drift for spike]") {
+		t.Fatalf("expected [SUPPRESSED: waived drift for spike] in output:\n%s", out)
+	}
+}
+
+func TestCheckFixInteractiveSuppressOption(t *testing.T) {
+	root := makeKitWithDrift(t)
+
+	// Interactive input:
+	// For GEMINI.md only: answer 's' to suppress, then reason 'spike reason'
+	input := "s\nspike reason\n"
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:          bytes.NewBufferString(input),
+		Out:         &stdout,
+		Err:         &stderr,
+		Now:         time.Now,
+		Interactive: true,
+	}
+
+	code := Run([]string{"check", "--dir", root, "--fix", "--file", "GEMINI.md"}, env)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d. stderr: %s", code, stderr.String())
+	}
+
+	if !strings.Contains(stdout.String(), "Recorded waiver for GEMINI.md (contract-parity)") {
+		t.Fatalf("expected waiver confirmation in output:\n%s", stdout.String())
+	}
+
+	// File was untouched
+	gemini := readCheckFixFile(t, root, "GEMINI.md")
+	if !strings.Contains(gemini, "OLD RULES") {
+		t.Fatalf("expected GEMINI.md to remain untouched, got:\n%s", gemini)
+	}
+
+	// Verify .sdd/suppressions.json has the waiver
+	suppContent := readCheckFixFile(t, root, ".sdd/suppressions.json")
+	if !strings.Contains(suppContent, "spike reason") || !strings.Contains(suppContent, "GEMINI.md") {
+		t.Fatalf("expected waiver recorded in suppressions.json:\n%s", suppContent)
+	}
+}
+
+func TestCheckFixClearsSuppressionOnRepair(t *testing.T) {
+	root := makeKitWithDrift(t)
+
+	// Add existing suppression for GEMINI.md
+	suppJSON := `{
+  "schema": 1,
+  "suppressions": [
+    {
+      "file": "GEMINI.md",
+      "rule": "contract-parity",
+      "reason": "previously waived",
+      "date": "2026-11-02"
+    }
+  ]
+}`
+	writeCheckFixFile(t, root, ".sdd/suppressions.json", suppJSON)
+
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:          bytes.NewReader(nil),
+		Out:         &stdout,
+		Err:         &stderr,
+		Now:         time.Now,
+		Interactive: true,
+	}
+
+	// Repair GEMINI.md with --yes
+	code := Run([]string{"check", "--dir", root, "--fix", "--yes", "--file", "GEMINI.md"}, env)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d. stderr: %s", code, stderr.String())
+	}
+
+	// GEMINI.md should be repaired
+	gemini := readCheckFixFile(t, root, "GEMINI.md")
+	if !strings.Contains(gemini, "CONTRACT RULES v2") {
+		t.Fatalf("GEMINI.md should have been repaired")
+	}
+
+	// .sdd/suppressions.json should no longer contain GEMINI.md
+	suppContent := readCheckFixFile(t, root, ".sdd/suppressions.json")
+	if strings.Contains(suppContent, "GEMINI.md") {
+		t.Fatalf("expected suppression to be cleared upon repair, got:\n%s", suppContent)
+	}
+}
+
+func TestCheckStaleSuppressionDetectionAndPrune(t *testing.T) {
+	root := t.TempDir()
+	exec(t, "", false, "", "init", "--yes", "--dir", root, "--name", "stalepruning")
+
+	// Stale waiver for already identical contract
+	suppJSON := `{
+  "schema": 1,
+  "suppressions": [
+    {
+      "file": "GEMINI.md",
+      "rule": "contract-parity",
+      "reason": "obsolete waiver",
+      "date": "2026-11-02"
+    }
+  ]
+}`
+	writeCheckFixFile(t, root, ".sdd/suppressions.json", suppJSON)
+
+	// 1. Standard check should report an INFO note
+	var checkOut, checkErr bytes.Buffer
+	envCheck := IO{
+		In:          bytes.NewReader(nil),
+		Out:         &checkOut,
+		Err:         &checkErr,
+		Now:         time.Now,
+		Interactive: true,
+	}
+	code := Run([]string{"check", "--dir", root}, envCheck)
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d. stderr: %s", code, checkErr.String())
+	}
+	if !strings.Contains(checkOut.String(), "stale waiver for GEMINI.md (contract-parity) is no longer triggered") {
+		t.Fatalf("expected stale waiver INFO in check output:\n%s", checkOut.String())
+	}
+
+	// 2. check --fix --yes should detect and prune stale waiver
+	var fixOut, fixErr bytes.Buffer
+	envFix := IO{
+		In:          bytes.NewReader(nil),
+		Out:         &fixOut,
+		Err:         &fixErr,
+		Now:         time.Now,
+		Interactive: true,
+	}
+	codeFix := Run([]string{"check", "--dir", root, "--fix", "--yes"}, envFix)
+	if codeFix != 0 {
+		t.Fatalf("expected exit 0, got %d. stderr: %s", codeFix, fixErr.String())
+	}
+	if !strings.Contains(fixOut.String(), "Pruned 1 stale waiver(s)") {
+		t.Fatalf("expected prune confirmation in output:\n%s", fixOut.String())
+	}
+
+	// suppressions.json should now have 0 entries
+	suppAfter := readCheckFixFile(t, root, ".sdd/suppressions.json")
+	if strings.Contains(suppAfter, "GEMINI.md") {
+		t.Fatalf("expected GEMINI.md to be pruned, got:\n%s", suppAfter)
+	}
+}

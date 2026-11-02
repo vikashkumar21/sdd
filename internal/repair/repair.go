@@ -14,15 +14,19 @@ import (
 	"github.com/vikashkumar21/sdd/internal/block"
 	"github.com/vikashkumar21/sdd/internal/fsutil"
 	"github.com/vikashkumar21/sdd/internal/markdown"
+	"github.com/vikashkumar21/sdd/internal/suppress"
 )
 
 // Patch represents a planned repair for a single file.
 type Patch struct {
-	Path        string // relative slash-separated path
-	Description string // human-readable explanation
-	Original    string
-	Modified    string
-	Diff        string // unified diff preview
+	Path           string // relative slash-separated path
+	Rule           string // rule identifier (e.g. "contract-parity", "table-format")
+	Description    string // human-readable explanation
+	Original       string
+	Modified       string
+	Diff           string // unified diff preview
+	Suppressed     bool   // true if currently waived in .sdd/suppressions.json
+	SuppressReason string // human waiver reason
 }
 
 // Plan contains all planned repairs.
@@ -73,6 +77,21 @@ func PlanRepairs(root string, filterFiles []string) (Plan, error) {
 	}
 	plan.Patches = append(plan.Patches, tablePatches...)
 
+	// 3. Check for active suppressions
+	suppManifest, hasSupp, _ := suppress.Load(root)
+	if hasSupp && len(suppManifest.Suppressions) > 0 {
+		for i := range plan.Patches {
+			p := &plan.Patches[i]
+			for _, entry := range suppManifest.Suppressions {
+				if entry.Matches(p.Path, p.Rule) {
+					p.Suppressed = true
+					p.SuppressReason = entry.Reason
+					break
+				}
+			}
+		}
+	}
+
 	return plan, nil
 }
 
@@ -118,6 +137,7 @@ func planContractRepairs(root string, shouldInclude func(string) bool) ([]Patch,
 				diff := Diff(normContent, mod, name)
 				patches = append(patches, Patch{
 					Path:        name,
+					Rule:        "contract-parity",
 					Description: fmt.Sprintf("synchronize managed contract block to match %s", canonicalSource),
 					Original:    normContent,
 					Modified:    mod,
@@ -130,6 +150,7 @@ func planContractRepairs(root string, shouldInclude func(string) bool) ([]Patch,
 			diff := Diff(normContent, mod, name)
 			patches = append(patches, Patch{
 				Path:        name,
+				Rule:        "contract-parity",
 				Description: fmt.Sprintf("append managed contract block from %s", canonicalSource),
 				Original:    normContent,
 				Modified:    mod,
@@ -199,6 +220,7 @@ func planTableRepairs(root string, shouldInclude func(string) bool) ([]Patch, er
 			diff := Diff(normContent, modText, rel)
 			patches = append(patches, Patch{
 				Path:        rel,
+				Rule:        "table-format",
 				Description: "repair malformed markdown table delimiters",
 				Original:    normContent,
 				Modified:    modText,
@@ -237,6 +259,8 @@ func Apply(root string, plan Plan, approvedPaths map[string]bool, now time.Time)
 		}
 
 		res.Repaired = append(res.Repaired, p.Path)
+		// 3. Clear suppression waiver for repaired file
+		_ = suppress.RemoveFileRules(root, p.Path, p.Rule)
 	}
 
 	if len(res.Repaired) > 0 {

@@ -541,3 +541,177 @@ func TestCheckJSONIncludesExpiryWarnings(t *testing.T) {
 		t.Fatalf("expected finding in JSONReport for expired fact: %+v", jr.Findings)
 	}
 }
+
+func TestSuppressedFindingsPassStrict(t *testing.T) {
+	root := generate(t)
+
+	// Introduce contract parity divergence in GEMINI.md
+	geminiPath := filepath.Join(root, "GEMINI.md")
+	data, err := os.ReadFile(geminiPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	modData := strings.Replace(string(data), "ANTHEM: ALWAYS BE DETERMINISTIC.", "ANTHEM: DIFFERENT RULE.", 1)
+	if err := os.WriteFile(geminiPath, []byte(modData), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify it fails check without suppression
+	rUnsuppressed, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !rUnsuppressed.Failed(false) {
+		t.Fatalf("expected unsuppressed parity error to fail check")
+	}
+
+	// Now register waivers in .sdd/suppressions.json (including todo placeholders for strict test)
+	suppJSON := `{
+  "schema": 1,
+  "suppressions": [
+    {
+      "file": "GEMINI.md",
+      "rule": "contract-parity",
+      "reason": "intentional divergence for testing",
+      "date": "2026-11-02"
+    },
+    {
+      "file": "*",
+      "rule": "todo-placeholder",
+      "reason": "test fixtures have unedited todos",
+      "date": "2026-11-02"
+    }
+  ]
+}`
+	sddDir := filepath.Join(root, ".sdd")
+	_ = os.MkdirAll(sddDir, 0o755)
+	if err := os.WriteFile(filepath.Join(sddDir, "suppressions.json"), []byte(suppJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run check again
+	rSuppressed, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should pass even in strict mode
+	if rSuppressed.Failed(true) {
+		t.Fatalf("expected check to pass strict mode when finding is suppressed: %+v", rSuppressed.Findings)
+	}
+
+	// Verify finding is downgraded to INFO and includes reason
+	found := false
+	for _, f := range rSuppressed.Findings {
+		if f.File == "GEMINI.md" && f.Rule == "contract-parity" {
+			found = true
+			if f.Severity != Info {
+				t.Errorf("expected Severity to be INFO, got %s", f.Severity)
+			}
+			if !f.Suppressed {
+				t.Errorf("expected Suppressed to be true")
+			}
+			if f.SuppressReason != "intentional divergence for testing" {
+				t.Errorf("unexpected SuppressReason: %s", f.SuppressReason)
+			}
+			if !strings.Contains(f.Message, "(suppressed: intentional divergence for testing)") {
+				t.Errorf("unexpected message: %s", f.Message)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected suppressed finding for GEMINI.md in %+v", rSuppressed.Findings)
+	}
+}
+
+func TestCheckJSONIncludesSuppressionMetadata(t *testing.T) {
+	root := generate(t)
+
+	// Suppress README.md missing warning
+	_ = os.Remove(filepath.Join(root, "README.md"))
+	suppJSON := `{
+  "schema": 1,
+  "suppressions": [
+    {
+      "file": "README.md",
+      "rule": "required-file",
+      "reason": "omitted for custom doc site",
+      "date": "2026-11-02"
+    }
+  ]
+}`
+	sddDir := filepath.Join(root, ".sdd")
+	_ = os.MkdirAll(sddDir, 0o755)
+	_ = os.WriteFile(filepath.Join(sddDir, "suppressions.json"), []byte(suppJSON), 0o644)
+
+	r, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := r.JSON(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var jr JSONReport
+	if err := json.Unmarshal(data, &jr); err != nil {
+		t.Fatal(err)
+	}
+
+	if !jr.Valid {
+		t.Errorf("expected jr.Valid=true when warning is suppressed")
+	}
+
+	found := false
+	for _, f := range jr.Findings {
+		if f.File == "README.md" && f.Suppressed {
+			found = true
+			if f.SuppressReason != "omitted for custom doc site" {
+				t.Errorf("unexpected reason in JSON: %s", f.SuppressReason)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected suppressed finding in JSON report: %s", string(data))
+	}
+}
+
+func TestCheckStaleSuppressionDetection(t *testing.T) {
+	root := generate(t)
+
+	// Clean kit has no errors; register a suppression for a non-existent issue
+	suppJSON := `{
+  "schema": 1,
+  "suppressions": [
+    {
+      "file": "CLAUDE.md",
+      "rule": "contract-parity",
+      "reason": "stale waiver that is not triggered",
+      "date": "2026-11-02"
+    }
+  ]
+}`
+	sddDir := filepath.Join(root, ".sdd")
+	_ = os.MkdirAll(sddDir, 0o755)
+	_ = os.WriteFile(filepath.Join(sddDir, "suppressions.json"), []byte(suppJSON), 0o644)
+
+	r, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	foundStale := false
+	for _, f := range r.Findings {
+		if f.Rule == "stale-waiver" && strings.Contains(f.Message, "CLAUDE.md") {
+			foundStale = true
+			if f.Severity != Info {
+				t.Errorf("expected stale waiver severity to be INFO, got %s", f.Severity)
+			}
+			break
+		}
+	}
+	if !foundStale {
+		t.Fatalf("expected stale-waiver finding in %+v", r.Findings)
+	}
+}

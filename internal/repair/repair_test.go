@@ -170,3 +170,55 @@ func TestRepairFilterFiles(t *testing.T) {
 		t.Fatalf("expected only GEMINI.md patch, got %+v", plan.Patches)
 	}
 }
+
+func TestRepairSuppression(t *testing.T) {
+	root := t.TempDir()
+	canonicalBlock := "CONTRACT RULES"
+	writeTestFile(t, root, "AGENTS.md", block.Begin("1.0.0")+"\n"+canonicalBlock+"\n<!-- sdd:end contract -->")
+	writeTestFile(t, root, "GEMINI.md", block.Begin("1.0.0")+"\nOLD\n<!-- sdd:end contract -->")
+
+	// Write suppression waiver for GEMINI.md contract-parity
+	suppJSON := `{
+  "schema": 1,
+  "suppressions": [
+    {
+      "file": "GEMINI.md",
+      "rule": "contract-parity",
+      "reason": "temporarily waived for spike",
+      "date": "2026-11-02"
+    }
+  ]
+}`
+	writeTestFile(t, root, ".sdd/suppressions.json", suppJSON)
+
+	// 1. Plan repairs: verify GEMINI.md patch is marked Suppressed=true with reason
+	plan, err := PlanRepairs(root, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(plan.Patches) != 1 {
+		t.Fatalf("expected 1 patch, got %d", len(plan.Patches))
+	}
+	p := plan.Patches[0]
+	if !p.Suppressed {
+		t.Errorf("expected Patch.Suppressed to be true")
+	}
+	if p.SuppressReason != "temporarily waived for spike" {
+		t.Errorf("unexpected Patch.SuppressReason: %s", p.SuppressReason)
+	}
+
+	// 2. Apply repair: verify file is repaired and suppression is cleared
+	res, err := Apply(root, plan, nil, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Repaired) != 1 || res.Repaired[0] != "GEMINI.md" {
+		t.Errorf("expected GEMINI.md repaired, got %v", res.Repaired)
+	}
+
+	// 3. Verify .sdd/suppressions.json no longer contains GEMINI.md waiver
+	suppAfter := readTestFile(t, root, ".sdd/suppressions.json")
+	if strings.Contains(suppAfter, "GEMINI.md") {
+		t.Errorf("expected suppression to be cleared from suppressions.json, got:\n%s", suppAfter)
+	}
+}
