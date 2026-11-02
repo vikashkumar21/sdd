@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/vikashkumar21/sdd/internal/context"
+	"github.com/vikashkumar21/sdd/internal/jira"
 )
 
 type ingestOpts struct {
@@ -14,6 +15,7 @@ type ingestOpts struct {
 	text  string
 	name  string
 	task  string
+	jira  bool
 	files stringList
 }
 
@@ -24,6 +26,7 @@ func runIngest(args []string, env IO) int {
 	fs.StringVar(&o.text, "text", "", "raw text string to stage as context")
 	fs.StringVar(&o.name, "name", "", "label or slug name for the staged file")
 	fs.StringVar(&o.task, "task", "", "task ID to associate context with (e.g. T-001)")
+	fs.BoolVar(&o.jira, "jira", false, "validate and stage context as a Jira issue")
 	fs.Var(&o.files, "file", "path to file to stage as context (repeatable)")
 
 	pos, err := parseInterspersed(fs, args)
@@ -97,6 +100,18 @@ func runIngest(args []string, env IO) int {
 	now := env.now()
 	stagedCount := 0
 	for _, it := range items {
+		if o.jira {
+			iss, err := jira.Parse(it.Data)
+			if err != nil {
+				fprintf(env.Err, "sdd ingest: invalid jira issue: %v\n", err)
+				return 1
+			}
+			it.Format = "jira"
+			if it.Name == "" && iss.Key != "" {
+				it.Name = iss.Key
+			}
+		}
+
 		entry, err := context.Stage(root, it, now)
 		if err != nil {
 			fprintf(env.Err, "sdd ingest: %v\n", err)

@@ -147,3 +147,114 @@ func TestNewConfinedRoot(t *testing.T) {
 		t.Fatal("expected error opening non-existent root, got nil")
 	}
 }
+
+func TestNewFromJira(t *testing.T) {
+	root := kit(t)
+	jiraJSON := `{
+		"key": "PROJ-101",
+		"fields": {
+			"summary": "Implement OAuth2 token refresh endpoint",
+			"description": "Endpoint must refresh expired access tokens using valid refresh tokens.",
+			"issuetype": {"name": "Story"},
+			"priority": {"name": "High"},
+			"customfield_10020_acceptance": [
+				"Reject expired refresh tokens with 401 Unauthorized",
+				"Issue new access token with 1 hour TTL | include token type Bearer"
+			]
+		}
+	}`
+
+	now := time.Date(2026, 11, 2, 12, 0, 0, 0, time.UTC)
+	opts := Options{
+		FromJiraData: []byte(jiraJSON),
+		JiraOrigin:   "issue-101.json",
+		Now:          now,
+	}
+
+	res, err := NewWithOptions(root, "T-001", "oauth-refresh", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if res.Dir != "features/T-001-oauth-refresh" {
+		t.Errorf("unexpected dir: %q", res.Dir)
+	}
+
+	req := read(t, root, "features/T-001-oauth-refresh/requirements.md")
+
+	// 1. Goal replaced with Jira summary
+	if !strings.Contains(req, "## 1. Goal\nImplement OAuth2 token refresh endpoint") {
+		t.Errorf("Goal not replaced with Jira summary in requirements.md:\n%s", req)
+	}
+
+	// 2. Context reference added
+	if !strings.Contains(req, "- Jira issue: PROJ-101 (Story)") {
+		t.Errorf("Context missing Jira issue reference in requirements.md:\n%s", req)
+	}
+
+	// 3. Functional requirements table injected
+	if !strings.Contains(req, "| R-001 | The system SHALL Reject expired refresh tokens with 401 Unauthorized | MUST | test |") {
+		t.Errorf("R-001 row missing or malformed in requirements.md:\n%s", req)
+	}
+	if !strings.Contains(req, `| R-002 | The system SHALL Issue new access token with 1 hour TTL \| include token type Bearer | MUST | test |`) {
+		t.Errorf("R-002 row with escaped pipe missing in requirements.md:\n%s", req)
+	}
+
+	// 4. Acceptance criteria section injected
+	if !strings.Contains(req, "- Reject expired refresh tokens with 401 Unauthorized\n- Issue new access token with 1 hour TTL | include token type Bearer") {
+		t.Errorf("Acceptance criteria section missing injected bullets:\n%s", req)
+	}
+}
+
+func TestNewFromJiraStagedContext(t *testing.T) {
+	root := kit(t)
+	jiraMD := `# PROJ-202: Add Healthcheck Endpoint
+Type: Task
+
+## Description
+Provide /healthz for Kubernetes probes.
+
+## Acceptance Criteria
+- Return 200 OK when database ping succeeds
+- Return 503 Service Unavailable when database ping fails
+`
+
+	now := time.Date(2026, 11, 2, 14, 30, 0, 0, time.UTC)
+	opts := Options{
+		FromJiraData: []byte(jiraMD),
+		JiraOrigin:   "task-202.md",
+		Now:          now,
+	}
+
+	res, err := NewWithOptions(root, "T-001", "healthcheck", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if res.StagedContext == "" {
+		t.Fatal("expected StagedContext to be non-empty")
+	}
+
+	// Verify staged file exists
+	stagedPath := filepath.Join(root, filepath.FromSlash(res.StagedContext))
+	data, err := os.ReadFile(stagedPath)
+	if err != nil {
+		t.Fatalf("reading staged file %s: %v", stagedPath, err)
+	}
+	if string(data) != jiraMD {
+		t.Errorf("staged file content mismatch: got %q, want %q", string(data), jiraMD)
+	}
+
+	// Verify .sdd/context/manifest.json contains the entry
+	manifestPath := filepath.Join(root, ".sdd", "context", "manifest.json")
+	mdata, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("reading context manifest: %v", err)
+	}
+	if !strings.Contains(string(mdata), `"format": "jira"`) {
+		t.Errorf("context manifest missing jira format: %s", string(mdata))
+	}
+	if !strings.Contains(string(mdata), `"task": "T-001"`) {
+		t.Errorf("context manifest missing task T-001: %s", string(mdata))
+	}
+}

@@ -10,8 +10,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
+	sddcontext "github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/fsutil"
+	"github.com/vikashkumar21/sdd/internal/jira"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 )
 
@@ -27,6 +30,15 @@ type Result struct {
 	Dir           string   // relative, slash-separated
 	Files         []string // relative, slash-separated
 	StatusUpdated bool     // the ROADMAP status changed from Not started to Specifying
+	StagedContext string   // relative path to staged context artifact if any
+}
+
+// Options provides optional parameters when creating a new feature folder.
+type Options struct {
+	Title        string
+	FromJiraData []byte
+	JiraOrigin   string    // filename or label of Jira source
+	Now          time.Time // clock injection for staging context (defaults to time.Now())
 }
 
 // New creates features/<id>-<slug>/ with the three documents. The task must
@@ -34,6 +46,11 @@ type Result struct {
 // When title is empty, the title from the ROADMAP row is used.
 // All operations are confined to root via os.Root.
 func New(root, id, slug, title string) (Result, error) {
+	return NewWithOptions(root, id, slug, Options{Title: title})
+}
+
+// NewWithOptions creates features/<id>-<slug>/ with options including Jira ingestion.
+func NewWithOptions(root, id, slug string, opts Options) (Result, error) {
 	if !idRe.MatchString(id) {
 		return Result{}, fmt.Errorf("task ID %q must look like T-001", id)
 	}
@@ -42,6 +59,15 @@ func New(root, id, slug, title string) (Result, error) {
 	}
 	if !slugRe.MatchString(slug) {
 		return Result{}, fmt.Errorf("slug %q must be lower-case words joined by hyphens (for example project-skeleton)", slug)
+	}
+
+	var jiraIssue *jira.Issue
+	if len(opts.FromJiraData) > 0 {
+		iss, err := jira.Parse(opts.FromJiraData)
+		if err != nil {
+			return Result{}, fmt.Errorf("feature: parse jira issue: %w", err)
+		}
+		jiraIssue = &iss
 	}
 
 	rootHandle, err := os.OpenRoot(root)
@@ -66,6 +92,7 @@ func New(root, id, slug, title string) (Result, error) {
 	if task == nil {
 		return Result{}, fmt.Errorf("%s has no task row in ROADMAP.md; add the task to the roadmap first", id)
 	}
+	title := opts.Title
 	if strings.TrimSpace(title) == "" {
 		title = task.Title
 	}
@@ -94,6 +121,9 @@ func New(root, id, slug, title string) (Result, error) {
 		}
 		text := strings.ReplaceAll(string(tpl), "T-xxx", id)
 		text = strings.ReplaceAll(text, "<title>", title)
+		if name == "requirements.md" && jiraIssue != nil {
+			text = jira.InjectRequirements(text, *jiraIssue)
+		}
 		rendered[name] = text
 	}
 
@@ -113,5 +143,33 @@ func New(root, id, slug, title string) (Result, error) {
 		}
 		res.StatusUpdated = true
 	}
+
+	if len(opts.FromJiraData) > 0 {
+		now := opts.Now
+		if now.IsZero() {
+			now = time.Now()
+		}
+		origin := opts.JiraOrigin
+		if origin == "" && jiraIssue != nil {
+			origin = jiraIssue.Key
+		}
+		if origin == "" {
+			origin = "jira"
+		}
+		item := sddcontext.Item{
+			Source: "file",
+			Origin: origin,
+			Name:   "jira-issue",
+			Task:   id,
+			Format: "jira",
+			Data:   opts.FromJiraData,
+		}
+		entry, err := sddcontext.Stage(root, item, now)
+		if err != nil {
+			return res, fmt.Errorf("feature: stage jira context: %w", err)
+		}
+		res.StagedContext = entry.Path
+	}
+
 	return res, nil
 }

@@ -200,18 +200,19 @@ func runCheck(args []string, env IO) int {
 
 func runFeature(args []string, env IO) int {
 	if len(args) == 0 || args[0] != "new" {
-		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--dir <project>]")
+		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--dir <project>]")
 		return 2
 	}
 	fs := newFlagSet("feature new", env)
 	dir := fs.String("dir", ".", "project root")
 	title := fs.String("title", "", "task title (default: the title in ROADMAP.md)")
+	fromJira := fs.String("from-jira", "", "path or raw text of a Jira issue to import into requirements.md and stage into context")
 	pos, err := parseInterspersed(fs, args[1:])
 	if err != nil {
 		return parseExit(err)
 	}
 	if len(pos) != 2 {
-		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--dir <project>]")
+		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--dir <project>]")
 		return 2
 	}
 	root, err := filepath.Abs(*dir)
@@ -219,7 +220,39 @@ func runFeature(args []string, env IO) int {
 		fprintf(env.Err, "sdd feature: %v\n", err)
 		return 1
 	}
-	res, err := feature.New(root, pos[0], pos[1], *title)
+
+	var jiraData []byte
+	var jiraOrigin string
+	if *fromJira != "" {
+		filePath := *fromJira
+		if !filepath.IsAbs(filePath) {
+			if _, err := os.Stat(filePath); err != nil {
+				candidate := filepath.Join(root, filePath)
+				if _, err2 := os.Stat(candidate); err2 == nil {
+					filePath = candidate
+				}
+			}
+		}
+		if data, err := os.ReadFile(filePath); err == nil {
+			jiraData = data
+			jiraOrigin = filepath.Base(filePath)
+		} else {
+			if strings.Contains(filePath, ".") || strings.Contains(filePath, "/") || strings.Contains(filePath, "\\") {
+				fprintf(env.Err, "sdd feature: read jira file %s: %v\n", *fromJira, err)
+				return 1
+			}
+			jiraData = []byte(*fromJira)
+			jiraOrigin = "inline"
+		}
+	}
+
+	opts := feature.Options{
+		Title:        *title,
+		FromJiraData: jiraData,
+		JiraOrigin:   jiraOrigin,
+		Now:          env.now(),
+	}
+	res, err := feature.NewWithOptions(root, pos[0], pos[1], opts)
 	if err != nil {
 		fprintf(env.Err, "sdd feature: %v\n", err)
 		return 1
@@ -230,6 +263,9 @@ func runFeature(args []string, env IO) int {
 	}
 	if res.StatusUpdated {
 		fprintf(env.Out, "ROADMAP.md: %s is now Specifying.\n", pos[0])
+	}
+	if res.StagedContext != "" {
+		fprintf(env.Out, "Staged Jira issue: %s\n", res.StagedContext)
 	}
 	fprintf(env.Out, "\nNext: draft requirements.md, plan.md and validation.md (no code), then stop for `APPROVED %s`.\n", pos[0])
 	return 0

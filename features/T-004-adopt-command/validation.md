@@ -55,4 +55,4 @@ Feedback-rule compliance (SKILLS.md, "Human feedback rules"): none active.
 
 ## 8. Sign-off
 Suggested commit message: `feat(adopt): add sdd adopt command for pre-existing hand-crafted kits (T-004)`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-004`
+Reviewed by: Vikash   Date: 2026-11-02   Reply received: `COMMITTED T-004`
