@@ -5,6 +5,7 @@
 package check
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -14,8 +15,11 @@ import (
 	"strings"
 
 	"github.com/vikashkumar21/sdd/internal/block"
+	"github.com/vikashkumar21/sdd/internal/context"
+	"github.com/vikashkumar21/sdd/internal/markdown"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
+	"github.com/vikashkumar21/sdd/internal/suppress"
 )
 
 // Severity of a finding.
@@ -30,14 +34,34 @@ const (
 
 // Finding is one problem (or note) found by Run.
 type Finding struct {
-	Severity Severity
-	File     string
-	Line     int // 0 when not applicable
-	Message  string
+	Severity       Severity `json:"severity"`
+	File           string   `json:"file"`
+	Line           int      `json:"line,omitempty"` // 0 when not applicable
+	Message        string   `json:"message"`
+	Rule           string   `json:"rule,omitempty"`
+	Suppressed     bool     `json:"suppressed,omitempty"`
+	SuppressReason string   `json:"suppress_reason,omitempty"`
+}
+
+// Summary provides aggregate counts by severity.
+type Summary struct {
+	Errors   int `json:"errors"`
+	Warnings int `json:"warnings"`
+	Notes    int `json:"notes"`
+}
+
+// JSONReport is the machine-readable output structure for sdd check.
+type JSONReport struct {
+	Valid    bool      `json:"valid"`
+	Summary  Summary   `json:"summary"`
+	Findings []Finding `json:"findings"`
 }
 
 // Report is the result of Run.
-type Report struct{ Findings []Finding }
+type Report struct {
+	Findings     []Finding
+	StaleWaivers []suppress.Entry
+}
 
 // Count returns how many findings have the given severity.
 func (r Report) Count(s Severity) int {
@@ -56,13 +80,34 @@ func (r Report) Failed(strict bool) bool {
 	return r.Count(Error) > 0 || (strict && r.Count(Warn) > 0)
 }
 
+// JSON renders the report as indented, machine-readable JSON.
+func (r Report) JSON(strict bool) ([]byte, error) {
+	findings := r.Findings
+	if findings == nil {
+		findings = []Finding{}
+	}
+	jr := JSONReport{
+		Valid: !r.Failed(strict),
+		Summary: Summary{
+			Errors:   r.Count(Error),
+			Warnings: r.Count(Warn),
+			Notes:    r.Count(Info),
+		},
+		Findings: findings,
+	}
+	return json.MarshalIndent(jr, "", "  ")
+}
+
 var (
-	decisionRowRe = regexp.MustCompile(`(?m)^\|\s*(D-\d{3})\s*\|`)
-	decisionRefRe = regexp.MustCompile(`\bD-\d{3}\b`)
-	taskRefRe     = regexp.MustCompile(`\bT-\d{3}\b`)
-	featureDirRe  = regexp.MustCompile(`^(T-\d{3})-[a-z0-9]+(?:-[a-z0-9]+)*$`)
-	feedbackRe    = regexp.MustCompile(`(?m)^##\s+.*Human feedback rules`)
-	approvalRe    = regexp.MustCompile(`Approved by:\s*_{3,}`)
+	decisionRowRe  = regexp.MustCompile(`(?m)^\|\s*(D-\d{3})\s*\|`)
+	decisionRefRe  = regexp.MustCompile(`\bD-\d{3}\b`)
+	taskRefRe      = regexp.MustCompile(`\bT-\d{3}\b`)
+	featureDirRe   = regexp.MustCompile(`^(T-\d{3})-[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	feedbackRe     = regexp.MustCompile(`(?m)^##\s+.*Human feedback rules`)
+	approvalRe     = regexp.MustCompile(`Approved by:\s*_{3,}`)
+	factHdrRe      = regexp.MustCompile(`(?i)^\|\s*Date\s*\|\s*Fact\s*\|\s*Source\s*\|\s*Re-verify at\s*\|`)
+	milestoneRefRe = regexp.MustCompile(`\bM\d+\b`)
+	statusHeaderRe = regexp.MustCompile(`(?m)^Status:\s*([^\r\n]+)`)
 )
 
 var coreDocs = []string{"MISSION.md", "TECH_STACK.md", "ROADMAP.md", "SKILLS.md"}
@@ -79,6 +124,29 @@ func Run(root string) (Report, error) {
 	}
 	c := &checker{root: root, texts: map[string]string{}}
 	c.run()
+
+	// Load suppressions and apply them
+	var staleWaivers []suppress.Entry
+	suppManifest, hasSupp, suppErr := suppress.Load(root)
+	if suppErr != nil {
+		c.add(Error, suppress.SuppressionsFile, 0, "suppress-syntax", "invalid suppressions manifest: %v", suppErr)
+	} else if hasSupp && len(suppManifest.Suppressions) > 0 {
+		matcher := suppress.NewMatcher(suppManifest)
+		for i := range c.findings {
+			f := &c.findings[i]
+			if entry, ok := matcher.Match(f.File, f.Rule); ok {
+				f.Suppressed = true
+				f.SuppressReason = entry.Reason
+				f.Severity = Info
+				f.Message = fmt.Sprintf("%s (suppressed: %s)", f.Message, entry.Reason)
+			}
+		}
+		staleWaivers = matcher.Stale()
+		for _, stale := range staleWaivers {
+			c.add(Info, suppress.SuppressionsFile, 0, "stale-waiver", "stale waiver for %s (%s) is no longer triggered", stale.File, stale.Rule)
+		}
+	}
+
 	sort.SliceStable(c.findings, func(i, j int) bool {
 		a, b := c.findings[i], c.findings[j]
 		if a.File != b.File {
@@ -89,7 +157,7 @@ func Run(root string) (Report, error) {
 		}
 		return a.Message < b.Message
 	})
-	return Report{Findings: c.findings}, nil
+	return Report{Findings: c.findings, StaleWaivers: staleWaivers}, nil
 }
 
 type checker struct {
@@ -98,8 +166,14 @@ type checker struct {
 	findings []Finding
 }
 
-func (c *checker) add(sev Severity, file string, line int, format string, args ...any) {
-	c.findings = append(c.findings, Finding{Severity: sev, File: file, Line: line, Message: fmt.Sprintf(format, args...)})
+func (c *checker) add(sev Severity, file string, line int, rule string, format string, args ...any) {
+	c.findings = append(c.findings, Finding{
+		Severity: sev,
+		File:     file,
+		Line:     line,
+		Rule:     rule,
+		Message:  fmt.Sprintf(format, args...),
+	})
 }
 
 func (c *checker) load(rel string) (string, bool) {
@@ -120,10 +194,10 @@ func (c *checker) run() {
 	agents := []string{"CLAUDE.md", "GEMINI.md"}
 	switch {
 	case mErr != nil:
-		c.add(Error, scaffold.ManifestPath, 0, "%v", mErr)
+		c.add(Error, scaffold.ManifestPath, 0, "manifest-syntax", "%v", mErr)
 	case hasManifest:
 		if manifest.Schema != 1 {
-			c.add(Error, scaffold.ManifestPath, 0, "unsupported manifest schema %d (this sdd understands 1)", manifest.Schema)
+			c.add(Error, scaffold.ManifestPath, 0, "manifest-schema", "unsupported manifest schema %d (this sdd understands 1)", manifest.Schema)
 		}
 		agents = nil
 		for _, id := range manifest.Answers.Agents {
@@ -148,24 +222,58 @@ func (c *checker) run() {
 	c.checkTodos(append(append([]string{}, coreDocs...), agents...))
 	tasks := c.checkRoadmap()
 	c.checkFeatures(tasks)
+	c.checkVerifiedFactsExpiry(tasks)
 	if hasManifest && mErr == nil {
 		c.checkManifestDrift(manifest)
 	}
 	c.checkOptionalAgents(agents)
+	c.checkContextManifest()
+	c.checkPermissions()
+}
+
+func (c *checker) checkPermissions() {
+	claudePath := filepath.Join(c.root, ".claude", "settings.json")
+	if data, err := os.ReadFile(claudePath); err == nil {
+		var obj map[string]any
+		if err := json.Unmarshal(data, &obj); err != nil {
+			c.add(Error, ".claude/settings.json", 0, "permissions-syntax", "invalid JSON in Claude settings: %v", err)
+		}
+	}
+}
+
+func (c *checker) checkContextManifest() {
+	m, ok, err := context.ReadManifest(c.root)
+	if !ok {
+		return
+	}
+	if err != nil {
+		c.add(Error, context.ManifestPath, 0, "context-syntax", "%v", err)
+		return
+	}
+	for _, entry := range m.Entries {
+		if entry.Path == "" {
+			c.add(Error, context.ManifestPath, 0, "context-entry", "entry %s has empty path", entry.ID)
+			continue
+		}
+		path := filepath.Join(c.root, filepath.FromSlash(entry.Path))
+		if _, err := os.Stat(path); err != nil {
+			c.add(Error, context.ManifestPath, 0, "context-missing", "staged context file %s does not exist: %s", entry.ID, entry.Path)
+		}
+	}
 }
 
 func (c *checker) requireFiles(agents []string) {
 	required := append(append(append([]string{}, agents...), coreDocs...), templateFiles...)
 	for _, rel := range required {
 		if _, ok := c.load(rel); !ok {
-			c.add(Error, rel, 0, "required file is missing (run `sdd init`, or restore it)")
+			c.add(Error, rel, 0, "required-file", "required file is missing (run `sdd init`, or restore it)")
 		}
 	}
 }
 
 func (c *checker) checkReadme() {
 	if _, ok := c.load("README.md"); !ok {
-		c.add(Warn, "README.md", 0, "README.md is missing")
+		c.add(Warn, "README.md", 0, "required-file", "README.md is missing")
 	}
 }
 
@@ -175,7 +283,7 @@ func (c *checker) checkOptionalAgents(required []string) {
 		have[r] = true
 	}
 	if _, ok := c.load("AGENTS.md"); !ok && !have["AGENTS.md"] {
-		c.add(Info, "AGENTS.md", 0, "AGENTS.md is not present (optional unless the manifest lists it)")
+		c.add(Info, "AGENTS.md", 0, "optional-file", "AGENTS.md is not present (optional unless the manifest lists it)")
 	}
 }
 
@@ -214,38 +322,21 @@ func (c *checker) markdownFiles() []string {
 }
 
 func (c *checker) checkFences(rel, text string) {
-	if strings.Count(text, "```")%2 != 0 {
-		c.add(Error, rel, 0, "unbalanced code fence (odd number of ``` markers)")
+	for _, f := range markdown.CheckFences(text) {
+		c.add(Error, rel, f.Line, "code-fence", "unbalanced code fence: %s", f.Message)
 	}
 }
 
 func (c *checker) checkTables(rel, text string) {
-	inFence := false
-	var block []string
-	var lineNos []int
-	flush := func() {
-		if len(block) >= 2 {
-			want := strings.Count(block[0], "|")
-			for i, l := range block {
-				if strings.Count(l, "|") != want {
-					c.add(Error, rel, lineNos[i], "table row has %d pipes, header has %d (a cell may contain a literal pipe)", strings.Count(l, "|"), want)
-				}
+	tables := markdown.ExtractTables(text)
+	for _, t := range tables {
+		want := t.Header.Columns
+		for _, r := range t.Rows {
+			if r.Columns != want {
+				c.add(Error, rel, r.LineNo, "table-format", "table row has %d columns, header has %d (pipes mismatch or unescaped literal pipe)", r.Columns, want)
 			}
 		}
-		block, lineNos = nil, nil
 	}
-	for i, line := range strings.Split(text, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "```") {
-			inFence = !inFence
-		}
-		if !inFence && strings.HasPrefix(line, "|") {
-			block = append(block, line)
-			lineNos = append(lineNos, i+1)
-			continue
-		}
-		flush()
-	}
-	flush()
 }
 
 func (c *checker) checkReferences(docs []string) {
@@ -275,7 +366,7 @@ func (c *checker) checkReferences(docs []string) {
 				for _, id := range decisionRefRe.FindAllString(line, -1) {
 					if !decisions[id] && !reportedD[id] {
 						reportedD[id] = true
-						c.add(Error, rel, i+1, "%s is referenced but has no row in the Decision register (TECH_STACK.md)", id)
+						c.add(Error, rel, i+1, "unresolved-decision", "%s is referenced but has no row in the Decision register (TECH_STACK.md)", id)
 					}
 				}
 			}
@@ -283,7 +374,7 @@ func (c *checker) checkReferences(docs []string) {
 				for _, id := range taskRefRe.FindAllString(line, -1) {
 					if !tasks[id] && !reportedT[id] {
 						reportedT[id] = true
-						c.add(Error, rel, i+1, "%s is referenced but has no task row in ROADMAP.md", id)
+						c.add(Error, rel, i+1, "unresolved-task", "%s is referenced but has no task row in ROADMAP.md", id)
 					}
 				}
 			}
@@ -303,7 +394,7 @@ func contractText(content string) string {
 	}
 	lines := strings.Split(text, "\n")
 	for i := range lines {
-		lines[i] = strings.TrimRight(lines[i], " \t")
+		lines[i] = strings.TrimRight(lines[i], " \r\t")
 	}
 	return strings.Trim(strings.Join(lines, "\n"), "\n")
 }
@@ -336,14 +427,14 @@ func (c *checker) checkParity(required []string) {
 		for line < len(a) && line < len(b) && a[line] == b[line] {
 			line++
 		}
-		c.add(Error, f, line+1, "agent contract differs from %s (first difference at contract line %d); the rules must be identical in every agent file", files[0], line+1)
+		c.add(Error, f, line+1, "contract-parity", "agent contract differs from %s (first difference at contract line %d); the rules must be identical in every agent file", files[0], line+1)
 	}
 }
 
 func (c *checker) checkSkills() {
 	t, ok := c.load("SKILLS.md")
 	if ok && !feedbackRe.MatchString(t) {
-		c.add(Error, "SKILLS.md", 0, `no "Human feedback rules" section; the agent contract depends on it`)
+		c.add(Error, "SKILLS.md", 0, "human-feedback-rules", `no "Human feedback rules" section; the agent contract depends on it`)
 	}
 }
 
@@ -361,7 +452,7 @@ func (c *checker) checkTodos(files []string) {
 		}
 	}
 	if total > 0 {
-		c.add(Warn, "", 0, "%d unresolved %s placeholder(s) (%s)", total, scaffold.Todo, strings.Join(parts, ", "))
+		c.add(Warn, "", 0, "todo-placeholder", "%d unresolved %s placeholder(s) (%s)", total, scaffold.Todo, strings.Join(parts, ", "))
 	}
 }
 
@@ -372,16 +463,34 @@ func (c *checker) checkRoadmap() []roadmap.Task {
 	}
 	tasks := roadmap.Parse(t)
 	if len(tasks) == 0 {
-		c.add(Warn, "ROADMAP.md", 0, "no task rows found (rows must start with | T-nnn |)")
+		c.add(Warn, "ROADMAP.md", 0, "roadmap-drift", "no task rows found (rows must start with | T-nnn |)")
+	}
+	taskMap := map[string]roadmap.Task{}
+	for _, task := range tasks {
+		taskMap[task.ID] = task
 	}
 	seen := map[string]bool{}
 	for _, task := range tasks {
 		if seen[task.ID] {
-			c.add(Error, "ROADMAP.md", task.Line, "duplicate task ID %s", task.ID)
+			c.add(Error, "ROADMAP.md", task.Line, "roadmap-drift", "duplicate task ID %s", task.ID)
 		}
 		seen[task.ID] = true
 		if !roadmap.ValidStatus(task.Status) {
-			c.add(Warn, "ROADMAP.md", task.Line, "%s has an unrecognised status %q", task.ID, roadmap.Normalize(task.Status))
+			c.add(Warn, "ROADMAP.md", task.Line, "roadmap-drift", "%s has an unrecognised status %q", task.ID, roadmap.Normalize(task.Status))
+		}
+		kind := roadmap.Kind(task.Status)
+		if kind == "implementing" || kind == "awaiting review" || kind == "done" {
+			for _, depID := range task.DependsOn {
+				dep, exists := taskMap[depID]
+				if !exists {
+					continue
+				}
+				depKind := roadmap.Kind(dep.Status)
+				if depKind == "not started" || depKind == "specifying" || depKind == "blocked" {
+					c.add(Warn, "ROADMAP.md", task.Line, "roadmap-drift", "%s is %s but prerequisite %s is %s",
+						task.ID, roadmap.Normalize(task.Status), depID, roadmap.Normalize(dep.Status))
+				}
+			}
 		}
 	}
 	return tasks
@@ -403,22 +512,22 @@ func (c *checker) checkFeatures(tasks []roadmap.Task) {
 		rel := "features/" + e.Name()
 		m := featureDirRe.FindStringSubmatch(e.Name())
 		if m == nil {
-			c.add(Error, rel, 0, "feature folder name must look like T-001-short-slug (lower-case, hyphens)")
+			c.add(Error, rel, 0, "feature-folder", "feature folder name must look like T-001-short-slug (lower-case, hyphens)")
 			continue
 		}
 		id := m[1]
 		if prev, dup := folders[id]; dup {
-			c.add(Error, rel, 0, "%s already has a feature folder (%s)", id, prev)
+			c.add(Error, rel, 0, "feature-folder", "%s already has a feature folder (%s)", id, prev)
 		}
 		folders[id] = e.Name()
 		if len(tasks) > 0 {
 			if _, ok := status[id]; !ok {
-				c.add(Error, rel, 0, "%s has no task row in ROADMAP.md", id)
+				c.add(Error, rel, 0, "feature-folder", "%s has no task row in ROADMAP.md", id)
 			}
 		}
 		for _, f := range []string{"requirements.md", "plan.md", "validation.md"} {
 			if _, ok := c.load(rel + "/" + f); !ok {
-				c.add(Error, rel+"/"+f, 0, "feature folder is missing %s", f)
+				c.add(Error, rel+"/"+f, 0, "feature-folder", "feature folder is missing %s", f)
 			}
 		}
 		c.checkGateDiscipline(rel, status[id])
@@ -433,9 +542,9 @@ func (c *checker) checkFeatures(tasks []roadmap.Task) {
 		}
 		switch roadmap.Kind(task.Status) {
 		case "specifying", "awaiting plan approval", "implementing", "awaiting review":
-			c.add(Error, "ROADMAP.md", task.Line, "%s is %q but has no features/%s-<slug>/ folder", task.ID, roadmap.Normalize(task.Status), task.ID)
+			c.add(Error, "ROADMAP.md", task.Line, "feature-folder", "%s is %q but has no features/%s-<slug>/ folder", task.ID, roadmap.Normalize(task.Status), task.ID)
 		case "done":
-			c.add(Warn, "ROADMAP.md", task.Line, "%s is Done but has no features/%s-<slug>/ folder", task.ID, task.ID)
+			c.add(Warn, "ROADMAP.md", task.Line, "feature-folder", "%s is Done but has no features/%s-<slug>/ folder", task.ID, task.ID)
 		}
 	}
 }
@@ -444,15 +553,131 @@ func (c *checker) checkGateDiscipline(rel, kind string) {
 	switch kind {
 	case "implementing", "awaiting review", "done":
 		if plan, ok := c.load(rel + "/plan.md"); ok && approvalRe.MatchString(plan) {
-			c.add(Warn, rel+"/plan.md", 0, "task is past plan approval but the approval record is still blank")
+			c.add(Warn, rel+"/plan.md", 0, "gate-discipline", "task is past plan approval but the approval record is still blank")
 		}
 	}
 	switch kind {
 	case "awaiting review", "done":
 		if val, ok := c.load(rel + "/validation.md"); ok && strings.Contains(val, "NOT RUN") {
-			c.add(Warn, rel+"/validation.md", 0, "task is awaiting review or done but validation.md still contains NOT RUN")
+			c.add(Warn, rel+"/validation.md", 0, "gate-discipline", "task is awaiting review or done but validation.md still contains NOT RUN")
 		}
 	}
+	if kind == "done" {
+		if val, ok := c.load(rel + "/validation.md"); ok {
+			if m := statusHeaderRe.FindStringSubmatch(val); m != nil {
+				st := strings.ToLower(m[1])
+				if (strings.Contains(st, "not run") || strings.Contains(st, "in progress")) && !strings.Contains(st, "complete") {
+					c.add(Warn, rel+"/validation.md", 0, "gate-discipline", "task is Done in ROADMAP.md but validation.md status is %q", strings.TrimSpace(m[1]))
+				}
+			}
+		}
+		if plan, ok := c.load(rel + "/plan.md"); ok {
+			if m := statusHeaderRe.FindStringSubmatch(plan); m != nil {
+				st := strings.ToLower(m[1])
+				if (strings.Contains(st, "draft") || strings.Contains(st, "awaiting approval")) && !strings.Contains(st, "approved") && !strings.Contains(st, "implemented") {
+					c.add(Warn, rel+"/plan.md", 0, "gate-discipline", "task is Done in ROADMAP.md but plan.md status is %q", strings.TrimSpace(m[1]))
+				}
+			}
+		}
+	}
+}
+
+func (c *checker) checkVerifiedFactsExpiry(tasks []roadmap.Task) {
+	text, ok := c.load("TECH_STACK.md")
+	if !ok {
+		return
+	}
+	taskMap := map[string]roadmap.Task{}
+	milestoneTasks := map[string][]roadmap.Task{}
+	for _, t := range tasks {
+		taskMap[t.ID] = t
+		if t.Milestone != "" {
+			milestoneTasks[t.Milestone] = append(milestoneTasks[t.Milestone], t)
+		}
+	}
+
+	completedMilestones := map[string]bool{}
+	for m, mTasks := range milestoneTasks {
+		if len(mTasks) == 0 {
+			continue
+		}
+		allDone := true
+		for _, t := range mTasks {
+			if roadmap.Kind(t.Status) != "done" {
+				allDone = false
+				break
+			}
+		}
+		if allDone {
+			completedMilestones[m] = true
+		}
+	}
+
+	lines := strings.Split(text, "\n")
+	inFactsTable := false
+	for i, line := range lines {
+		lineNo := i + 1
+		trimmed := strings.TrimSpace(line)
+		if factHdrRe.MatchString(trimmed) {
+			inFactsTable = true
+			continue
+		}
+		if inFactsTable {
+			if !strings.HasPrefix(trimmed, "|") {
+				inFactsTable = false
+				continue
+			}
+			if strings.Contains(trimmed, "---") {
+				continue
+			}
+			cells := splitRow(trimmed)
+			if len(cells) < 4 {
+				continue
+			}
+			fact := cells[1]
+			reVerifyAt := cells[3]
+			if fact == "" || strings.HasPrefix(fact, "(") {
+				continue
+			}
+
+			// Check task references
+			for _, tID := range taskRefRe.FindAllString(reVerifyAt, -1) {
+				if t, exists := taskMap[tID]; exists {
+					if roadmap.Kind(t.Status) == "done" {
+						c.add(Warn, "TECH_STACK.md", lineNo, "fact-expiry",
+							"verified fact %q is past due for re-verification (%s is Done)", truncate(fact, 50), tID)
+					}
+				}
+			}
+
+			// Check milestone references
+			for _, mID := range milestoneRefRe.FindAllString(reVerifyAt, -1) {
+				if completedMilestones[strings.ToUpper(mID)] {
+					c.add(Warn, "TECH_STACK.md", lineNo, "fact-expiry",
+						"verified fact %q is past due for re-verification (milestone %s is completed)", truncate(fact, 50), mID)
+				}
+			}
+		}
+	}
+}
+
+func truncate(s string, n int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= n {
+		return s
+	}
+	return s[:n-3] + "..."
+}
+
+func splitRow(line string) []string {
+	line = strings.TrimSpace(line)
+	line = strings.TrimPrefix(line, "|")
+	line = strings.TrimSuffix(line, "|")
+	parts := strings.Split(line, "|")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return parts
 }
 
 func (c *checker) checkManifestDrift(m scaffold.Manifest) {
@@ -481,6 +706,6 @@ func (c *checker) checkManifestDrift(m scaffold.Manifest) {
 		}
 	}
 	if modified > 0 {
-		c.add(Info, scaffold.ManifestPath, 0, "%d generated file(s) have changed since sdd generated them (expected: you edit them)", modified)
+		c.add(Info, scaffold.ManifestPath, 0, "manifest-modified", "%d generated file(s) have changed since sdd generated them (expected: you edit them)", modified)
 	}
 }

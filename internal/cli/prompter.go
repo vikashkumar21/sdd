@@ -20,14 +20,14 @@ func newPrompter(in io.Reader, out io.Writer) *prompter {
 
 func (p *prompter) ask(label, def string) string {
 	if def != "" {
-		fmt.Fprintf(p.w, "%s [%s]: ", label, def)
+		fprintf(p.w, "%s [%s]: ", label, def)
 	} else {
-		fmt.Fprintf(p.w, "%s: ", label)
+		fprintf(p.w, "%s: ", label)
 	}
 	line, err := p.r.ReadString('\n')
 	line = strings.TrimSpace(strings.TrimRight(line, "\r\n"))
 	if err != nil && line == "" {
-		fmt.Fprintln(p.w)
+		fprintln(p.w)
 		return def
 	}
 	if line == "" {
@@ -44,13 +44,13 @@ func (p *prompter) askValid(label, def string, validate func(string) error) (str
 		if err = validate(v); err == nil {
 			return v, nil
 		}
-		fmt.Fprintf(p.w, "  %v\n", err)
+		fprintf(p.w, "  %v\n", err)
 	}
 	return "", fmt.Errorf("%s: no valid answer after 3 attempts: %w", label, err)
 }
 
 func (p *prompter) confirm(label string) bool {
-	fmt.Fprintf(p.w, "%s [y/N]: ", label)
+	fprintf(p.w, "%s [y/N]: ", label)
 	line, _ := p.r.ReadString('\n')
 	switch strings.ToLower(strings.TrimSpace(line)) {
 	case "y", "yes":
@@ -61,15 +61,15 @@ func (p *prompter) confirm(label string) bool {
 
 // askLines collects lines until a blank line or end of input.
 func (p *prompter) askLines(label string) []string {
-	fmt.Fprintf(p.w, "%s (one per line, blank line to finish)\n", label)
+	fprintf(p.w, "%s (one per line, blank line to finish)\n", label)
 	var out []string
 	for {
-		fmt.Fprint(p.w, "  > ")
+		fprint(p.w, "  > ")
 		line, err := p.r.ReadString('\n')
 		line = strings.TrimSpace(line)
 		if line == "" {
 			if err != nil {
-				fmt.Fprintln(p.w)
+				fprintln(p.w)
 			}
 			return out
 		}

@@ -52,7 +52,16 @@ type FileEntry struct {
 
 // ReadManifest loads the manifest if there is one.
 func ReadManifest(root string) (Manifest, bool, error) {
-	data, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(ManifestPath)))
+	r, err := os.OpenRoot(root)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return Manifest{}, false, nil
+		}
+		return Manifest{}, false, fmt.Errorf("scaffold: open root: %w", err)
+	}
+	defer func() { _ = r.Close() }()
+
+	data, err := r.ReadFile(filepath.FromSlash(ManifestPath))
 	if errors.Is(err, fs.ErrNotExist) {
 		return Manifest{}, false, nil
 	}
@@ -82,15 +91,22 @@ type Report struct {
 
 // Apply performs the plan. It never overwrites a file the plan marks as
 // skipped, writes every file atomically, and backs up anything it replaces.
+// All reads, writes, and backups are strictly confined within p.Root via os.Root.
 func Apply(p Plan, now time.Time, templatesOverride string) (Report, error) {
 	var rep Report
+	rootHandle, err := os.OpenRoot(p.Root)
+	if err != nil {
+		return rep, fmt.Errorf("scaffold: open project root %s: %w", p.Root, err)
+	}
+	defer func() { _ = rootHandle.Close() }()
+
 	backupRel := ""
 	backup := func(rel string, original []byte) error {
 		if backupRel == "" {
 			backupRel = filepath.ToSlash(filepath.Join(".sdd", "backup", now.UTC().Format("20060102-150405")))
 		}
-		dst := filepath.Join(p.Root, filepath.FromSlash(backupRel), filepath.FromSlash(rel))
-		return fsutil.WriteAtomic(dst, original, 0o644)
+		dst := filepath.Join(filepath.FromSlash(backupRel), filepath.FromSlash(rel))
+		return fsutil.WriteAtomicRoot(rootHandle, dst, original, 0o644)
 	}
 
 	manifest := Manifest{
@@ -105,19 +121,19 @@ func Apply(p Plan, now time.Time, templatesOverride string) (Report, error) {
 		if err := safeRel(op.Path); err != nil {
 			return rep, err
 		}
-		abs := filepath.Join(p.Root, filepath.FromSlash(op.Path))
+		rel := filepath.FromSlash(op.Path)
 		entryKind, state := "file", ""
 		if op.Block || op.Managed {
 			entryKind = "block"
 		}
 		switch op.Kind {
 		case KindCreate:
-			if err := fsutil.WriteAtomic(abs, []byte(op.Content), 0o644); err != nil {
+			if err := fsutil.WriteAtomicRoot(rootHandle, rel, []byte(op.Content), 0o644); err != nil {
 				return rep, err
 			}
 			state = "created"
 		case KindMerge:
-			existing, err := os.ReadFile(abs)
+			existing, err := rootHandle.ReadFile(rel)
 			if err != nil {
 				return rep, fmt.Errorf("scaffold: read %s: %w", op.Path, err)
 			}
@@ -125,12 +141,12 @@ func Apply(p Plan, now time.Time, templatesOverride string) (Report, error) {
 			if text != "" {
 				text += "\n\n"
 			}
-			if err := fsutil.WriteAtomic(abs, []byte(text+op.Content+"\n"), 0o644); err != nil {
+			if err := fsutil.WriteAtomicRoot(rootHandle, rel, []byte(text+op.Content+"\n"), 0o644); err != nil {
 				return rep, err
 			}
 			state = "merged"
 		case KindReplace:
-			existing, err := os.ReadFile(abs)
+			existing, err := rootHandle.ReadFile(rel)
 			if err != nil {
 				return rep, fmt.Errorf("scaffold: read %s: %w", op.Path, err)
 			}
@@ -145,7 +161,7 @@ func Apply(p Plan, now time.Time, templatesOverride string) (Report, error) {
 				}
 				out = []byte(string(existing)[:bs] + op.Content + string(existing)[be:])
 			}
-			if err := fsutil.WriteAtomic(abs, out, 0o644); err != nil {
+			if err := fsutil.WriteAtomicRoot(rootHandle, rel, out, 0o644); err != nil {
 				return rep, err
 			}
 			state = "replaced"
@@ -163,12 +179,13 @@ func Apply(p Plan, now time.Time, templatesOverride string) (Report, error) {
 	if err != nil {
 		return rep, fmt.Errorf("scaffold: encode manifest: %w", err)
 	}
-	if existing, err := os.ReadFile(filepath.Join(p.Root, filepath.FromSlash(ManifestPath))); err == nil {
+	manifestRel := filepath.FromSlash(ManifestPath)
+	if existing, err := rootHandle.ReadFile(manifestRel); err == nil {
 		if err := backup(ManifestPath, existing); err != nil {
 			return rep, err
 		}
 	}
-	if err := fsutil.WriteAtomic(filepath.Join(p.Root, filepath.FromSlash(ManifestPath)), append(data, '\n'), 0o644); err != nil {
+	if err := fsutil.WriteAtomicRoot(rootHandle, manifestRel, append(data, '\n'), 0o644); err != nil {
 		return rep, err
 	}
 	rep.Entries = append(rep.Entries, Entry{Path: ManifestPath, Kind: KindCreate})
@@ -177,13 +194,8 @@ func Apply(p Plan, now time.Time, templatesOverride string) (Report, error) {
 }
 
 func safeRel(rel string) error {
-	if rel == "" || filepath.IsAbs(rel) || strings.HasPrefix(rel, "/") {
-		return fmt.Errorf("scaffold: unsafe path %q", rel)
-	}
-	for _, part := range strings.Split(filepath.ToSlash(rel), "/") {
-		if part == ".." {
-			return fmt.Errorf("scaffold: path %q escapes the project root", rel)
-		}
+	if err := fsutil.ValidateLocalRelPath(filepath.FromSlash(rel)); err != nil {
+		return fmt.Errorf("scaffold: %w", err)
 	}
 	return nil
 }

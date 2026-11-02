@@ -52,9 +52,13 @@ usage: sdd <command> [flags]
 
 commands:
   init                       generate the spec-driven kit in this project (new or existing)
-  check                      verify the kit is consistent: files, agent contracts, references, tables, statuses
+  check                      verify the kit is consistent (--json for structured output, --strict for warnings)
   feature new <T-xxx> <slug> create features/T-xxx-<slug>/ from the project's templates
   prompt <agent>             print a handover prompt for an agent (claude, gemini, agents, or any name)
+  ingest                     stage external context (text, files, stdin) into .sdd/context/
+  permissions                generate agent permission configs denying git state writes
+  upgrade                    refresh kit files from newer templates without overwriting human edits
+  adopt                      adopt an existing hand-crafted kit by generating .sdd/manifest.json
   version                    print the sdd version
 
 Run "sdd <command> -h" for the flags of a command.
@@ -64,7 +68,7 @@ Exit codes: 0 success, 1 failure or findings, 2 usage error.
 // Run executes one sdd command and returns the process exit code.
 func Run(args []string, env IO) int {
 	if len(args) == 0 {
-		fmt.Fprint(env.Err, usageText)
+		fprint(env.Err, usageText)
 		return 2
 	}
 	switch args[0] {
@@ -76,17 +80,29 @@ func Run(args []string, env IO) int {
 		return runFeature(args[1:], env)
 	case "prompt":
 		return runPrompt(args[1:], env)
+	case "ingest":
+		return runIngest(args[1:], env)
+	case "permissions":
+		return runPermissions(args[1:], env)
+	case "upgrade":
+		return runUpgrade(args[1:], env)
+	case "adopt":
+		return runAdopt(args[1:], env)
 	case "version", "--version", "-v":
-		fmt.Fprintf(env.Out, "sdd %s (templates %s)\n", version.Version, templates.Version)
+		fprintf(env.Out, "sdd %s (templates %s)\n", version.Version, templates.Version)
 		return 0
 	case "help", "-h", "--help":
-		fmt.Fprint(env.Out, usageText)
+		fprint(env.Out, usageText)
 		return 0
 	default:
-		fmt.Fprintf(env.Err, "sdd: unknown command %q\n\n%s", args[0], usageText)
+		fprintf(env.Err, "sdd: unknown command %q\n\n%s", args[0], usageText)
 		return 2
 	}
 }
+
+func fprint(w io.Writer, a ...any)                 { _, _ = fmt.Fprint(w, a...) }
+func fprintf(w io.Writer, format string, a ...any) { _, _ = fmt.Fprintf(w, format, a...) }
+func fprintln(w io.Writer, a ...any)               { _, _ = fmt.Fprintln(w, a...) }
 
 func newFlagSet(name string, env IO) *flag.FlagSet {
 	fs := flag.NewFlagSet("sdd "+name, flag.ContinueOnError)

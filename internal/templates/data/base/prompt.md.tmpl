@@ -11,6 +11,28 @@ The project files are the source of truth, not this summary. The roadmap snapsho
 {{end}}{{else}}ROADMAP.md lists no open tasks at generation time.
 {{end}}
 {{if .FocusTask}}Focus task: {{.FocusTask}}.{{else}}No focus task was given: ask the human which task to work on before doing anything else.{{end}}
+{{if .StagedContext}}
+### Staged external context (.sdd/context/)
+
+The following external materials were staged for this project:
+| ID | Format | Origin (Source) | Staged Path | Task |
+|---|---|---|---|---|
+{{range .StagedContext}}| {{.ID}} | {{.Format}} | {{.Origin}} ({{.Source}}) | {{.Path}} | {{if .Task}}{{.Task}}{{else}}(general){{end}} |
+{{end}}
+{{if .TaskContext}}
+**Context assigned to focus task ({{.FocusTaskID}}):**
+{{range .TaskContext}}- {{.ID}} ({{.Format}}): `{{.Path}}` — from {{.Origin}}
+{{end}}{{end}}
+**Extraction and synthesis instructions:**
+1. Read the staged context files above using read-only tools before drafting or updating specifications.
+2. Map your extracted findings into the appropriate living documents or task specifications:
+   - High-level vision, target users, in/out-of-scope boundaries -> propose updates in `MISSION.md`
+   - Architecture choices, database/cloud technologies, constraints -> propose in `TECH_STACK.md` (as `D-xxx` decisions or verified facts)
+   - Milestones, deliverables, task breakdowns -> propose in `ROADMAP.md` (`T-xxx` rows)
+   - Team conventions, constraints, human preferences -> propose in `SKILLS.md`
+   - Task-specific acceptance criteria -> propose in `features/T-xxx-<slug>/requirements.md`
+3. **GATE 1 IS STRICT:** All synthesis must be proposed as draft specifications first. The human must explicitly approve before any code is written or living documents are modified.
+{{end}}
 
 ## 2. HUMAN INPUTS (the human fills these in before pasting)
 

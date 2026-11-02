@@ -8,17 +8,21 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/detect"
+	"github.com/vikashkumar21/sdd/internal/permissions"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 	"github.com/vikashkumar21/sdd/internal/templates"
 )
 
 type initOpts struct {
 	dir                                          string
-	yes, dryRun, force                           bool
+	yes, dryRun, force, permissions              bool
 	name, purpose, mode, lang, maintainer        string
 	build, test, lint, format, agents, templates string
 	rules                                        stringList
+	contextFiles                                 stringList
+	contextText                                  string
 }
 
 func runInit(args []string, env IO) int {
@@ -28,6 +32,7 @@ func runInit(args []string, env IO) int {
 	fs.BoolVar(&o.yes, "yes", false, "accept detected values and defaults without prompting")
 	fs.BoolVar(&o.dryRun, "dry-run", false, "show the plan and write nothing")
 	fs.BoolVar(&o.force, "force", false, "replace existing generated files (originals are backed up; README.md is never touched)")
+	fs.BoolVar(&o.permissions, "permissions", false, "generate agent permission manifests denying git writes")
 	fs.StringVar(&o.name, "name", "", "project name (default: directory name)")
 	fs.StringVar(&o.purpose, "purpose", "", "one-line purpose")
 	fs.StringVar(&o.mode, "mode", "", "greenfield or brownfield (default: detected)")
@@ -40,19 +45,25 @@ func runInit(args []string, env IO) int {
 	fs.StringVar(&o.agents, "agents", "", "comma-separated agent files: "+strings.Join(scaffold.AgentIDs(), ", ")+" (default: all)")
 	fs.StringVar(&o.templates, "templates", "", "directory whose files override the embedded templates")
 	fs.Var(&o.rules, "rule", "extra hard rule for the agent contract (repeatable)")
+	fs.Var(&o.contextFiles, "context-file", "external file to stage into .sdd/context/ as kickoff requirements (repeatable)")
+	fs.StringVar(&o.contextText, "context-text", "", "raw text string to stage into .sdd/context/ as kickoff requirements")
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return parseExit(err)
 	}
 	if len(pos) > 0 {
-		fmt.Fprintf(env.Err, "sdd init: unexpected argument %q\n", pos[0])
+		fprintf(env.Err, "sdd init: unexpected argument %q\n", pos[0])
 		return 2
 	}
 	given := map[string]bool{}
 	fs.Visit(func(f *flag.Flag) { given[f.Name] = true })
 	fail := func(format string, a ...any) int {
-		fmt.Fprintf(env.Err, "sdd init: "+format+"\n", a...)
+		fprintf(env.Err, "sdd init: "+format+"\n", a...)
 		return 1
+	}
+
+	if isDriveRoot(o.dir) {
+		return fail("refusing to run in the filesystem root")
 	}
 
 	root, err := filepath.Abs(o.dir)
@@ -84,7 +95,7 @@ func runInit(args []string, env IO) int {
 	var pr *prompter
 	if env.Interactive && !o.yes {
 		pr = newPrompter(env.In, env.Out)
-		fmt.Fprintln(env.Out, "\nAnswer each question, or press Enter to accept the value in brackets.")
+		fprintln(env.Out, "\nAnswer each question, or press Enter to accept the value in brackets.")
 	}
 	ans, err := collectAnswers(env, pr, o, given, det, root)
 	if err != nil {
@@ -99,17 +110,17 @@ func runInit(args []string, env IO) int {
 		return fail("%v", err)
 	}
 
-	fmt.Fprintf(env.Out, "\nPlan for %s (%s):\n", root, plan.Data.Mode)
+	fprintf(env.Out, "\nPlan for %s (%s):\n", root, plan.Data.Mode)
 	for _, l := range plan.Lines() {
-		fmt.Fprintf(env.Out, "  %s\n", l)
+		fprintf(env.Out, "  %s\n", l)
 	}
-	fmt.Fprintf(env.Out, "  %-8s %s\n", "create", scaffold.ManifestPath)
+	fprintf(env.Out, "  %-8s %s\n", "create", scaffold.ManifestPath)
 	if o.dryRun {
-		fmt.Fprintln(env.Out, "\nDry run: nothing was written.")
+		fprintln(env.Out, "\nDry run: nothing was written.")
 		return 0
 	}
 	if pr != nil && !pr.confirm("\nWrite these files?") {
-		fmt.Fprintln(env.Out, "Aborted. Nothing was written.")
+		fprintln(env.Out, "Aborted. Nothing was written.")
 		return 1
 	}
 
@@ -117,25 +128,68 @@ func runInit(args []string, env IO) int {
 	if err != nil {
 		return fail("%v", err)
 	}
+
+	// Stage kickoff context if provided
+	var stagedCount int
+	for _, f := range o.contextFiles {
+		data, err := os.ReadFile(f)
+		if err != nil {
+			return fail("read context file %s: %v", f, err)
+		}
+		item := context.Item{
+			Source: "file",
+			Origin: filepath.Base(f),
+			Data:   data,
+		}
+		if _, err := context.Stage(plan.Root, item, env.now()); err != nil {
+			return fail("stage context %s: %v", f, err)
+		}
+		stagedCount++
+	}
+	if o.contextText != "" {
+		item := context.Item{
+			Source: "raw-text",
+			Origin: "kickoff-context",
+			Data:   []byte(o.contextText),
+		}
+		if _, err := context.Stage(plan.Root, item, env.now()); err != nil {
+			return fail("stage context text: %v", err)
+		}
+		stagedCount++
+	}
+
+	if o.permissions {
+		permPlan, perr := permissions.BuildPlan(plan.Root, ans.Agents, o.force)
+		if perr != nil {
+			return fail("permissions plan: %v", perr)
+		}
+		if perr := permissions.Apply(plan.Root, permPlan, o.force, env.now()); perr != nil {
+			return fail("permissions apply: %v", perr)
+		}
+	}
+
 	counts := map[scaffold.Kind]int{}
 	for _, e := range rep.Entries {
 		counts[e.Kind]++
 	}
-	fmt.Fprintf(env.Out, "\nDone: %d created, %d merged, %d replaced, %d skipped.\n",
+	fprintf(env.Out, "\nDone: %d created, %d merged, %d replaced, %d skipped.\n",
 		counts[scaffold.KindCreate], counts[scaffold.KindMerge], counts[scaffold.KindReplace], counts[scaffold.KindSkip])
 	if rep.BackupDir != "" {
-		fmt.Fprintf(env.Out, "Originals backed up in %s\n", rep.BackupDir)
+		fprintf(env.Out, "Originals backed up in %s\n", rep.BackupDir)
 	}
-	fmt.Fprintf(env.Out, "\nNext steps:\n")
-	fmt.Fprintf(env.Out, "  1. Review the generated files. Nothing is committed; you commit (agents never do).\n")
-	fmt.Fprintf(env.Out, "  2. Fill the %d %s placeholder(s), or let the agent propose them in T-001 under the gates.\n", rep.Todos, scaffold.Todo)
-	fmt.Fprintf(env.Out, "  3. Run `sdd check`.\n")
-	fmt.Fprintf(env.Out, "  4. Hand over to an agent: `sdd prompt gemini` (or claude, agents).\n")
+	if stagedCount > 0 {
+		fprintf(env.Out, "Staged %d context item(s) in %s\n", stagedCount, context.ManifestPath)
+	}
+	fprintf(env.Out, "\nNext steps:\n")
+	fprintf(env.Out, "  1. Review the generated files. Nothing is committed; you commit (agents never do).\n")
+	fprintf(env.Out, "  2. Fill the %d %s placeholder(s), or let the agent propose them in T-001 under the gates.\n", rep.Todos, scaffold.Todo)
+	fprintf(env.Out, "  3. Run `sdd check`.\n")
+	fprintf(env.Out, "  4. Hand over to an agent: `sdd prompt gemini` (or claude, agents).\n")
 	return 0
 }
 
 func printDetected(env IO, det detect.Result) {
-	fmt.Fprintln(env.Out, "Detected (unverified; you confirm or correct each value):")
+	fprintln(env.Out, "Detected (unverified; you confirm or correct each value):")
 	langs := strings.Join(det.Languages, ", ")
 	if langs == "" {
 		langs = "none"
@@ -143,12 +197,12 @@ func printDetected(env IO, det detect.Result) {
 	if len(det.Other) > 0 {
 		langs += "  (other: " + strings.Join(det.Other, ", ") + ")"
 	}
-	fmt.Fprintf(env.Out, "  languages      %s\n", langs)
-	fmt.Fprintf(env.Out, "  source files   %d%s\n", det.SourceFiles, map[bool]string{true: " (scan capped)", false: ""}[det.Capped])
-	fmt.Fprintf(env.Out, "  git repository %s\n", map[bool]string{true: "yes", false: "no"}[det.HasGit])
-	fmt.Fprintf(env.Out, "  suggested mode %s\n", det.SuggestedMode)
+	fprintf(env.Out, "  languages      %s\n", langs)
+	fprintf(env.Out, "  source files   %d%s\n", det.SourceFiles, map[bool]string{true: " (scan capped)", false: ""}[det.Capped])
+	fprintf(env.Out, "  git repository %s\n", map[bool]string{true: "yes", false: "no"}[det.HasGit])
+	fprintf(env.Out, "  suggested mode %s\n", det.SuggestedMode)
 	if det.Build+det.Test+det.Lint+det.Format != "" {
-		fmt.Fprintf(env.Out, "  commands       build=%q test=%q lint=%q format=%q\n", det.Build, det.Test, det.Lint, det.Format)
+		fprintf(env.Out, "  commands       build=%q test=%q lint=%q format=%q\n", det.Build, det.Test, det.Lint, det.Format)
 	}
 	var existing []string
 	for _, n := range []string{"README.md", "CLAUDE.md", "GEMINI.md", "AGENTS.md", "MISSION.md", "TECH_STACK.md", "ROADMAP.md", "SKILLS.md"} {
@@ -157,7 +211,7 @@ func printDetected(env IO, det detect.Result) {
 		}
 	}
 	if len(existing) > 0 {
-		fmt.Fprintf(env.Out, "  existing docs  %s\n", strings.Join(existing, ", "))
+		fprintf(env.Out, "  existing docs  %s\n", strings.Join(existing, ", "))
 	}
 }
 
@@ -211,7 +265,11 @@ func collectAnswers(env IO, pr *prompter, o initOpts, given map[string]bool, det
 	}
 	a.Languages = splitList(langs)
 
-	a.Maintainer = str("maintainer", o.maintainer, "Maintainer (the human who approves and commits)", env.getenv("USER"))
+	maintainerDef := env.getenv("USER")
+	if maintainerDef == "" {
+		maintainerDef = env.getenv("USERNAME")
+	}
+	a.Maintainer = str("maintainer", o.maintainer, "Maintainer (the human who approves and commits)", maintainerDef)
 	a.Build = str("build", o.build, "Build command (blank if unknown)", det.Build)
 	a.Test = str("test", o.test, "Test command (blank if unknown)", det.Test)
 	a.Lint = str("lint", o.lint, "Lint command (blank if unknown)", det.Lint)
@@ -235,9 +293,51 @@ func collectAnswers(env IO, pr *prompter, o initOpts, given map[string]bool, det
 	return a, nil
 }
 
+// isDriveRoot reports whether p represents a filesystem root on Unix or Windows
+// (e.g. "/", "\", "C:\", "D:/", "c:", "\\server\share").
+func isDriveRoot(p string) bool {
+	clean := strings.ReplaceAll(strings.TrimSpace(p), "\\", "/")
+	if clean == "/" || clean == "" {
+		return true
+	}
+	if p == filepath.Dir(p) && (p == "/" || strings.HasSuffix(p, ":\\") || strings.HasSuffix(p, ":/")) {
+		return true
+	}
+	// UNC path roots: //server/share or \\server\share
+	if strings.HasPrefix(clean, "//") {
+		trimmed := strings.Trim(clean, "/")
+		if trimmed == "" {
+			return true
+		}
+		parts := strings.Split(trimmed, "/")
+		if len(parts) <= 2 {
+			return true
+		}
+	}
+	// Windows drive letter: C:, C:/, C:\, etc.
+	if len(clean) >= 2 && clean[1] == ':' {
+		letter := clean[0]
+		if (letter >= 'a' && letter <= 'z') || (letter >= 'A' && letter <= 'Z') {
+			rest := strings.Trim(clean[2:], "/")
+			if rest == "" {
+				return true
+			}
+		}
+	}
+	vol := filepath.VolumeName(p)
+	if vol != "" {
+		rest := strings.TrimPrefix(p[len(vol):], "/")
+		rest = strings.TrimPrefix(rest, "\\")
+		if rest == "" {
+			return true
+		}
+	}
+	return false
+}
+
 // guardRoot refuses to initialise a directory that is clearly not a project.
 func guardRoot(root, home string) error {
-	if root == filepath.Dir(root) {
+	if isDriveRoot(root) {
 		return errors.New("refusing to run in the filesystem root")
 	}
 	if home != "" && samePath(root, home) {

@@ -1,6 +1,7 @@
 package check
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -103,8 +104,10 @@ func TestFreshKitHasNoErrors(t *testing.T) {
 
 func TestCheckIsDeterministic(t *testing.T) {
 	root := generate(t)
-	if dump(run(t, root)) != dump(run(t, root)) {
-		t.Fatal("two runs gave different reports")
+	first := dump(run(t, root))
+	second := dump(run(t, root))
+	if first != second {
+		t.Fatalf("two runs gave different reports:\n--- first ---\n%s\n--- second ---\n%s", first, second)
 	}
 }
 
@@ -218,5 +221,603 @@ func TestEmptyDirectoryReportsMissingFiles(t *testing.T) {
 func TestNotADirectory(t *testing.T) {
 	if _, err := Run(filepath.Join(t.TempDir(), "nope")); err == nil {
 		t.Fatal("expected an error")
+	}
+}
+
+func TestCheckContextManifest(t *testing.T) {
+	root := generate(t)
+
+	// Corrupted context manifest
+	contextDir := filepath.Join(root, ".sdd", "context")
+	if err := os.MkdirAll(contextDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifestPath := filepath.Join(contextDir, "manifest.json")
+	if err := os.WriteFile(manifestPath, []byte("invalid json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := run(t, root)
+	if !has(r, Error, "parse manifest") {
+		t.Fatalf("expected error on invalid manifest json:\n%s", dump(r))
+	}
+
+	// Missing staged file referenced in manifest
+	validJSON := `{
+  "schema": 1,
+  "updated": "2026-10-30T10:00:00Z",
+  "entries": [
+    {
+      "id": "ctx-001",
+      "source": "raw-text",
+      "origin": "test",
+      "path": ".sdd/context/missing.txt"
+    }
+  ]
+}`
+	if err := os.WriteFile(manifestPath, []byte(validJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r = run(t, root)
+	if !has(r, Error, "staged context file ctx-001 does not exist") {
+		t.Fatalf("expected error on missing staged file:\n%s", dump(r))
+	}
+
+	// Valid manifest with existing file
+	if err := os.WriteFile(filepath.Join(contextDir, "missing.txt"), []byte("content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r = run(t, root)
+	if has(r, Error, "staged context file") {
+		t.Fatalf("unexpected error when file exists:\n%s", dump(r))
+	}
+}
+
+func TestCheckTablesWithPipesInCodeAndEscaped(t *testing.T) {
+	root := generate(t)
+	// Add a markdown file containing table rows with inline code pipes and escaped pipes
+	content := `# Tables with Pipes
+
+| Command | Description |
+|---|---|
+| ` + "`grep | wc -l`" + ` | Counts occurrences |
+| Option A \| B | Multiple options |
+`
+	if err := os.WriteFile(filepath.Join(root, "PIPES.md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := run(t, root)
+	if has(r, Error, "columns") || has(r, Error, "pipes") {
+		t.Fatalf("expected tables with code pipes and escaped pipes to pass cleanly:\n%s", dump(r))
+	}
+}
+
+func TestCheckJSONOutput(t *testing.T) {
+	root := generate(t)
+	r, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := r.JSON(false)
+	if err != nil {
+		t.Fatalf("r.JSON(false) failed: %v", err)
+	}
+
+	var jr JSONReport
+	if err := json.Unmarshal(data, &jr); err != nil {
+		t.Fatalf("json.Unmarshal failed: %v\nJSON:\n%s", err, string(data))
+	}
+
+	if !jr.Valid {
+		t.Errorf("expected Valid to be true for clean kit, got false")
+	}
+	if jr.Summary.Errors != 0 {
+		t.Errorf("expected 0 errors, got %d", jr.Summary.Errors)
+	}
+
+	// Now introduce an error
+	if err := os.Remove(filepath.Join(root, "MISSION.md")); err != nil {
+		t.Fatal(err)
+	}
+	rFail, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	failData, err := rFail.JSON(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var jrFail JSONReport
+	if err := json.Unmarshal(failData, &jrFail); err != nil {
+		t.Fatal(err)
+	}
+	if jrFail.Valid {
+		t.Errorf("expected Valid to be false when MISSION.md is missing")
+	}
+	if jrFail.Summary.Errors == 0 {
+		t.Errorf("expected >0 errors, got %d", jrFail.Summary.Errors)
+	}
+	found := false
+	for _, f := range jrFail.Findings {
+		if f.Severity == Error && f.File == "MISSION.md" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected finding for MISSION.md in %+v", jrFail.Findings)
+	}
+}
+
+func TestCheckVerifiedFactsExpiry(t *testing.T) {
+	root := generate(t)
+
+	// Ensure ROADMAP.md has T-001 (Done) and T-002 (Not started)
+	roadPath := filepath.Join(root, "ROADMAP.md")
+	roadContent := `
+### M1 — Milestone
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Expired task | S | none | done | D-001 | Done |
+| T-002 | Active task | S | T-001 | pending | none | Not started |
+`
+	if err := os.WriteFile(roadPath, []byte(roadContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Append a verified facts section to TECH_STACK.md with one expired fact (T-001 is Done)
+	// and one active fact (T-002 is Not started) and one permanent fact
+	facts := `
+## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
+
+| Date | Fact | Source | Re-verify at |
+|---|---|---|---|
+| 2026-10-26 | Go builds cleanly | Sandbox | T-001 |
+| 2026-10-26 | Windows compatibility check | Docs | T-002 |
+| 2026-10-26 | Permanent constant | Specs | permanent |
+`
+	stackPath := filepath.Join(root, "TECH_STACK.md")
+	data, err := os.ReadFile(stackPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stackPath, append(data, []byte(facts)...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := run(t, root)
+	if !has(r, Warn, "past due for re-verification (T-001 is Done)") {
+		t.Fatalf("expected warning for expired fact:\n%s", dump(r))
+	}
+	if has(r, Warn, "T-002 is Done") {
+		t.Fatalf("did not expect warning for active fact T-002:\n%s", dump(r))
+	}
+}
+
+func TestCheckVerifiedFactsMilestoneExpiry(t *testing.T) {
+	root := generate(t)
+
+	facts := `
+## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
+
+| Date | Fact | Source | Re-verify at |
+|---|---|---|---|
+| 2026-10-26 | Milestone 1 fact | Sandbox | M1 |
+`
+	stackPath := filepath.Join(root, "TECH_STACK.md")
+	data, err := os.ReadFile(stackPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stackPath, append(data, []byte(facts)...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Update ROADMAP.md so all tasks in M1 are Done
+	roadmapPath := filepath.Join(root, "ROADMAP.md")
+	roadContent := `
+### M1 — First Milestone
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Init | S | none | done | D-001 | Done |
+| T-002 | Next | S | T-001 | done | none | Done |
+`
+	if err := os.WriteFile(roadmapPath, []byte(roadContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := run(t, root)
+	if !has(r, Warn, "past due for re-verification (milestone M1 is completed)") {
+		t.Fatalf("expected milestone expiry warning:\n%s", dump(r))
+	}
+}
+
+func TestCheckDependencyDrift(t *testing.T) {
+	root := generate(t)
+	roadmapPath := filepath.Join(root, "ROADMAP.md")
+	// T-002 is Done or Implementing, but T-001 prerequisite is Not started
+	roadContent := `
+### M1 — Milestone
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Prerequisite | S | none | pending | none | Not started |
+| T-002 | Dependent | S | T-001 | done | none | Done |
+`
+	if err := os.WriteFile(roadmapPath, []byte(roadContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := run(t, root)
+	if !has(r, Warn, "T-002 is Done but prerequisite T-001 is Not started") {
+		t.Fatalf("expected prerequisite drift warning:\n%s", dump(r))
+	}
+}
+
+func TestCheckFeatureStatusDrift(t *testing.T) {
+	root := generate(t)
+	// Create a feature folder for T-001 with incomplete status
+	featDir := filepath.Join(root, "features", "T-001-sample")
+	if err := os.MkdirAll(featDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(featDir, "requirements.md"), []byte("# Req\nStatus: Approved\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(featDir, "plan.md"), []byte("# Plan\nStatus: Draft\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(featDir, "validation.md"), []byte("# Val\nStatus: In progress\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	roadmapPath := filepath.Join(root, "ROADMAP.md")
+	roadContent := `
+### M1 — Milestone
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Sample | S | none | done | none | Done |
+`
+	if err := os.WriteFile(roadmapPath, []byte(roadContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := run(t, root)
+	if !has(r, Warn, "task is Done in ROADMAP.md but validation.md status is") {
+		t.Fatalf("expected validation status drift warning:\n%s", dump(r))
+	}
+	if !has(r, Warn, "task is Done in ROADMAP.md but plan.md status is") {
+		t.Fatalf("expected plan status drift warning:\n%s", dump(r))
+	}
+}
+
+func TestCheckJSONIncludesExpiryWarnings(t *testing.T) {
+	root := generate(t)
+	// Ensure T-001 is Done in ROADMAP.md
+	roadPath := filepath.Join(root, "ROADMAP.md")
+	roadContent := `
+### M1 — Milestone
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Init | S | none | done | D-001 | Done |
+`
+	_ = os.WriteFile(roadPath, []byte(roadContent), 0o644)
+
+	facts := `
+## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
+
+| Date | Fact | Source | Re-verify at |
+|---|---|---|---|
+| 2026-10-26 | Expired fact | Sandbox | T-001 |
+`
+	stackPath := filepath.Join(root, "TECH_STACK.md")
+	data, _ := os.ReadFile(stackPath)
+	_ = os.WriteFile(stackPath, append(data, []byte(facts)...), 0o644)
+
+	r, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonData, err := r.JSON(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var jr JSONReport
+	if err := json.Unmarshal(jsonData, &jr); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range jr.Findings {
+		if f.Severity == Warn && strings.Contains(f.Message, "past due for re-verification") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected finding in JSONReport for expired fact: %+v", jr.Findings)
+	}
+}
+
+func TestSuppressedFindingsPassStrict(t *testing.T) {
+	root := generate(t)
+
+	// Introduce contract parity divergence in GEMINI.md
+	geminiPath := filepath.Join(root, "GEMINI.md")
+	data, err := os.ReadFile(geminiPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	modData := strings.Replace(string(data), "ANTHEM: ALWAYS BE DETERMINISTIC.", "ANTHEM: DIFFERENT RULE.", 1)
+	if err := os.WriteFile(geminiPath, []byte(modData), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify it fails check without suppression
+	rUnsuppressed, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !rUnsuppressed.Failed(false) {
+		t.Fatalf("expected unsuppressed parity error to fail check")
+	}
+
+	// Now register waivers in .sdd/suppressions.json (including todo placeholders for strict test)
+	suppJSON := `{
+  "schema": 1,
+  "suppressions": [
+    {
+      "file": "GEMINI.md",
+      "rule": "contract-parity",
+      "reason": "intentional divergence for testing",
+      "date": "2026-11-02"
+    },
+    {
+      "file": "*",
+      "rule": "todo-placeholder",
+      "reason": "test fixtures have unedited todos",
+      "date": "2026-11-02"
+    }
+  ]
+}`
+	sddDir := filepath.Join(root, ".sdd")
+	_ = os.MkdirAll(sddDir, 0o755)
+	if err := os.WriteFile(filepath.Join(sddDir, "suppressions.json"), []byte(suppJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run check again
+	rSuppressed, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Should pass even in strict mode
+	if rSuppressed.Failed(true) {
+		t.Fatalf("expected check to pass strict mode when finding is suppressed: %+v", rSuppressed.Findings)
+	}
+
+	// Verify finding is downgraded to INFO and includes reason
+	found := false
+	for _, f := range rSuppressed.Findings {
+		if f.File == "GEMINI.md" && f.Rule == "contract-parity" {
+			found = true
+			if f.Severity != Info {
+				t.Errorf("expected Severity to be INFO, got %s", f.Severity)
+			}
+			if !f.Suppressed {
+				t.Errorf("expected Suppressed to be true")
+			}
+			if f.SuppressReason != "intentional divergence for testing" {
+				t.Errorf("unexpected SuppressReason: %s", f.SuppressReason)
+			}
+			if !strings.Contains(f.Message, "(suppressed: intentional divergence for testing)") {
+				t.Errorf("unexpected message: %s", f.Message)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected suppressed finding for GEMINI.md in %+v", rSuppressed.Findings)
+	}
+}
+
+func TestCheckJSONIncludesSuppressionMetadata(t *testing.T) {
+	root := generate(t)
+
+	// Suppress README.md missing warning
+	_ = os.Remove(filepath.Join(root, "README.md"))
+	suppJSON := `{
+  "schema": 1,
+  "suppressions": [
+    {
+      "file": "README.md",
+      "rule": "required-file",
+      "reason": "omitted for custom doc site",
+      "date": "2026-11-02"
+    }
+  ]
+}`
+	sddDir := filepath.Join(root, ".sdd")
+	_ = os.MkdirAll(sddDir, 0o755)
+	_ = os.WriteFile(filepath.Join(sddDir, "suppressions.json"), []byte(suppJSON), 0o644)
+
+	r, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := r.JSON(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var jr JSONReport
+	if err := json.Unmarshal(data, &jr); err != nil {
+		t.Fatal(err)
+	}
+
+	if !jr.Valid {
+		t.Errorf("expected jr.Valid=true when warning is suppressed")
+	}
+
+	found := false
+	for _, f := range jr.Findings {
+		if f.File == "README.md" && f.Suppressed {
+			found = true
+			if f.SuppressReason != "omitted for custom doc site" {
+				t.Errorf("unexpected reason in JSON: %s", f.SuppressReason)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected suppressed finding in JSON report: %s", string(data))
+	}
+}
+
+func TestCheckStaleSuppressionDetection(t *testing.T) {
+	root := generate(t)
+
+	// Clean kit has no errors; register a suppression for a non-existent issue
+	suppJSON := `{
+  "schema": 1,
+  "suppressions": [
+    {
+      "file": "CLAUDE.md",
+      "rule": "contract-parity",
+      "reason": "stale waiver that is not triggered",
+      "date": "2026-11-02"
+    }
+  ]
+}`
+	sddDir := filepath.Join(root, ".sdd")
+	_ = os.MkdirAll(sddDir, 0o755)
+	_ = os.WriteFile(filepath.Join(sddDir, "suppressions.json"), []byte(suppJSON), 0o644)
+
+	r, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	foundStale := false
+	for _, f := range r.Findings {
+		if f.Rule == "stale-waiver" && strings.Contains(f.Message, "CLAUDE.md") {
+			foundStale = true
+			if f.Severity != Info {
+				t.Errorf("expected stale waiver severity to be INFO, got %s", f.Severity)
+			}
+			break
+		}
+	}
+	if !foundStale {
+		t.Fatalf("expected stale-waiver finding in %+v", r.Findings)
+	}
+}
+
+func TestCheckPermissions(t *testing.T) {
+	root := generate(t)
+
+	// Valid settings.json produces no error
+	claudeDir := filepath.Join(root, ".claude")
+	_ = os.MkdirAll(claudeDir, 0o755)
+	validJSON := `{"permissions":{"deny":["git commit *"]}}`
+	if err := os.WriteFile(filepath.Join(claudeDir, "settings.json"), []byte(validJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range r.Findings {
+		if f.Rule == "permissions-syntax" {
+			t.Fatalf("unexpected permissions-syntax finding for valid JSON: %+v", f)
+		}
+	}
+
+	// Corrupted settings.json produces permissions-syntax error
+	if err := os.WriteFile(filepath.Join(claudeDir, "settings.json"), []byte("{broken json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	rBad, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range rBad.Findings {
+		if f.Rule == "permissions-syntax" && f.Severity == Error {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected permissions-syntax error in %+v", rBad.Findings)
+	}
+}
+
+func TestCheckCRLFInvariance(t *testing.T) {
+	root := generate(t)
+
+	// Baseline run on pure LF files
+	baseRes, err := Run(root)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if baseRes.Count(Error) != 0 {
+		t.Fatalf("expected 0 errors on clean generated kit, got %d", baseRes.Count(Error))
+	}
+
+	// 1. Asymmetric CRLF test: convert only CLAUDE.md to CRLF
+	claudePath := filepath.Join(root, "CLAUDE.md")
+	claudeData, err := os.ReadFile(claudePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claudeCRLF := strings.ReplaceAll(string(claudeData), "\r\n", "\n")
+	claudeCRLF = strings.ReplaceAll(claudeCRLF, "\n", "\r\n")
+	if err := os.WriteFile(claudePath, []byte(claudeCRLF), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	asymRes, err := Run(root)
+	if err != nil {
+		t.Fatalf("Run failed on asymmetric CRLF: %v", err)
+	}
+	for _, f := range asymRes.Findings {
+		if f.Rule == "parity-match" {
+			t.Fatalf("parity check broke on asymmetric CRLF: %+v", f)
+		}
+	}
+
+	// 2. Convert all markdown and JSON files to CRLF
+	err = filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil || info.IsDir() {
+			return nil
+		}
+		if strings.HasSuffix(path, ".md") || strings.HasSuffix(path, ".json") {
+			data, err := os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			crlf := strings.ReplaceAll(string(data), "\r\n", "\n")
+			crlf = strings.ReplaceAll(crlf, "\n", "\r\n")
+			return os.WriteFile(path, []byte(crlf), 0o644)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	crlfRes, err := Run(root)
+	if err != nil {
+		t.Fatalf("Run failed on all CRLF: %v", err)
+	}
+	if crlfRes.Count(Error) != 0 {
+		t.Fatalf("expected 0 errors on CRLF kit, got %d: %+v", crlfRes.Count(Error), crlfRes.Findings)
+	}
+	if len(crlfRes.Findings) != len(baseRes.Findings) {
+		t.Errorf("findings count mismatch: LF has %d, CRLF has %d", len(baseRes.Findings), len(crlfRes.Findings))
 	}
 }

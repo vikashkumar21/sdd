@@ -7,9 +7,12 @@ import (
 	"strings"
 
 	"github.com/vikashkumar21/sdd/internal/check"
+	"github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/feature"
+	"github.com/vikashkumar21/sdd/internal/repair"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
+	"github.com/vikashkumar21/sdd/internal/suppress"
 	"github.com/vikashkumar21/sdd/internal/templates"
 )
 
@@ -17,24 +20,168 @@ func runCheck(args []string, env IO) int {
 	fs := newFlagSet("check", env)
 	dir := fs.String("dir", ".", "project root")
 	strict := fs.Bool("strict", false, "treat warnings (including unresolved TODO(human) placeholders) as failures")
+	jsonOut := fs.Bool("json", false, "output findings as structured JSON")
+	fix := fs.Bool("fix", false, "safely repair mechanical issues (contract parity, table alignment)")
+	dryRun := fs.Bool("dry-run", false, "preview repairs without applying changes")
+	yes := fs.Bool("yes", false, "apply repairs without interactive confirmation")
+	fileFlag := fs.String("file", "", "restrict repairs to specified comma-separated file(s)")
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return parseExit(err)
 	}
 	if len(pos) > 0 {
-		fmt.Fprintf(env.Err, "sdd check: unexpected argument %q\n", pos[0])
+		fprintf(env.Err, "sdd check: unexpected argument %q\n", pos[0])
 		return 2
 	}
 	root, err := filepath.Abs(*dir)
 	if err != nil {
-		fmt.Fprintf(env.Err, "sdd check: %v\n", err)
+		fprintf(env.Err, "sdd check: %v\n", err)
 		return 1
 	}
+
+	if *fix {
+		var filterFiles []string
+		if *fileFlag != "" {
+			for _, part := range strings.Split(*fileFlag, ",") {
+				p := strings.TrimSpace(part)
+				if p != "" {
+					filterFiles = append(filterFiles, p)
+				}
+			}
+		}
+		plan, perr := repair.PlanRepairs(root, filterFiles)
+		if perr != nil {
+			fprintf(env.Err, "sdd check --fix: %v\n", perr)
+			return 1
+		}
+
+		checkRep, _ := check.Run(root)
+
+		if len(plan.Patches) == 0 && len(checkRep.StaleWaivers) == 0 {
+			fprintln(env.Out, "No mechanical repairs needed.")
+			return 0
+		}
+
+		p := newPrompter(env.In, env.Out)
+
+		if len(plan.Patches) > 0 {
+			fprintln(env.Out, "Proposed repairs:")
+			for _, patch := range plan.Patches {
+				if patch.Suppressed {
+					fprintf(env.Out, "\n%s (%s) [SUPPRESSED: %s]:\n", patch.Path, patch.Description, patch.SuppressReason)
+				} else {
+					fprintf(env.Out, "\n%s (%s):\n", patch.Path, patch.Description)
+				}
+				fprintln(env.Out, strings.TrimRight(patch.Diff, "\n"))
+			}
+
+			if *dryRun {
+				fprintf(env.Out, "\nDry run: %d file(s) would be repaired. No changes written.\n", len(plan.Patches))
+				return 0
+			}
+
+			approved := map[string]bool{}
+			if *yes {
+				for _, patch := range plan.Patches {
+					approved[patch.Path] = true
+				}
+			} else {
+				if len(plan.Patches) == 1 {
+					patch := plan.Patches[0]
+					ans := p.ask(fmt.Sprintf("\nApply repair to %s? [y]es / [n]o / [s]uppress", patch.Path), "n")
+					switch strings.ToLower(strings.TrimSpace(ans)) {
+					case "y", "yes":
+						approved[patch.Path] = true
+					case "s", "suppress":
+						reason := p.ask("Waiver reason", "")
+						if reason == "" {
+							reason = "waived via sdd check --fix"
+						}
+						_ = suppress.Add(root, suppress.Entry{
+							File:   patch.Path,
+							Rule:   patch.Rule,
+							Reason: reason,
+							Date:   env.now().Format("2006-01-02"),
+						})
+						fprintf(env.Out, "Recorded waiver for %s (%s).\n", patch.Path, patch.Rule)
+					}
+				} else {
+					answer := p.ask("\nApply repairs? [y]es to all / [n]o / [p]er-file", "n")
+					switch strings.ToLower(strings.TrimSpace(answer)) {
+					case "y", "yes":
+						for _, patch := range plan.Patches {
+							approved[patch.Path] = true
+						}
+					case "p", "per-file":
+						for _, patch := range plan.Patches {
+							ans := p.ask(fmt.Sprintf("Apply repair to %s? [y]es / [n]o / [s]uppress", patch.Path), "n")
+							switch strings.ToLower(strings.TrimSpace(ans)) {
+							case "y", "yes":
+								approved[patch.Path] = true
+							case "s", "suppress":
+								reason := p.ask("Waiver reason", "")
+								if reason == "" {
+									reason = "waived via sdd check --fix"
+								}
+								_ = suppress.Add(root, suppress.Entry{
+									File:   patch.Path,
+									Rule:   patch.Rule,
+									Reason: reason,
+									Date:   env.now().Format("2006-01-02"),
+								})
+								fprintf(env.Out, "Recorded waiver for %s (%s).\n", patch.Path, patch.Rule)
+							}
+						}
+					default:
+						fprintln(env.Out, "Repairs aborted. No changes written.")
+					}
+				}
+			}
+
+			if len(approved) > 0 {
+				res, aerr := repair.Apply(root, plan, approved, env.now())
+				if aerr != nil {
+					fprintf(env.Err, "sdd check --fix: apply: %v\n", aerr)
+					return 1
+				}
+				fprintf(env.Out, "\nRepaired %d file(s). Original(s) backed up in %s/\n", len(res.Repaired), res.BackupDir)
+			}
+		}
+
+		if len(checkRep.StaleWaivers) > 0 && !*dryRun {
+			fprintln(env.Out, "\nStale waiver(s) found in .sdd/suppressions.json (no longer triggered):")
+			for _, sw := range checkRep.StaleWaivers {
+				fprintf(env.Out, "  - %s (%s): %s\n", sw.File, sw.Rule, sw.Reason)
+			}
+			if *yes || p.confirm("Remove stale waiver(s) from .sdd/suppressions.json?") {
+				if err := suppress.RemoveEntries(root, checkRep.StaleWaivers); err == nil {
+					fprintf(env.Out, "Pruned %d stale waiver(s) from .sdd/suppressions.json.\n", len(checkRep.StaleWaivers))
+				}
+			}
+		}
+
+		return 0
+	}
+
 	rep, err := check.Run(root)
 	if err != nil {
-		fmt.Fprintf(env.Err, "sdd check: %v\n", err)
+		fprintf(env.Err, "sdd check: %v\n", err)
 		return 1
 	}
+
+	if *jsonOut {
+		data, jerr := rep.JSON(*strict)
+		if jerr != nil {
+			fprintf(env.Err, "sdd check: marshal json: %v\n", jerr)
+			return 1
+		}
+		fprintln(env.Out, string(data))
+		if rep.Failed(*strict) {
+			return 1
+		}
+		return 0
+	}
+
 	for _, f := range rep.Findings {
 		loc := f.File
 		if loc == "" {
@@ -42,9 +189,9 @@ func runCheck(args []string, env IO) int {
 		} else if f.Line > 0 {
 			loc = fmt.Sprintf("%s:%d", f.File, f.Line)
 		}
-		fmt.Fprintf(env.Out, "%-5s %s  %s\n", f.Severity, loc, f.Message)
+		fprintf(env.Out, "%-5s %s  %s\n", f.Severity, loc, f.Message)
 	}
-	fmt.Fprintf(env.Out, "\n%d error(s), %d warning(s), %d note(s)\n", rep.Count(check.Error), rep.Count(check.Warn), rep.Count(check.Info))
+	fprintf(env.Out, "\n%d error(s), %d warning(s), %d note(s)\n", rep.Count(check.Error), rep.Count(check.Warn), rep.Count(check.Info))
 	if rep.Failed(*strict) {
 		return 1
 	}
@@ -53,48 +200,121 @@ func runCheck(args []string, env IO) int {
 
 func runFeature(args []string, env IO) int {
 	if len(args) == 0 || args[0] != "new" {
-		fmt.Fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--dir <project>]")
+		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--from-doc <file>] [--dir <project>]")
 		return 2
 	}
 	fs := newFlagSet("feature new", env)
 	dir := fs.String("dir", ".", "project root")
 	title := fs.String("title", "", "task title (default: the title in ROADMAP.md)")
+	fromJira := fs.String("from-jira", "", "path or raw text of a Jira issue to import into requirements.md and stage into context")
+	fromDoc := fs.String("from-doc", "", "path to reference document or PDF to stage into context and link in requirements.md")
 	pos, err := parseInterspersed(fs, args[1:])
 	if err != nil {
 		return parseExit(err)
 	}
 	if len(pos) != 2 {
-		fmt.Fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--dir <project>]")
+		fprintln(env.Err, "usage: sdd feature new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--from-doc <file>] [--dir <project>]")
 		return 2
 	}
 	root, err := filepath.Abs(*dir)
 	if err != nil {
-		fmt.Fprintf(env.Err, "sdd feature: %v\n", err)
+		fprintf(env.Err, "sdd feature: %v\n", err)
 		return 1
 	}
-	res, err := feature.New(root, pos[0], pos[1], *title)
+
+	var jiraData []byte
+	var jiraOrigin string
+	if *fromJira != "" {
+		filePath := *fromJira
+		if !filepath.IsAbs(filePath) {
+			if _, err := os.Stat(filePath); err != nil {
+				candidate := filepath.Join(root, filePath)
+				if _, err2 := os.Stat(candidate); err2 == nil {
+					filePath = candidate
+				}
+			}
+		}
+		if data, err := os.ReadFile(filePath); err == nil {
+			jiraData = data
+			jiraOrigin = filepath.Base(filePath)
+		} else {
+			if strings.Contains(filePath, ".") || strings.Contains(filePath, "/") || strings.Contains(filePath, "\\") {
+				fprintf(env.Err, "sdd feature: read jira file %s: %v\n", *fromJira, err)
+				return 1
+			}
+			jiraData = []byte(*fromJira)
+			jiraOrigin = "inline"
+		}
+	}
+
+	var docData []byte
+	var docPath string
+	if *fromDoc != "" {
+		filePath := *fromDoc
+		if !filepath.IsAbs(filePath) {
+			if _, err := os.Stat(filePath); err != nil {
+				candidate := filepath.Join(root, filePath)
+				if _, err2 := os.Stat(candidate); err2 == nil {
+					filePath = candidate
+				}
+			}
+		}
+		data, err := os.ReadFile(filePath)
+		if err != nil {
+			fprintf(env.Err, "sdd feature: read doc file %s: %v\n", *fromDoc, err)
+			return 1
+		}
+		docData = data
+		docPath = filePath
+	}
+
+	opts := feature.Options{
+		Title:        *title,
+		FromJiraData: jiraData,
+		JiraOrigin:   jiraOrigin,
+		FromDocData:  docData,
+		FromDocPath:  docPath,
+		Now:          env.now(),
+	}
+	res, err := feature.NewWithOptions(root, pos[0], pos[1], opts)
 	if err != nil {
-		fmt.Fprintf(env.Err, "sdd feature: %v\n", err)
+		fprintf(env.Err, "sdd feature: %v\n", err)
 		return 1
 	}
-	fmt.Fprintf(env.Out, "Created %s:\n", res.Dir)
+	fprintf(env.Out, "Created %s:\n", res.Dir)
 	for _, f := range res.Files {
-		fmt.Fprintf(env.Out, "  %s\n", f)
+		fprintf(env.Out, "  %s\n", f)
 	}
 	if res.StatusUpdated {
-		fmt.Fprintf(env.Out, "ROADMAP.md: %s is now Specifying.\n", pos[0])
+		fprintf(env.Out, "ROADMAP.md: %s is now Specifying.\n", pos[0])
 	}
-	fmt.Fprintf(env.Out, "\nNext: draft requirements.md, plan.md and validation.md (no code), then stop for `APPROVED %s`.\n", pos[0])
+	if res.StagedContext != "" {
+		fprintf(env.Out, "Staged context: %s\n", res.StagedContext)
+	}
+	fprintf(env.Out, "\nNext: draft requirements.md, plan.md and validation.md (no code), then stop for `APPROVED %s`.\n", pos[0])
 	return 0
 }
 
 type taskView struct{ ID, Title, Status string }
+
+type contextView struct {
+	ID     string
+	Source string
+	Origin string
+	Path   string
+	Task   string
+	Format string
+	Bytes  int64
+}
 
 type promptData struct {
 	Project, Root, AgentName, AgentFile, Date string
 	AgentFiles                                []string
 	OpenTasks                                 []taskView
 	FocusTask                                 string
+	FocusTaskID                               string
+	StagedContext                             []contextView
+	TaskContext                               []contextView
 }
 
 func agentFor(name string) (display, file string) {
@@ -120,11 +340,11 @@ func runPrompt(args []string, env IO) int {
 		return parseExit(err)
 	}
 	if len(pos) != 1 {
-		fmt.Fprintln(env.Err, "usage: sdd prompt <agent> [--task T-xxx] [--dir <project>]   (agent: claude, gemini, agents, or any name)")
+		fprintln(env.Err, "usage: sdd prompt <agent> [--task T-xxx] [--dir <project>]   (agent: claude, gemini, agents, or any name)")
 		return 2
 	}
 	fail := func(format string, a ...any) int {
-		fmt.Fprintf(env.Err, "sdd prompt: "+format+"\n", a...)
+		fprintf(env.Err, "sdd prompt: "+format+"\n", a...)
 		return 1
 	}
 	root, err := filepath.Abs(*dir)
@@ -166,11 +386,34 @@ func runPrompt(args []string, env IO) int {
 			data.OpenTasks = append(data.OpenTasks, taskView{ID: t.ID, Title: t.Title, Status: roadmap.Normalize(t.Status)})
 		}
 	}
-	focus, ferr := pickFocus(all, *task)
+	focus, focusID, ferr := pickFocus(all, *task)
 	if ferr != nil {
 		return fail("%v", ferr)
 	}
 	data.FocusTask = focus
+	data.FocusTaskID = focusID
+
+	if cm, ok, err := context.ReadManifest(root); err == nil && ok {
+		for _, e := range cm.Entries {
+			formatDisplay := e.Format
+			if strings.EqualFold(e.Format, "pdf") {
+				formatDisplay = "pdf (multimodal inspection)"
+			}
+			cv := contextView{
+				ID:     e.ID,
+				Source: e.Source,
+				Origin: e.Origin,
+				Path:   e.Path,
+				Task:   e.Task,
+				Format: formatDisplay,
+				Bytes:  e.Bytes,
+			}
+			data.StagedContext = append(data.StagedContext, cv)
+			if focusID != "" && e.Task == focusID {
+				data.TaskContext = append(data.TaskContext, cv)
+			}
+		}
+	}
 
 	set, err := templates.New(*tpl)
 	if err != nil {
@@ -180,27 +423,27 @@ func runPrompt(args []string, env IO) int {
 	if err != nil {
 		return fail("%v", err)
 	}
-	fmt.Fprint(env.Out, out)
+	fprint(env.Out, out)
 	return 0
 }
 
-func pickFocus(all []roadmap.Task, wanted string) (string, error) {
+func pickFocus(all []roadmap.Task, wanted string) (string, string, error) {
 	describe := func(t roadmap.Task) string {
 		return fmt.Sprintf("%s — %s (%s)", t.ID, t.Title, roadmap.Normalize(t.Status))
 	}
 	if wanted != "" {
 		for _, t := range all {
 			if t.ID == wanted {
-				return describe(t), nil
+				return describe(t), t.ID, nil
 			}
 		}
-		return "", fmt.Errorf("%s is not a task in ROADMAP.md", wanted)
+		return "", "", fmt.Errorf("%s is not a task in ROADMAP.md", wanted)
 	}
 	for _, t := range all {
 		switch roadmap.Kind(t.Status) {
 		case "not started", "specifying", "awaiting plan approval", "implementing", "awaiting review":
-			return describe(t), nil
+			return describe(t), t.ID, nil
 		}
 	}
-	return "", nil
+	return "", "", nil
 }
