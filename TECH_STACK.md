@@ -119,7 +119,7 @@ internal/version/     build version (set with -ldflags)
 | D-014 | Tool repository `/Users/vikash/projects/sdd`, module `github.com/vikashkumar21/sdd` | **Approved** 2026-10-26 | n/a | Human decision X9 |
 | D-015 | `go` directive in go.mod | **Approved** 2026-10-29 | n/a | Go 1.27 chosen by human decision; aligns module with host Go 1.27.3 toolchain |
 | D-016 | Template syntax: Go `text/template` with `{{ }}`, strict (an unknown field is an error) | Proposed | T-002 | Override templates must not contain a literal `{{` |
-| D-017 | Manifest schema 1 and managed-block markers `<!-- sdd:begin contract templates=<v> -->` and `<!-- sdd:end contract -->` | Proposed | T-003 | The marker format becomes a compatibility surface once other projects contain it |
+| D-017 | Manifest schema 1, managed-block markers, and proposal format | **Approved** 2026-11-02 | n/a | Option A: Confirm manifest schema 1, `<!-- sdd:begin contract templates=<v> -->`, and `<file>.sdd-new` proposal files with unified diff previews as permanent compatibility surfaces |
 | D-018 | Ingestion and semantic synthesis architecture | **Approved** 2026-10-29 | n/a | Option A: Agent-assisted staging (.sdd/context/); offline, deterministic, zero secrets; agent extracts under Gate 1 |
 | D-019 | Jira task integration method | **Approved** 2026-10-29 | n/a | Option A for v1 (file/text-based JSON/Markdown/text ingestion), Option B (REST API client) as follow-up plugin |
 | D-020 | Document/PDF ingestion protocol | **Approved** 2026-10-29 | n/a | Option A: text/string input directly, local CLI extraction or staging for multimodal agents, preserves D-007 stdlib purity |

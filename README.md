@@ -49,6 +49,11 @@ cat transcript.txt | sdd ingest               # stage piped stdin
 sdd permissions                               # generate agent permission configs denying git writes
 sdd permissions --agents claude,cursor        # generate for specific agents
 sdd permissions --dry-run                     # preview planned manifests without writing
+
+sdd upgrade                               # refresh kit files from newer templates without overwriting human edits
+sdd upgrade --dry-run                     # preview planned updates and diffs without writing files
+sdd upgrade --yes                         # apply updates and write proposals without prompting
+sdd upgrade --force                       # overwrite edited files (always creates backups in .sdd/backup/)
 ```
 
 ### Greenfield and brownfield
@@ -68,7 +73,7 @@ Finding waivers registered in `.sdd/suppressions.json` are downgraded to informa
 
 ## Improving the markdown later
 
-Templates are embedded in the binary. To change them without rebuilding, point `--templates <dir>` at a directory containing replacement files with the same relative paths (for example `base/MISSION.md.tmpl`, `packs/go/standards.md`, `features/plan.md`); anything you do not override falls back to the embedded version. Template syntax is Go `text/template`. The manifest records the template version and a hash of each generated file so a future `sdd upgrade` can tell untouched files from ones you edited.
+Templates are embedded in the binary. To change them without rebuilding, point `--templates <dir>` at a directory containing replacement files with the same relative paths (for example `base/MISSION.md.tmpl`, `packs/go/standards.md`, `features/plan.md`); anything you do not override falls back to the embedded version. Template syntax is Go `text/template`. The manifest records the template version and a hash of each generated file so `sdd upgrade` can tell untouched files from ones you edited. Untouched files are updated in place with backups in `.sdd/backup/`, while edited files receive side-by-side `.sdd-new` proposals and unified diff previews so human work is never silently overwritten.
 
 ## Development
 
