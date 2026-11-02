@@ -64,8 +64,8 @@ Status: living document · Last updated: 2026-10-26
 | T-007 | P-03: Filesystem confinement via os.Root | M | T-002 | os.OpenRoot used for path-confined file operations in scaffold and fsutil | D-015, D-021 | Done |
 | T-008 | P-04: Robust markdown parser in check | M | T-002 | Deterministic state machine handling nested fences, escaped pipes, and indented tables | none | Done |
 | T-009 | P-05: Machine-readable JSON output for sdd check | S | T-002 | sdd check --json outputs structured findings | none | Done |
-| T-010 | P-07: Monorepo and polyglot detection enhancement | M | T-002 | Manifest scan depth 4, multi-language command suggestions | none | Awaiting review |
-| T-011 | P-08: Verified-facts expiry and roadmap drift checker | S | T-002 | Check warns on past-due re-verify milestones | none | Not started |
+| T-010 | P-07: Monorepo and polyglot detection enhancement | M | T-002 | Manifest scan depth 4, multi-language command suggestions | none | Done |
+| T-011 | P-08: Verified-facts expiry and roadmap drift checker | S | T-002 | Check warns on past-due re-verify milestones | none | Awaiting review |
 | T-012 | P-09: Safe interactive repair command (sdd check --fix) | M | T-008 | Diff preview, human confirmation, backup before fix | none | Not started |
 | T-013 | P-10: Agent permission manifest generation | M | T-002 | Optional generation of agent configuration denying git writes | none | Not started |
 | T-018 | Full Windows platform compatibility (paths, CRLF, unsafe drive roots, .exe in dist) | M | T-007 | Native Windows support, cross-compilation in dist, CRLF normalisation | D-021 | Not started |

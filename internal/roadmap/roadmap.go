@@ -11,13 +11,19 @@ import (
 
 // Task is one row of a roadmap task table.
 type Task struct {
-	ID     string
-	Title  string
-	Status string // as written, including any markdown emphasis
-	Line   int    // 1-based line number in the file
+	ID        string
+	Title     string
+	Milestone string
+	DependsOn []string
+	Status    string // as written, including any markdown emphasis
+	Line      int    // 1-based line number in the file
 }
 
-var rowRe = regexp.MustCompile(`^\|\s*(T-\d{3}(?:\.\d+)?)\s*\|`)
+var (
+	rowRe          = regexp.MustCompile(`^\|\s*(T-\d{3}(?:\.\d+)?)\s*\|`)
+	taskRefRe      = regexp.MustCompile(`\bT-\d{3}(?:\.\d+)?\b`)
+	milestoneHdrRe = regexp.MustCompile(`(?i)^###\s*(M\d+)\b`)
+)
 
 var validStatuses = []string{
 	"not started", "specifying", "awaiting plan approval",
@@ -27,7 +33,11 @@ var validStatuses = []string{
 // Parse returns every task row found in the text, in file order.
 func Parse(text string) []Task {
 	var tasks []Task
+	var currentMilestone string
 	for i, line := range strings.Split(text, "\n") {
+		if mm := milestoneHdrRe.FindStringSubmatch(line); mm != nil {
+			currentMilestone = strings.ToUpper(mm[1])
+		}
 		m := rowRe.FindStringSubmatch(line)
 		if m == nil {
 			continue
@@ -36,7 +46,18 @@ func Parse(text string) []Task {
 		if len(cells) < 3 {
 			continue
 		}
-		tasks = append(tasks, Task{ID: m[1], Title: cells[1], Status: cells[len(cells)-1], Line: i + 1})
+		var deps []string
+		if len(cells) >= 5 && 3 < len(cells)-1 {
+			deps = taskRefRe.FindAllString(cells[3], -1)
+		}
+		tasks = append(tasks, Task{
+			ID:        m[1],
+			Title:     cells[1],
+			Milestone: currentMilestone,
+			DependsOn: deps,
+			Status:    cells[len(cells)-1],
+			Line:      i + 1,
+		})
 	}
 	return tasks
 }

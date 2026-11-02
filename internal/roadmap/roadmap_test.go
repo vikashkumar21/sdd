@@ -64,3 +64,25 @@ func TestSetStatus(t *testing.T) {
 		t.Error("text should differ after a successful change")
 	}
 }
+
+func TestParseDependsOn(t *testing.T) {
+	text := `| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Init | S | none | outcome | D-001 | Done |
+| T-002 | Setup | M | T-001 | outcome | none | Done |
+| T-003 | Feat | L | T-001, T-002 | outcome | none | Not started |
+`
+	tasks := Parse(text)
+	if len(tasks) != 3 {
+		t.Fatalf("got %d tasks", len(tasks))
+	}
+	if len(tasks[0].DependsOn) != 0 {
+		t.Errorf("T-001 deps = %v, want empty", tasks[0].DependsOn)
+	}
+	if len(tasks[1].DependsOn) != 1 || tasks[1].DependsOn[0] != "T-001" {
+		t.Errorf("T-002 deps = %v, want [T-001]", tasks[1].DependsOn)
+	}
+	if len(tasks[2].DependsOn) != 2 || tasks[2].DependsOn[0] != "T-001" || tasks[2].DependsOn[1] != "T-002" {
+		t.Errorf("T-003 deps = %v, want [T-001, T-002]", tasks[2].DependsOn)
+	}
+}

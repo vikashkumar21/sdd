@@ -348,3 +348,196 @@ func TestCheckJSONOutput(t *testing.T) {
 		t.Errorf("expected finding for MISSION.md in %+v", jrFail.Findings)
 	}
 }
+
+func TestCheckVerifiedFactsExpiry(t *testing.T) {
+	root := generate(t)
+
+	// Ensure ROADMAP.md has T-001 (Done) and T-002 (Not started)
+	roadPath := filepath.Join(root, "ROADMAP.md")
+	roadContent := `
+### M1 — Milestone
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Expired task | S | none | done | D-001 | Done |
+| T-002 | Active task | S | T-001 | pending | none | Not started |
+`
+	if err := os.WriteFile(roadPath, []byte(roadContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Append a verified facts section to TECH_STACK.md with one expired fact (T-001 is Done)
+	// and one active fact (T-002 is Not started) and one permanent fact
+	facts := `
+## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
+
+| Date | Fact | Source | Re-verify at |
+|---|---|---|---|
+| 2026-10-26 | Go builds cleanly | Sandbox | T-001 |
+| 2026-10-26 | Windows compatibility check | Docs | T-002 |
+| 2026-10-26 | Permanent constant | Specs | permanent |
+`
+	stackPath := filepath.Join(root, "TECH_STACK.md")
+	data, err := os.ReadFile(stackPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stackPath, append(data, []byte(facts)...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := run(t, root)
+	if !has(r, Warn, "past due for re-verification (T-001 is Done)") {
+		t.Fatalf("expected warning for expired fact:\n%s", dump(r))
+	}
+	if has(r, Warn, "T-002 is Done") {
+		t.Fatalf("did not expect warning for active fact T-002:\n%s", dump(r))
+	}
+}
+
+func TestCheckVerifiedFactsMilestoneExpiry(t *testing.T) {
+	root := generate(t)
+
+	facts := `
+## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
+
+| Date | Fact | Source | Re-verify at |
+|---|---|---|---|
+| 2026-10-26 | Milestone 1 fact | Sandbox | M1 |
+`
+	stackPath := filepath.Join(root, "TECH_STACK.md")
+	data, err := os.ReadFile(stackPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(stackPath, append(data, []byte(facts)...), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Update ROADMAP.md so all tasks in M1 are Done
+	roadmapPath := filepath.Join(root, "ROADMAP.md")
+	roadContent := `
+### M1 — First Milestone
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Init | S | none | done | D-001 | Done |
+| T-002 | Next | S | T-001 | done | none | Done |
+`
+	if err := os.WriteFile(roadmapPath, []byte(roadContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := run(t, root)
+	if !has(r, Warn, "past due for re-verification (milestone M1 is completed)") {
+		t.Fatalf("expected milestone expiry warning:\n%s", dump(r))
+	}
+}
+
+func TestCheckDependencyDrift(t *testing.T) {
+	root := generate(t)
+	roadmapPath := filepath.Join(root, "ROADMAP.md")
+	// T-002 is Done or Implementing, but T-001 prerequisite is Not started
+	roadContent := `
+### M1 — Milestone
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Prerequisite | S | none | pending | none | Not started |
+| T-002 | Dependent | S | T-001 | done | none | Done |
+`
+	if err := os.WriteFile(roadmapPath, []byte(roadContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := run(t, root)
+	if !has(r, Warn, "T-002 is Done but prerequisite T-001 is Not started") {
+		t.Fatalf("expected prerequisite drift warning:\n%s", dump(r))
+	}
+}
+
+func TestCheckFeatureStatusDrift(t *testing.T) {
+	root := generate(t)
+	// Create a feature folder for T-001 with incomplete status
+	featDir := filepath.Join(root, "features", "T-001-sample")
+	if err := os.MkdirAll(featDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(featDir, "requirements.md"), []byte("# Req\nStatus: Approved\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(featDir, "plan.md"), []byte("# Plan\nStatus: Draft\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(featDir, "validation.md"), []byte("# Val\nStatus: In progress\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	roadmapPath := filepath.Join(root, "ROADMAP.md")
+	roadContent := `
+### M1 — Milestone
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Sample | S | none | done | none | Done |
+`
+	if err := os.WriteFile(roadmapPath, []byte(roadContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := run(t, root)
+	if !has(r, Warn, "task is Done in ROADMAP.md but validation.md status is") {
+		t.Fatalf("expected validation status drift warning:\n%s", dump(r))
+	}
+	if !has(r, Warn, "task is Done in ROADMAP.md but plan.md status is") {
+		t.Fatalf("expected plan status drift warning:\n%s", dump(r))
+	}
+}
+
+func TestCheckJSONIncludesExpiryWarnings(t *testing.T) {
+	root := generate(t)
+	// Ensure T-001 is Done in ROADMAP.md
+	roadPath := filepath.Join(root, "ROADMAP.md")
+	roadContent := `
+### M1 — Milestone
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Init | S | none | done | D-001 | Done |
+`
+	_ = os.WriteFile(roadPath, []byte(roadContent), 0o644)
+
+	facts := `
+## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
+
+| Date | Fact | Source | Re-verify at |
+|---|---|---|---|
+| 2026-10-26 | Expired fact | Sandbox | T-001 |
+`
+	stackPath := filepath.Join(root, "TECH_STACK.md")
+	data, _ := os.ReadFile(stackPath)
+	_ = os.WriteFile(stackPath, append(data, []byte(facts)...), 0o644)
+
+	r, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jsonData, err := r.JSON(false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var jr JSONReport
+	if err := json.Unmarshal(jsonData, &jr); err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, f := range jr.Findings {
+		if f.Severity == Warn && strings.Contains(f.Message, "past due for re-verification") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("expected finding in JSONReport for expired fact: %+v", jr.Findings)
+	}
+}

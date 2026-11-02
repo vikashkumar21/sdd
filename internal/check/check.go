@@ -92,12 +92,15 @@ func (r Report) JSON(strict bool) ([]byte, error) {
 }
 
 var (
-	decisionRowRe = regexp.MustCompile(`(?m)^\|\s*(D-\d{3})\s*\|`)
-	decisionRefRe = regexp.MustCompile(`\bD-\d{3}\b`)
-	taskRefRe     = regexp.MustCompile(`\bT-\d{3}\b`)
-	featureDirRe  = regexp.MustCompile(`^(T-\d{3})-[a-z0-9]+(?:-[a-z0-9]+)*$`)
-	feedbackRe    = regexp.MustCompile(`(?m)^##\s+.*Human feedback rules`)
-	approvalRe    = regexp.MustCompile(`Approved by:\s*_{3,}`)
+	decisionRowRe  = regexp.MustCompile(`(?m)^\|\s*(D-\d{3})\s*\|`)
+	decisionRefRe  = regexp.MustCompile(`\bD-\d{3}\b`)
+	taskRefRe      = regexp.MustCompile(`\bT-\d{3}\b`)
+	featureDirRe   = regexp.MustCompile(`^(T-\d{3})-[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	feedbackRe     = regexp.MustCompile(`(?m)^##\s+.*Human feedback rules`)
+	approvalRe     = regexp.MustCompile(`Approved by:\s*_{3,}`)
+	factHdrRe      = regexp.MustCompile(`(?i)^\|\s*Date\s*\|\s*Fact\s*\|\s*Source\s*\|\s*Re-verify at\s*\|`)
+	milestoneRefRe = regexp.MustCompile(`\bM\d+\b`)
+	statusHeaderRe = regexp.MustCompile(`(?m)^Status:\s*([^\r\n]+)`)
 )
 
 var coreDocs = []string{"MISSION.md", "TECH_STACK.md", "ROADMAP.md", "SKILLS.md"}
@@ -183,6 +186,7 @@ func (c *checker) run() {
 	c.checkTodos(append(append([]string{}, coreDocs...), agents...))
 	tasks := c.checkRoadmap()
 	c.checkFeatures(tasks)
+	c.checkVerifiedFactsExpiry(tasks)
 	if hasManifest && mErr == nil {
 		c.checkManifestDrift(manifest)
 	}
@@ -414,6 +418,10 @@ func (c *checker) checkRoadmap() []roadmap.Task {
 	if len(tasks) == 0 {
 		c.add(Warn, "ROADMAP.md", 0, "no task rows found (rows must start with | T-nnn |)")
 	}
+	taskMap := map[string]roadmap.Task{}
+	for _, task := range tasks {
+		taskMap[task.ID] = task
+	}
 	seen := map[string]bool{}
 	for _, task := range tasks {
 		if seen[task.ID] {
@@ -422,6 +430,20 @@ func (c *checker) checkRoadmap() []roadmap.Task {
 		seen[task.ID] = true
 		if !roadmap.ValidStatus(task.Status) {
 			c.add(Warn, "ROADMAP.md", task.Line, "%s has an unrecognised status %q", task.ID, roadmap.Normalize(task.Status))
+		}
+		kind := roadmap.Kind(task.Status)
+		if kind == "implementing" || kind == "awaiting review" || kind == "done" {
+			for _, depID := range task.DependsOn {
+				dep, exists := taskMap[depID]
+				if !exists {
+					continue
+				}
+				depKind := roadmap.Kind(dep.Status)
+				if depKind == "not started" || depKind == "specifying" || depKind == "blocked" {
+					c.add(Warn, "ROADMAP.md", task.Line, "%s is %s but prerequisite %s is %s",
+						task.ID, roadmap.Normalize(task.Status), depID, roadmap.Normalize(dep.Status))
+				}
+			}
 		}
 	}
 	return tasks
@@ -493,6 +515,122 @@ func (c *checker) checkGateDiscipline(rel, kind string) {
 			c.add(Warn, rel+"/validation.md", 0, "task is awaiting review or done but validation.md still contains NOT RUN")
 		}
 	}
+	if kind == "done" {
+		if val, ok := c.load(rel + "/validation.md"); ok {
+			if m := statusHeaderRe.FindStringSubmatch(val); m != nil {
+				st := strings.ToLower(m[1])
+				if (strings.Contains(st, "not run") || strings.Contains(st, "in progress")) && !strings.Contains(st, "complete") {
+					c.add(Warn, rel+"/validation.md", 0, "task is Done in ROADMAP.md but validation.md status is %q", strings.TrimSpace(m[1]))
+				}
+			}
+		}
+		if plan, ok := c.load(rel + "/plan.md"); ok {
+			if m := statusHeaderRe.FindStringSubmatch(plan); m != nil {
+				st := strings.ToLower(m[1])
+				if (strings.Contains(st, "draft") || strings.Contains(st, "awaiting approval")) && !strings.Contains(st, "approved") && !strings.Contains(st, "implemented") {
+					c.add(Warn, rel+"/plan.md", 0, "task is Done in ROADMAP.md but plan.md status is %q", strings.TrimSpace(m[1]))
+				}
+			}
+		}
+	}
+}
+
+func (c *checker) checkVerifiedFactsExpiry(tasks []roadmap.Task) {
+	text, ok := c.load("TECH_STACK.md")
+	if !ok {
+		return
+	}
+	taskMap := map[string]roadmap.Task{}
+	milestoneTasks := map[string][]roadmap.Task{}
+	for _, t := range tasks {
+		taskMap[t.ID] = t
+		if t.Milestone != "" {
+			milestoneTasks[t.Milestone] = append(milestoneTasks[t.Milestone], t)
+		}
+	}
+
+	completedMilestones := map[string]bool{}
+	for m, mTasks := range milestoneTasks {
+		if len(mTasks) == 0 {
+			continue
+		}
+		allDone := true
+		for _, t := range mTasks {
+			if roadmap.Kind(t.Status) != "done" {
+				allDone = false
+				break
+			}
+		}
+		if allDone {
+			completedMilestones[m] = true
+		}
+	}
+
+	lines := strings.Split(text, "\n")
+	inFactsTable := false
+	for i, line := range lines {
+		lineNo := i + 1
+		trimmed := strings.TrimSpace(line)
+		if factHdrRe.MatchString(trimmed) {
+			inFactsTable = true
+			continue
+		}
+		if inFactsTable {
+			if !strings.HasPrefix(trimmed, "|") {
+				inFactsTable = false
+				continue
+			}
+			if strings.Contains(trimmed, "---") {
+				continue
+			}
+			cells := splitRow(trimmed)
+			if len(cells) < 4 {
+				continue
+			}
+			fact := cells[1]
+			reVerifyAt := cells[3]
+			if fact == "" || strings.HasPrefix(fact, "(") {
+				continue
+			}
+
+			// Check task references
+			for _, tID := range taskRefRe.FindAllString(reVerifyAt, -1) {
+				if t, exists := taskMap[tID]; exists {
+					if roadmap.Kind(t.Status) == "done" {
+						c.add(Warn, "TECH_STACK.md", lineNo,
+							"verified fact %q is past due for re-verification (%s is Done)", truncate(fact, 50), tID)
+					}
+				}
+			}
+
+			// Check milestone references
+			for _, mID := range milestoneRefRe.FindAllString(reVerifyAt, -1) {
+				if completedMilestones[strings.ToUpper(mID)] {
+					c.add(Warn, "TECH_STACK.md", lineNo,
+						"verified fact %q is past due for re-verification (milestone %s is completed)", truncate(fact, 50), mID)
+				}
+			}
+		}
+	}
+}
+
+func truncate(s string, n int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= n {
+		return s
+	}
+	return s[:n-3] + "..."
+}
+
+func splitRow(line string) []string {
+	line = strings.TrimSpace(line)
+	line = strings.TrimPrefix(line, "|")
+	line = strings.TrimSuffix(line, "|")
+	parts := strings.Split(line, "|")
+	for i := range parts {
+		parts[i] = strings.TrimSpace(parts[i])
+	}
+	return parts
 }
 
 func (c *checker) checkManifestDrift(m scaffold.Manifest) {
