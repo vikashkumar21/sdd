@@ -15,6 +15,7 @@ import (
 
 	"github.com/vikashkumar21/sdd/internal/block"
 	"github.com/vikashkumar21/sdd/internal/context"
+	"github.com/vikashkumar21/sdd/internal/markdown"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 )
@@ -237,38 +238,21 @@ func (c *checker) markdownFiles() []string {
 }
 
 func (c *checker) checkFences(rel, text string) {
-	if strings.Count(text, "```")%2 != 0 {
-		c.add(Error, rel, 0, "unbalanced code fence (odd number of ``` markers)")
+	for _, f := range markdown.CheckFences(text) {
+		c.add(Error, rel, f.Line, "unbalanced code fence: %s", f.Message)
 	}
 }
 
 func (c *checker) checkTables(rel, text string) {
-	inFence := false
-	var block []string
-	var lineNos []int
-	flush := func() {
-		if len(block) >= 2 {
-			want := strings.Count(block[0], "|")
-			for i, l := range block {
-				if strings.Count(l, "|") != want {
-					c.add(Error, rel, lineNos[i], "table row has %d pipes, header has %d (a cell may contain a literal pipe)", strings.Count(l, "|"), want)
-				}
+	tables := markdown.ExtractTables(text)
+	for _, t := range tables {
+		want := t.Header.Columns
+		for _, r := range t.Rows {
+			if r.Columns != want {
+				c.add(Error, rel, r.LineNo, "table row has %d columns, header has %d (pipes mismatch or unescaped literal pipe)", r.Columns, want)
 			}
 		}
-		block, lineNos = nil, nil
 	}
-	for i, line := range strings.Split(text, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "```") {
-			inFence = !inFence
-		}
-		if !inFence && strings.HasPrefix(line, "|") {
-			block = append(block, line)
-			lineNos = append(lineNos, i+1)
-			continue
-		}
-		flush()
-	}
-	flush()
 }
 
 func (c *checker) checkReferences(docs []string) {

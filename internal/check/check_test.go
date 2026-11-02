@@ -270,3 +270,22 @@ func TestCheckContextManifest(t *testing.T) {
 		t.Fatalf("unexpected error when file exists:\n%s", dump(r))
 	}
 }
+
+func TestCheckTablesWithPipesInCodeAndEscaped(t *testing.T) {
+	root := generate(t)
+	// Add a markdown file containing table rows with inline code pipes and escaped pipes
+	content := `# Tables with Pipes
+
+| Command | Description |
+|---|---|
+| ` + "`grep | wc -l`" + ` | Counts occurrences |
+| Option A \| B | Multiple options |
+`
+	if err := os.WriteFile(filepath.Join(root, "PIPES.md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := run(t, root)
+	if has(r, Error, "columns") || has(r, Error, "pipes") {
+		t.Fatalf("expected tables with code pipes and escaped pipes to pass cleanly:\n%s", dump(r))
+	}
+}

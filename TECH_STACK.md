@@ -52,6 +52,7 @@ flowchart TD
     C --> X["context: staged kickoff context and sdd ingest"]
     X --> U
     K --> X
+    K --> P["markdown: robust fence and table scanner"]
 ```
 
 ### Data flow of `sdd init`

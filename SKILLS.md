@@ -83,6 +83,7 @@ Use this to decide where a spike is needed (see the ROADMAP's unknown-technology
 | 2026-10-26 | A hand-written README with an example task ID that is not in the roadmap fails `sdd check`; point examples at real tasks | Found by `sdd check`; T-001 |
 | 2026-10-26 | Running init on a hand-made kit with no manifest would append a duplicate contract to agent files that have no managed block; found by a dry run on the real dbguard kit; init now refuses | Found by a dry run; T-001 |
 | 2026-10-26 | Table cells must not contain a literal pipe character (even inside backticks); validate user-supplied values (names, commands) before rendering them into tables | Design; T-001 |
+| 2026-11-02 | In T-008, markdown parser now supports escaped pipes and pipes inside inline code spans without breaking table column validation | Robust parser; T-008 |
 
 ## 8. Human feedback rules (binding; grows over time)
 
