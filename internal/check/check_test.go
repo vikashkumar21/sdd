@@ -821,3 +821,85 @@ func TestCheckCRLFInvariance(t *testing.T) {
 		t.Errorf("findings count mismatch: LF has %d, CRLF has %d", len(baseRes.Findings), len(crlfRes.Findings))
 	}
 }
+
+func TestCheckSkills(t *testing.T) {
+	root := generate(t)
+
+	// 1. Valid skill
+	skillDir := filepath.Join(root, "skills", "code-review")
+	if err := os.MkdirAll(skillDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	validSKILL := `---
+name: code-review
+description: Review pull requests for security and style.
+---
+
+# Code Review Guide
+`
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(validSKILL), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	rep, err := Run(root)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	if rep.Count(Error) != 0 {
+		t.Fatalf("expected 0 errors with valid skill, got %d: %+v", rep.Count(Error), rep.Findings)
+	}
+
+	// 2. Skill with name mismatching folder
+	mismatchDir := filepath.Join(root, "skills", "folder-a")
+	if err := os.MkdirAll(mismatchDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	mismatchSKILL := `---
+name: folder-b
+description: Some description.
+---
+Body.
+`
+	if err := os.WriteFile(filepath.Join(mismatchDir, "SKILL.md"), []byte(mismatchSKILL), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	rep2, err := Run(root)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	foundMismatch := false
+	for _, f := range rep2.Findings {
+		if f.Rule == "skill-name" && strings.Contains(f.Message, "does not match parent directory") {
+			foundMismatch = true
+			break
+		}
+	}
+	if !foundMismatch {
+		t.Errorf("expected skill-name finding for directory mismatch: %+v", rep2.Findings)
+	}
+
+	// 3. Skill with missing frontmatter
+	badFrontmatterDir := filepath.Join(root, "skills", "no-frontmatter")
+	if err := os.MkdirAll(badFrontmatterDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(badFrontmatterDir, "SKILL.md"), []byte("Just plain text"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	rep3, err := Run(root)
+	if err != nil {
+		t.Fatalf("Run failed: %v", err)
+	}
+	foundSyntax := false
+	for _, f := range rep3.Findings {
+		if f.Rule == "skill-frontmatter" {
+			foundSyntax = true
+			break
+		}
+	}
+	if !foundSyntax {
+		t.Errorf("expected skill-frontmatter finding for missing frontmatter: %+v", rep3.Findings)
+	}
+}

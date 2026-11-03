@@ -229,6 +229,7 @@ func (c *checker) run() {
 	c.checkOptionalAgents(agents)
 	c.checkContextManifest()
 	c.checkPermissions()
+	c.checkAgentSkills()
 }
 
 func (c *checker) checkPermissions() {

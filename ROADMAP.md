@@ -80,6 +80,15 @@ Status: living document · Last updated: 2026-10-26
 | T-016 | Handover prompt enrichment for staged context | S | T-014 | sdd prompt includes context digest to guide agent spec extraction | D-018 | Done |
 | T-017 | Document and PDF ingestion protocol | M | T-014 | Multimodal agent staging and text extraction for PDF documents | D-020 | Done |
 
+### M5 — Open Agent Skills Standards (agentskills.io)
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-020 | agentskills.io parser, validator, and sdd check integration | M | T-001 | Pure Go YAML frontmatter parser and check rules for skills | D-024 | Awaiting review |
+| T-021 | sdd skill new command with file and text ingestion | M | T-020 | Scaffold or import skills from scratch, files, or raw text | D-024 | Not started |
+| T-022 | sdd skill list and progressive disclosure handover prompt | S | T-021 | Skill catalog discovery and handover prompt enrichment | D-024 | Not started |
+| T-023 | SDD protocol export as native agent skill | S | T-021 | Export SDD contract as native skill for Antigravity & Claude | D-024 | Not started |
+
 ## 5. Unknown-technology protocol (spikes)
 
 Unfamiliar technology derails projects. To prevent that:
@@ -105,8 +114,8 @@ Unfamiliar technology derails projects. To prevent that:
 
 ## 8. Next action
 
-1. M0, M1, M2, and M3 are complete.
-2. Cut release v1.0.0 per Decision D-023.
+1. M0, M1, M2, M3, and M4 are complete.
+2. Implement Milestone 5 (Open Agent Skills Standards), starting with T-020.
 
 ## 9. Change log
 
@@ -118,3 +127,4 @@ Unfamiliar technology derails projects. To prevent that:
 | 2026-11-02 | T-004: sdd adopt command for pre-existing hand-crafted kits awaiting review |
 | 2026-11-02 | T-015: Jira issue ingestion (JSON, Markdown, text, --from-jira, and --jira) awaiting review |
 | 2026-11-02 | T-017: Document and PDF ingestion protocol (--from-doc, --pdf, multimodal guidance) awaiting review |
+| 2026-11-03 | Milestone 5 added: Open Agent Skills Standards (T-020 to T-023) |
