@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -453,5 +454,73 @@ func TestSkillNew(t *testing.T) {
 	}
 	if !strings.Contains(string(notesContent), "<!-- sdd:skill-refine:begin -->") {
 		t.Errorf("missing refinement block in skill: %s", string(notesContent))
+	}
+}
+
+func TestSkillList(t *testing.T) {
+	root := t.TempDir()
+
+	// 1. Empty list
+	r := exec(t, "", false, "", "skill", "list", "--dir", root)
+	if r.code != 0 {
+		t.Fatalf("expected 0 on empty skill list, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "No skills found.") {
+		t.Errorf("expected 'No skills found.', got:\n%s", r.out)
+	}
+
+	// 2. Unexpected positional argument
+	r = exec(t, "", false, "", "skill", "list", "extra-arg", "--dir", root)
+	if r.code != 2 {
+		t.Errorf("expected exit code 2 for unexpected argument, got %d", r.code)
+	}
+
+	// 3. Create project skill and internal skill
+	r1 := exec(t, "", false, "", "skill", "new", "beta-project", "--dir", root, "--description", "Project skill beta")
+	if r1.code != 0 {
+		t.Fatalf("failed to create beta-project: %s", r1.err)
+	}
+	r2 := exec(t, "", false, "", "skill", "new", "alpha-internal", "--dir", root, "--internal", "--description", "Internal skill alpha")
+	if r2.code != 0 {
+		t.Fatalf("failed to create alpha-internal: %s", r2.err)
+	}
+
+	// 4. Formatted table output (deterministic sorting)
+	r = exec(t, "", false, "", "skill", "list", "--dir", root)
+	if r.code != 0 {
+		t.Fatalf("expected 0, got %d: %s", r.code, r.err)
+	}
+	lines := strings.Split(strings.TrimSpace(r.out), "\n")
+	if len(lines) < 3 {
+		t.Fatalf("expected header + 2 rows, got %d lines:\n%s", len(lines), r.out)
+	}
+	if !strings.Contains(lines[0], "NAME") || !strings.Contains(lines[0], "SCOPE") {
+		t.Errorf("header line invalid: %s", lines[0])
+	}
+	// alpha-internal must precede beta-project
+	if !strings.Contains(lines[1], "alpha-internal") || !strings.Contains(lines[1], "internal") {
+		t.Errorf("first row should be alpha-internal: %s", lines[1])
+	}
+	if !strings.Contains(lines[2], "beta-project") || !strings.Contains(lines[2], "project") {
+		t.Errorf("second row should be beta-project: %s", lines[2])
+	}
+
+	// 5. JSON output
+	r = exec(t, "", false, "", "skill", "list", "--dir", root, "--json")
+	if r.code != 0 {
+		t.Fatalf("expected 0 on --json, got %d: %s", r.code, r.err)
+	}
+	var items []map[string]any
+	if err := json.Unmarshal([]byte(r.out), &items); err != nil {
+		t.Fatalf("failed to parse JSON output: %v\nOutput was:\n%s", err, r.out)
+	}
+	if len(items) != 2 {
+		t.Fatalf("expected 2 items in JSON array, got %d", len(items))
+	}
+	if items[0]["name"] != "alpha-internal" || items[0]["scope"] != "internal" {
+		t.Errorf("unexpected first item: %+v", items[0])
+	}
+	if items[1]["name"] != "beta-project" || items[1]["scope"] != "project" {
+		t.Errorf("unexpected second item: %+v", items[1])
 	}
 }

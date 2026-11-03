@@ -47,6 +47,8 @@ sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini
 sdd skill new code-review --description "Review code for quality" # scaffold a standard agentskills.io skill
 sdd skill new deploy-helper --from-file deploy.txt                # import raw notes with agent refinement scaffolding
 sdd skill new quick-fix --from-text "run make verify"            # import raw inline text into skill body
+sdd skill list                                # list available skills with scope, status, and descriptions
+sdd skill list --json                         # output skill catalog as structured JSON
 
 sdd ingest --file notes.txt --name meeting    # stage external files into .sdd/context/
 sdd ingest --text "meeting notes..."          # stage raw text strings as context
@@ -77,6 +79,13 @@ sdd adopt --force                         # re-adopt if a manifest already exist
 - **Brownfield** seeds `T-001 Discovery`: the agent reads the codebase under the same gates and drafts the facts for your approval. The tool itself only looks at file names and a few manifests, so everything it detects is marked *unverified*.
 - It **never overwrites**. Existing files are skipped; existing `CLAUDE.md`/`GEMINI.md`/`AGENTS.md` get a clearly marked managed block appended and your text is kept; `README.md` is never touched. `--force` replaces generated files after backing the originals up in `.sdd/backup/`.
 - It refuses to run in `$HOME` or `/`, and refuses a project that already has a hand-made kit (all four core documents) but no manifest, because it would append a second contract to the agent files. Run `sdd adopt` on such projects to generate `.sdd/manifest.json` with zero changes to existing files.
+
+### Agent skills and progressive disclosure
+
+`sdd` implements the open Linux Foundation / Anthropic `agentskills.io` standard (`skills/<name>/SKILL.md`):
+- **Scaffolding & Ingestion:** `sdd skill new <name>` creates standard skills from scratch, or wraps raw files (`--from-file`) and text (`--from-text`) within an agent refinement block (`<!-- sdd:skill-refine:begin -->`).
+- **Discovery:** `sdd skill list` scans `skills/` (project-facing) and `.sdd/skills/` (internal/infrastructure), validating naming and bounds (`--json` supported).
+- **Progressive Disclosure Handover:** `sdd prompt <agent>` dynamically compiles a concise table of available skills (name and trigger description, ~50 tokens total). The AI agent knows exactly what skills exist and when to activate them, without bloating prompt context with full markdown bodies. If unrefined raw notes are detected, the agent is directed to synthesize them into standard sections per `SKILLS.md`.
 
 ## What `sdd check` verifies
 

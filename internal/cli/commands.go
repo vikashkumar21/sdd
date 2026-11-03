@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/vikashkumar21/sdd/internal/check"
@@ -12,6 +13,7 @@ import (
 	"github.com/vikashkumar21/sdd/internal/repair"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
+	"github.com/vikashkumar21/sdd/internal/skill"
 	"github.com/vikashkumar21/sdd/internal/suppress"
 	"github.com/vikashkumar21/sdd/internal/templates"
 )
@@ -307,6 +309,14 @@ type contextView struct {
 	Bytes  int64
 }
 
+type skillView struct {
+	Name        string
+	Scope       string
+	Description string
+	Path        string
+	Valid       bool
+}
+
 type promptData struct {
 	Project, Root, AgentName, AgentFile, Date string
 	AgentFiles                                []string
@@ -315,6 +325,8 @@ type promptData struct {
 	FocusTaskID                               string
 	StagedContext                             []contextView
 	TaskContext                               []contextView
+	Skills                                    []skillView
+	HasRefineSkills                           bool
 }
 
 func agentFor(name string) (display, file string) {
@@ -413,6 +425,37 @@ func runPrompt(args []string, env IO) int {
 				data.TaskContext = append(data.TaskContext, cv)
 			}
 		}
+	}
+
+	if discovered, err := skill.Discover(root); err == nil && len(discovered) > 0 {
+		var svList []skillView
+		hasRefine := false
+		for _, sk := range discovered {
+			name := sk.Skill.Name
+			if name == "" {
+				name = filepath.Base(sk.Dir)
+			}
+			scope := "project"
+			if strings.HasPrefix(filepath.ToSlash(sk.File), ".sdd/skills/") {
+				scope = "internal"
+			}
+			valid := len(sk.Errors) == 0
+			svList = append(svList, skillView{
+				Name:        name,
+				Scope:       scope,
+				Description: sk.Skill.Description,
+				Path:        sk.File,
+				Valid:       valid,
+			})
+			if strings.Contains(sk.Skill.Body, "sdd:skill-refine:begin") {
+				hasRefine = true
+			}
+		}
+		sort.Slice(svList, func(i, j int) bool {
+			return svList[i].Name < svList[j].Name
+		})
+		data.Skills = svList
+		data.HasRefineSkills = hasRefine
 	}
 
 	set, err := templates.New(*tpl)

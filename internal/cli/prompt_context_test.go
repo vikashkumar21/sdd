@@ -91,3 +91,60 @@ func TestPromptWithTaskContext(t *testing.T) {
 		}
 	}
 }
+
+func TestPromptWithSkills(t *testing.T) {
+	root := t.TempDir()
+	exec(t, "", false, "", "init", "--yes", "--dir", root, "--name", "skillprompt")
+
+	// Add a skill
+	r := exec(t, "", false, "", "skill", "new", "deploy-checker", "--dir", root, "--description", "Validate production readiness")
+	if r.code != 0 {
+		t.Fatalf("skill new failed: %s", r.err)
+	}
+
+	p := exec(t, "", false, "", "prompt", "gemini", "--dir", root)
+	if p.code != 0 {
+		t.Fatalf("prompt failed: %+v", p)
+	}
+
+	for _, want := range []string{
+		"Available Agent Skills (agentskills.io)",
+		"`deploy-checker`",
+		"Validate production readiness",
+		"progressive disclosure: consult full `SKILL.md` when relevant",
+	} {
+		if !strings.Contains(p.out, want) {
+			t.Errorf("prompt output missing expected skill text %q:\n%s", want, p.out)
+		}
+	}
+	if strings.Contains(p.out, "Some skills contain raw ingested notes") {
+		t.Errorf("prompt should not have refinement alert when skill has no raw notes")
+	}
+}
+
+func TestPromptWithRefinementSkills(t *testing.T) {
+	root := t.TempDir()
+	exec(t, "", false, "", "init", "--yes", "--dir", root, "--name", "refineprompt")
+
+	// Add a raw skill via --from-text
+	r := exec(t, "", false, "", "skill", "new", "raw-guide", "--dir", root, "--from-text", "Step A: run tests; Step B: run lint")
+	if r.code != 0 {
+		t.Fatalf("skill new failed: %s", r.err)
+	}
+
+	p := exec(t, "", false, "", "prompt", "claude", "--dir", root)
+	if p.code != 0 {
+		t.Fatalf("prompt failed: %+v", p)
+	}
+
+	for _, want := range []string{
+		"Available Agent Skills (agentskills.io)",
+		"`raw-guide`",
+		"Some skills contain raw ingested notes marked with `<!-- sdd:skill-refine:begin -->`",
+		"review and refine them into standard sections",
+	} {
+		if !strings.Contains(p.out, want) {
+			t.Errorf("prompt output missing refinement text %q:\n%s", want, p.out)
+		}
+	}
+}

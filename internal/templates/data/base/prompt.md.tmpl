@@ -33,6 +33,21 @@ The following external materials were staged for this project:
    - Task-specific acceptance criteria -> propose in `features/T-xxx-<slug>/requirements.md`
 3. **GATE 1 IS STRICT:** All synthesis must be proposed as draft specifications first. The human must explicitly approve before any code is written or living documents are modified.
 {{end}}
+{{if .Skills}}
+### Available Agent Skills (agentskills.io)
+
+The following skills are available in this project (progressive disclosure: consult full `SKILL.md` when relevant):
+| Skill Name | Scope | Description |
+|---|---|---|
+{{range .Skills}}| `{{.Name}}` | `{{.Scope}}` | {{.Description}} |
+{{end}}
+{{if .HasRefineSkills}}
+> [!NOTE]
+> Some skills contain raw ingested notes marked with `<!-- sdd:skill-refine:begin -->`.
+> When working on related tasks, review and refine them into standard sections
+> (Overview & Triggers, Step-by-Step Instructions, Verification) per SKILLS.md.
+{{end}}
+{{end}}
 
 ## 2. HUMAN INPUTS (the human fills these in before pasting)
 
