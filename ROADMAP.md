@@ -32,6 +32,7 @@ Status: living document · Last updated: 2026-10-26
 | M2 | Verification and v1.1 | T-002 – T-005 | 16 | Verified on a real Mac with Go 1.27; upgrade and adopt commands; review completed |
 | M3 | Modernisation and Adaptive Architecture | T-006 – T-013, T-018, T-019 | 36 | Linter clean, os.Root confinement, robust parsing, JSON output, repair, drift detection, Windows support, suppressions |
 | M4 | Context and Task Ingestion | T-014 – T-017 | 12 | Ingest raw text strings, files, PDFs, and Jira issues into staged context |
+| M5 | Open Agent Skills Standards | T-020 – T-023 | 11 | agentskills.io parser, validator, skill new, skill list, prompt progressive disclosure, and sdd-protocol export |
 
 ## 4. Tasks
 
@@ -87,7 +88,7 @@ Status: living document · Last updated: 2026-10-26
 | T-020 | agentskills.io parser, validator, and sdd check integration | M | T-001 | Pure Go YAML frontmatter parser and check rules for skills | D-024 | Done |
 | T-021 | sdd skill new command with file and text ingestion | M | T-020 | Scaffold or import skills from scratch, files, or raw text | D-024 | Done |
 | T-022 | sdd skill list and progressive disclosure handover prompt | S | T-021 | Skill catalog discovery and handover prompt enrichment | D-024 | Done |
-| T-023 | SDD protocol export as native agent skill | S | T-021 | Export SDD contract as native skill for Antigravity & Claude | D-024 | Awaiting review |
+| T-023 | SDD protocol export as native agent skill | S | T-021 | Export SDD contract as native skill for Antigravity & Claude | D-024 | Done |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -114,8 +115,8 @@ Unfamiliar technology derails projects. To prevent that:
 
 ## 8. Next action
 
-1. M0, M1, M2, M3, and M4 are complete.
-2. Implement Milestone 5 (Open Agent Skills Standards), starting with T-020.
+1. M0, M1, M2, M3, M4, and M5 are complete.
+2. Cut release v1.1.0 and build cross-platform binaries.
 
 ## 9. Change log
 
@@ -131,3 +132,4 @@ Unfamiliar technology derails projects. To prevent that:
 | 2026-11-03 | T-020: agentskills.io parser, validator, and sdd check integration done |
 | 2026-11-03 | T-021: sdd skill new command with file and text ingestion done |
 | 2026-11-03 | T-022: sdd skill list and progressive disclosure handover prompt done |
+| 2026-11-03 | T-023: SDD protocol export as native agent skill done (Milestone 5 complete) |

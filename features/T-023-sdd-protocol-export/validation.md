@@ -58,4 +58,4 @@ Feedback-rule compliance (SKILLS.md, "Human feedback rules"): none active.
 
 ## 8. Sign-off
 Suggested commit message: `feat(skill): add SDD protocol export as native agent skill (T-023)`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-023`
+Reviewed by: Vikash   Date: 2026-11-03   Reply received: COMMITTED T-023
