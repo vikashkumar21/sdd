@@ -44,6 +44,10 @@ sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements
 sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
 
+sdd skill new code-review --description "Review code for quality" # scaffold a standard agentskills.io skill
+sdd skill new deploy-helper --from-file deploy.txt                # import raw notes with agent refinement scaffolding
+sdd skill new quick-fix --from-text "run make verify"            # import raw inline text into skill body
+
 sdd ingest --file notes.txt --name meeting    # stage external files into .sdd/context/
 sdd ingest --text "meeting notes..."          # stage raw text strings as context
 sdd ingest --jira --file issue.json           # validate and stage Jira issue export into .sdd/context/

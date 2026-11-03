@@ -106,3 +106,31 @@ Human feedback is how this playbook improves. The rules registered below are **b
 | ID | Date | Rule | Applies to | Source | Verified by | Status |
 |---|---|---|---|---|---|---|
 | | | (none yet) | | | | |
+
+## 9. Agent Skill Authoring and Refinement Standard (agentskills.io)
+
+Skills follow the Linux Foundation / Anthropic `agentskills.io` open standard adopted in Decision D-024.
+
+### 1. Directory Structure and Frontmatter
+- Location: `skills/<name>/SKILL.md` (project-facing) or `.sdd/skills/<name>/SKILL.md` (internal/infrastructure).
+- Directory match: `<name>` must match parent folder name and satisfy regex `^[a-z0-9]+(?:-[a-z0-9]+)*$` (1–64 characters).
+- Frontmatter (YAML):
+  - `name`: Matches folder name.
+  - `description`: 1–1024 characters; explains *what* the skill does and *when/why* an agent should trigger it.
+  - `compatibility` (optional): Max 500 characters.
+
+### 2. Body Structure (Progressive Disclosure)
+1. `## Overview & Triggers` — Specific trigger conditions and intent.
+2. `## Step-by-Step Instructions` — Idiomatic, deterministic, phase-by-phase workflow.
+3. `## Verification` — Concrete checks or tests to confirm correctness.
+4. `## Troubleshooting` — Edge cases, pitfalls, and fixes.
+
+### 3. Agent Refinement of Raw Ingested Notes
+When skills are created from raw text or files via `sdd skill new --from-file` or `--from-text`, `sdd` encloses raw notes in:
+```markdown
+<!-- sdd:skill-refine:begin -->
+... raw notes ...
+<!-- sdd:skill-refine:end -->
+```
+Any agent taking over development reads these notes and synthesizes them into the standard sections above under Gate 1 / Gate 2 review.
+

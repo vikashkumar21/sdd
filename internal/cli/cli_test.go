@@ -379,3 +379,79 @@ func TestInitMaintainerWindowsFallback(t *testing.T) {
 		t.Errorf("expected maintainer 'winuser' in MISSION.md, got:\n%s", content)
 	}
 }
+
+func TestSkillNew(t *testing.T) {
+	root := t.TempDir()
+
+	// 1. Missing args or invalid subaction
+	r := exec(t, "", false, "", "skill")
+	if r.code != 2 {
+		t.Errorf("expected exit code 2 for sdd skill without subaction, got %d", r.code)
+	}
+
+	r = exec(t, "", false, "", "skill", "unknown")
+	if r.code != 2 {
+		t.Errorf("expected exit code 2 for sdd skill unknown, got %d", r.code)
+	}
+
+	r = exec(t, "", false, "", "skill", "new")
+	if r.code != 2 {
+		t.Errorf("expected exit code 2 for sdd skill new without name, got %d", r.code)
+	}
+
+	// 2. Successful skill new
+	r = exec(t, "", false, "", "skill", "new", "deploy-checker", "--dir", root, "--description", "Verify deployment health")
+	if r.code != 0 {
+		t.Fatalf("expected 0, got %d; err: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Created skill deploy-checker at skills/deploy-checker/SKILL.md") {
+		t.Errorf("unexpected stdout: %s", r.out)
+	}
+	skillPath := filepath.Join(root, "skills", "deploy-checker", "SKILL.md")
+	content, err := os.ReadFile(skillPath)
+	if err != nil {
+		t.Fatalf("failed to read skill file: %v", err)
+	}
+	if !strings.Contains(string(content), "name: deploy-checker") {
+		t.Errorf("missing name in skill file: %s", string(content))
+	}
+
+	// 3. Collision refusal without --force
+	r = exec(t, "", false, "", "skill", "new", "deploy-checker", "--dir", root)
+	if r.code != 1 {
+		t.Fatalf("expected exit code 1 for duplicate skill without --force, got %d", r.code)
+	}
+	if !strings.Contains(r.err, "already exists") {
+		t.Errorf("unexpected error for duplicate skill: %s", r.err)
+	}
+
+	// 4. Overwrite with --force and backup
+	r = exec(t, "", false, "", "skill", "new", "deploy-checker", "--dir", root, "--from-text", "New instructions", "--force")
+	if r.code != 0 {
+		t.Fatalf("expected 0 with --force, got %d; err: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Previous version backed up to .sdd/backup/") {
+		t.Errorf("expected backup confirmation in stdout, got: %s", r.out)
+	}
+
+	// 5. Ingestion with --from-file
+	notesFile := filepath.Join(root, "my_notes.txt")
+	if err := os.WriteFile(notesFile, []byte("Raw steps from meeting"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r = exec(t, "", false, "", "skill", "new", "meeting-notes", "--dir", root, "--from-file", "my_notes.txt")
+	if r.code != 0 {
+		t.Fatalf("expected 0 for --from-file, got %d; err: %s", r.code, r.err)
+	}
+	notesSkillPath := filepath.Join(root, "skills", "meeting-notes", "SKILL.md")
+	notesContent, err := os.ReadFile(notesSkillPath)
+	if err != nil {
+		t.Fatalf("failed to read notes skill: %v", err)
+	}
+	if !strings.Contains(string(notesContent), "Raw steps from meeting") {
+		t.Errorf("missing ingested file content in skill: %s", string(notesContent))
+	}
+	if !strings.Contains(string(notesContent), "<!-- sdd:skill-refine:begin -->") {
+		t.Errorf("missing refinement block in skill: %s", string(notesContent))
+	}
+}

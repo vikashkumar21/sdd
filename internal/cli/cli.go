@@ -54,6 +54,7 @@ commands:
   init                       generate the spec-driven kit in this project (new or existing)
   check                      verify the kit is consistent (--json for structured output, --strict for warnings)
   feature new <T-xxx> <slug> create features/T-xxx-<slug>/ from the project's templates
+  skill new <name>           scaffold a new agentskills.io skill (skills/<name>/SKILL.md)
   prompt <agent>             print a handover prompt for an agent (claude, gemini, agents, or any name)
   ingest                     stage external context (text, files, stdin) into .sdd/context/
   permissions                generate agent permission configs denying git state writes
@@ -78,6 +79,8 @@ func Run(args []string, env IO) int {
 		return runCheck(args[1:], env)
 	case "feature":
 		return runFeature(args[1:], env)
+	case "skill":
+		return runSkill(args[1:], env)
 	case "prompt":
 		return runPrompt(args[1:], env)
 	case "ingest":

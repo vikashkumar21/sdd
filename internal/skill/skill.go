@@ -199,6 +199,32 @@ func assignField(s *Skill, key, val string) {
 	}
 }
 
+// ValidateName checks if name conforms to the agentskills.io naming specification.
+func ValidateName(name string) error {
+	if name == "" {
+		return errors.New("name is required")
+	}
+	if len(name) > 64 {
+		return fmt.Errorf("name length %d exceeds maximum 64 characters", len(name))
+	}
+	if !NameRegex.MatchString(name) {
+		return fmt.Errorf("name %q must be 1-64 lowercase alphanumeric chars and single hyphens (^[a-z0-9]+(?:-[a-z0-9]+)*$)", name)
+	}
+	return nil
+}
+
+// ValidateDescription checks if description conforms to agentskills.io bounds.
+func ValidateDescription(desc string) error {
+	descTrim := strings.TrimSpace(desc)
+	if descTrim == "" {
+		return errors.New("description is required and cannot be empty")
+	}
+	if len(descTrim) > 1024 {
+		return fmt.Errorf("description length %d exceeds maximum 1024 characters", len(descTrim))
+	}
+	return nil
+}
+
 // Validate checks a parsed Skill against the agentskills.io standard.
 // If parentDir is non-empty, it also asserts that s.Name matches filepath.Base(parentDir).
 func Validate(s Skill, parentDir string) []ValidationError {
