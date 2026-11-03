@@ -1,0 +1,169 @@
+package skill
+
+import (
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestExportProtocolSkillBasic(t *testing.T) {
+	root := t.TempDir()
+
+	res, err := ExportProtocolSkill(ExportOptions{
+		ProjectRoot: root,
+		Clock:       fixedClock,
+	})
+	if err != nil {
+		t.Fatalf("ExportProtocolSkill failed: %v", err)
+	}
+
+	expectedFile := filepath.ToSlash(filepath.Join(root, "skills", "sdd-protocol", "SKILL.md"))
+	if res.Path != expectedFile {
+		t.Errorf("Path = %s, want %s", res.Path, expectedFile)
+	}
+
+	content, err := os.ReadFile(filepath.Join(root, "skills", "sdd-protocol", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("ReadFile failed: %v", err)
+	}
+
+	s := string(content)
+	if !strings.Contains(s, "name: sdd-protocol") {
+		t.Errorf("missing name in exported skill: %s", s)
+	}
+	if !strings.Contains(s, "ALWAYS BE DETERMINISTIC") {
+		t.Errorf("missing anthem in exported skill: %s", s)
+	}
+	if !strings.Contains(s, "## The 4-Phase Workflow") {
+		t.Errorf("missing workflow in exported skill: %s", s)
+	}
+}
+
+func TestExportProtocolSkillValid(t *testing.T) {
+	parsed, err := Parse([]byte(CanonicalSDDProtocolSkill))
+	if err != nil {
+		t.Fatalf("canonical skill parse error: %v", err)
+	}
+
+	errs := Validate(parsed, filepath.Join("skills", "sdd-protocol"))
+	if len(errs) > 0 {
+		t.Fatalf("canonical skill validation errors: %+v", errs)
+	}
+
+	if parsed.Name != "sdd-protocol" {
+		t.Errorf("Name = %s, want sdd-protocol", parsed.Name)
+	}
+}
+
+func TestExportProtocolSkillTarget(t *testing.T) {
+	targetDir := t.TempDir()
+
+	res, err := ExportProtocolSkill(ExportOptions{
+		TargetDir: targetDir,
+		Clock:     fixedClock,
+	})
+	if err != nil {
+		t.Fatalf("ExportProtocolSkill with target failed: %v", err)
+	}
+
+	expected := filepath.ToSlash(filepath.Join(targetDir, "sdd-protocol", "SKILL.md"))
+	if res.Path != expected {
+		t.Errorf("Path = %s, want %s", res.Path, expected)
+	}
+
+	if _, err := os.Stat(filepath.FromSlash(res.Path)); err != nil {
+		t.Errorf("exported skill does not exist: %v", err)
+	}
+}
+
+func TestExportProtocolSkillGlobal(t *testing.T) {
+	fakeHome := t.TempDir()
+	// Create fake antigravity directory
+	geminiSkills := filepath.Join(fakeHome, ".gemini", "antigravity")
+	if err := os.MkdirAll(geminiSkills, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := ExportProtocolSkill(ExportOptions{
+		Global: true,
+		Home:   func() string { return fakeHome },
+		Clock:  fixedClock,
+	})
+	if err != nil {
+		t.Fatalf("ExportProtocolSkill global failed: %v", err)
+	}
+
+	expected := filepath.ToSlash(filepath.Join(fakeHome, ".gemini", "antigravity", "skills", "sdd-protocol", "SKILL.md"))
+	if res.Path != expected {
+		t.Errorf("Path = %s, want %s", res.Path, expected)
+	}
+
+	if _, err := os.Stat(filepath.FromSlash(res.Path)); err != nil {
+		t.Errorf("global skill file missing: %v", err)
+	}
+}
+
+func TestExportProtocolSkillCollisionRefusal(t *testing.T) {
+	root := t.TempDir()
+
+	_, err := ExportProtocolSkill(ExportOptions{
+		ProjectRoot: root,
+		Clock:       fixedClock,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Re-export without force
+	_, err = ExportProtocolSkill(ExportOptions{
+		ProjectRoot: root,
+		Clock:       fixedClock,
+	})
+	if err == nil {
+		t.Fatal("expected collision error without force, got nil")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestExportProtocolSkillForceBackup(t *testing.T) {
+	root := t.TempDir()
+
+	_, err := ExportProtocolSkill(ExportOptions{
+		ProjectRoot: root,
+		Clock:       fixedClock,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Modify skill content to simulate previous version
+	skillFile := filepath.Join(root, "skills", "sdd-protocol", "SKILL.md")
+	if err := os.WriteFile(skillFile, []byte("Old custom skill content"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := ExportProtocolSkill(ExportOptions{
+		ProjectRoot: root,
+		Force:       true,
+		Clock:       fixedClock,
+	})
+	if err != nil {
+		t.Fatalf("ExportProtocolSkill with force failed: %v", err)
+	}
+
+	if res.BackupDir != ".sdd/backup/20261103-120000" {
+		t.Errorf("BackupDir = %s, want .sdd/backup/20261103-120000", res.BackupDir)
+	}
+
+	backupFile := filepath.Join(root, ".sdd", "backup", "20261103-120000", "skills", "sdd-protocol", "SKILL.md")
+	backupBytes, err := os.ReadFile(backupFile)
+	if err != nil {
+		t.Fatalf("backup file not found: %v", err)
+	}
+	if string(backupBytes) != "Old custom skill content" {
+		t.Errorf("backup content mismatch: %s", string(backupBytes))
+	}
+}

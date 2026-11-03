@@ -524,3 +524,59 @@ func TestSkillList(t *testing.T) {
 		t.Errorf("unexpected second item: %+v", items[1])
 	}
 }
+
+func TestSkillExport(t *testing.T) {
+	root := t.TempDir()
+
+	// 1. Export to project root skills/
+	r := exec(t, "", false, "", "skill", "export", "--dir", root)
+	if r.code != 0 {
+		t.Fatalf("expected 0 for skill export, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Exported SDD protocol skill to") {
+		t.Errorf("unexpected stdout: %s", r.out)
+	}
+	skillPath := filepath.Join(root, "skills", "sdd-protocol", "SKILL.md")
+	content, err := os.ReadFile(skillPath)
+	if err != nil {
+		t.Fatalf("failed to read exported skill: %v", err)
+	}
+	if !strings.Contains(string(content), "name: sdd-protocol") {
+		t.Errorf("missing name in exported skill: %s", string(content))
+	}
+
+	// 2. Collision refusal without --force
+	r = exec(t, "", false, "", "skill", "export", "--dir", root)
+	if r.code != 1 {
+		t.Fatalf("expected 1 for duplicate export without --force, got %d", r.code)
+	}
+	if !strings.Contains(r.err, "already exists") {
+		t.Errorf("unexpected error: %s", r.err)
+	}
+
+	// 3. Overwrite with --force
+	r = exec(t, "", false, "", "skill", "export", "--dir", root, "--force")
+	if r.code != 0 {
+		t.Fatalf("expected 0 for export with --force, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Previous version backed up to .sdd/backup/") {
+		t.Errorf("expected backup confirmation in stdout: %s", r.out)
+	}
+
+	// 4. Export to custom target directory
+	targetDir := t.TempDir()
+	r = exec(t, "", false, "", "skill", "export", "--dir", root, "--target", targetDir)
+	if r.code != 0 {
+		t.Fatalf("expected 0 for export --target, got %d: %s", r.code, r.err)
+	}
+	customSkillPath := filepath.Join(targetDir, "sdd-protocol", "SKILL.md")
+	if _, err := os.Stat(customSkillPath); err != nil {
+		t.Fatalf("custom skill file not created: %v", err)
+	}
+
+	// 5. Unexpected argument
+	r = exec(t, "", false, "", "skill", "export", "extra", "--dir", root)
+	if r.code != 2 {
+		t.Errorf("expected 2 for unexpected argument, got %d", r.code)
+	}
+}

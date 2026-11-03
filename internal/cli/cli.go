@@ -56,6 +56,7 @@ commands:
   feature new <T-xxx> <slug> create features/T-xxx-<slug>/ from the project's templates
   skill new <name>           scaffold a new agentskills.io skill (skills/<name>/SKILL.md)
   skill list                 list available skills in the project (--json for structured output)
+  skill export               export the SDD protocol as a native agent skill
   prompt <agent>             print a handover prompt for an agent (claude, gemini, agents, or any name)
   ingest                     stage external context (text, files, stdin) into .sdd/context/
   permissions                generate agent permission configs denying git state writes

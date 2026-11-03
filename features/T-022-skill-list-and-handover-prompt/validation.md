@@ -56,4 +56,4 @@ Feedback-rule compliance (SKILLS.md, "Human feedback rules"): none active.
 
 ## 8. Sign-off
 Suggested commit message: `feat(skill): add sdd skill list and progressive disclosure handover prompt (T-022)`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-022`
+Reviewed by: Vikash   Date: 2026-11-03   Reply received: COMMITTED T-022

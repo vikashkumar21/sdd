@@ -86,8 +86,8 @@ Status: living document · Last updated: 2026-10-26
 |---|---|---|---|---|---|---|
 | T-020 | agentskills.io parser, validator, and sdd check integration | M | T-001 | Pure Go YAML frontmatter parser and check rules for skills | D-024 | Done |
 | T-021 | sdd skill new command with file and text ingestion | M | T-020 | Scaffold or import skills from scratch, files, or raw text | D-024 | Done |
-| T-022 | sdd skill list and progressive disclosure handover prompt | S | T-021 | Skill catalog discovery and handover prompt enrichment | D-024 | Awaiting review |
-| T-023 | SDD protocol export as native agent skill | S | T-021 | Export SDD contract as native skill for Antigravity & Claude | D-024 | Not started |
+| T-022 | sdd skill list and progressive disclosure handover prompt | S | T-021 | Skill catalog discovery and handover prompt enrichment | D-024 | Done |
+| T-023 | SDD protocol export as native agent skill | S | T-021 | Export SDD contract as native skill for Antigravity & Claude | D-024 | Awaiting review |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -130,3 +130,4 @@ Unfamiliar technology derails projects. To prevent that:
 | 2026-11-03 | Milestone 5 added: Open Agent Skills Standards (T-020 to T-023) |
 | 2026-11-03 | T-020: agentskills.io parser, validator, and sdd check integration done |
 | 2026-11-03 | T-021: sdd skill new command with file and text ingestion done |
+| 2026-11-03 | T-022: sdd skill list and progressive disclosure handover prompt done |

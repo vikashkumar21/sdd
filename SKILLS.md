@@ -134,3 +134,19 @@ When skills are created from raw text or files via `sdd skill new --from-file` o
 ```
 Any agent taking over development reads these notes and synthesizes them into the standard sections above under Gate 1 / Gate 2 review.
 
+### 4. Programmatic Agent SDK Integration
+Skills exported via `sdd skill export` or authored in `skills/` conform to the Linux Foundation / Anthropic open standard and can be mounted directly into programmatic agent applications:
+- **SDK Directory Loaders:** Point native SDK skill loaders (e.g., Antigravity Python SDK, Anthropic Agent SDK) at the skill directory:
+  ```python
+  from antigravity.skills import SkillLoader
+  sdd_skill = SkillLoader.from_directory("./skills/sdd-protocol")
+  agent = Agent(skills=[sdd_skill], tools=[...])
+  ```
+- **System Prompt Seeding:** In frameworks without native skill directory loaders (LangGraph, raw Gemini/OpenAI SDKs), ingest the skill markdown directly into the system prompt:
+  ```python
+  with open("skills/sdd-protocol/SKILL.md") as f:
+      agent.system_prompt += "\n" + f.read()
+  ```
+- **Gating Enforcement:** SDK agents operating under `sdd-protocol` must enforce GATE 1 programmatically—refusing to invoke file-modifying or code-writing tools until the human sends the exact `APPROVED T-xxx` token.
+
+

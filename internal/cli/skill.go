@@ -11,7 +11,7 @@ import (
 
 func runSkill(args []string, env IO) int {
 	if len(args) == 0 {
-		fprintln(env.Err, "usage: sdd skill <command> [flags]\n\ncommands:\n  new <name>   scaffold or import a new agentskills.io skill\n  list         list available skills in the project")
+		fprintln(env.Err, "usage: sdd skill <command> [flags]\n\ncommands:\n  new <name>   scaffold or import a new agentskills.io skill\n  list         list available skills in the project\n  export       export SDD protocol as a native agent skill")
 		return 2
 	}
 	switch args[0] {
@@ -19,8 +19,10 @@ func runSkill(args []string, env IO) int {
 		return runSkillNew(args[1:], env)
 	case "list":
 		return runSkillList(args[1:], env)
+	case "export":
+		return runSkillExport(args[1:], env)
 	default:
-		fprintf(env.Err, "sdd skill: unknown command %q\n\nusage: sdd skill <new|list> [flags]\n", args[0])
+		fprintf(env.Err, "sdd skill: unknown command %q\n\nusage: sdd skill <new|list|export> [flags]\n", args[0])
 		return 2
 	}
 }
@@ -158,6 +160,50 @@ func runSkillList(args []string, env IO) int {
 	fprintf(env.Out, "%-20s  %-10s  %-10s  %s\n", "NAME", "SCOPE", "STATUS", "DESCRIPTION")
 	for _, item := range items {
 		fprintf(env.Out, "%-20s  %-10s  %-10s  %s\n", item.Name, item.Scope, item.Status, item.Description)
+	}
+	return 0
+}
+
+func runSkillExport(args []string, env IO) int {
+	fs := newFlagSet("skill export", env)
+	dir := fs.String("dir", ".", "project root")
+	target := fs.String("target", "", "custom destination directory for exported skill")
+	global := fs.Bool("global", false, "export to user's global agent skill directory")
+	force := fs.Bool("force", false, "overwrite existing skill (backs up previous version to .sdd/backup/)")
+
+	pos, err := parseInterspersed(fs, args)
+	if err != nil {
+		return parseExit(err)
+	}
+	if len(pos) > 0 {
+		fprintf(env.Err, "sdd skill export: unexpected argument %q\n", pos[0])
+		return 2
+	}
+
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		fprintf(env.Err, "sdd skill export: %v\n", err)
+		return 1
+	}
+
+	opts := skill.ExportOptions{
+		ProjectRoot: root,
+		TargetDir:   *target,
+		Global:      *global,
+		Force:       *force,
+		Home:        env.Home,
+		Clock:       env.Now,
+	}
+
+	res, err := skill.ExportProtocolSkill(opts)
+	if err != nil {
+		fprintf(env.Err, "sdd skill export: %v\n", err)
+		return 1
+	}
+
+	fprintf(env.Out, "Exported SDD protocol skill to %s\n", res.Path)
+	if res.BackupDir != "" {
+		fprintf(env.Out, "Previous version backed up to %s\n", res.BackupDir)
 	}
 	return 0
 }

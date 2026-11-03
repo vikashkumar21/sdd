@@ -2,7 +2,7 @@
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
-Status: Draft
+Status: Approved (2026-11-03)
 Roadmap ref: `ROADMAP.md` T-022
 
 ## 1. Goal

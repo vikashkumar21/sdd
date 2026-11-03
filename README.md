@@ -49,6 +49,9 @@ sdd skill new deploy-helper --from-file deploy.txt                # import raw n
 sdd skill new quick-fix --from-text "run make verify"            # import raw inline text into skill body
 sdd skill list                                # list available skills with scope, status, and descriptions
 sdd skill list --json                         # output skill catalog as structured JSON
+sdd skill export                              # export canonical sdd-protocol skill to skills/sdd-protocol/
+sdd skill export --target ./sdk/skills        # export SDD skill for programmatic Agent SDK applications
+sdd skill export --global                     # export SDD skill to user's global agent skill directory
 
 sdd ingest --file notes.txt --name meeting    # stage external files into .sdd/context/
 sdd ingest --text "meeting notes..."          # stage raw text strings as context
@@ -86,6 +89,7 @@ sdd adopt --force                         # re-adopt if a manifest already exist
 - **Scaffolding & Ingestion:** `sdd skill new <name>` creates standard skills from scratch, or wraps raw files (`--from-file`) and text (`--from-text`) within an agent refinement block (`<!-- sdd:skill-refine:begin -->`).
 - **Discovery:** `sdd skill list` scans `skills/` (project-facing) and `.sdd/skills/` (internal/infrastructure), validating naming and bounds (`--json` supported).
 - **Progressive Disclosure Handover:** `sdd prompt <agent>` dynamically compiles a concise table of available skills (name and trigger description, ~50 tokens total). The AI agent knows exactly what skills exist and when to activate them, without bloating prompt context with full markdown bodies. If unrefined raw notes are detected, the agent is directed to synthesize them into standard sections per `SKILLS.md`.
+- **Exporting for IDEs & SDKs:** `sdd skill export` exports the canonical `sdd-protocol` skill to project repositories, user-global directories (`--global`), or programmatic Agent SDK application folders (`--target <dir>`), allowing programmatic agents (Python/TypeScript/Go) and IDE assistants to enforce SDD gates natively.
 
 ## What `sdd check` verifies
 
