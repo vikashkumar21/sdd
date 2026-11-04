@@ -3,4 +3,4 @@ package version
 
 // Version is set at build time with
 // -ldflags "-X github.com/vikashkumar21/sdd/internal/version.Version=<value>".
-var Version = "1.1.0"
+var Version = "1.2.0"
