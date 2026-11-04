@@ -21,16 +21,21 @@ type result struct {
 
 func exec(t *testing.T, stdin string, interactive bool, home string, args ...string) result {
 	t.Helper()
+	return execWithEnv(t, stdin, interactive, home, func(k string) string {
+		if k == "USER" {
+			return "vikash"
+		}
+		return ""
+	}, args...)
+}
+
+func execWithEnv(t *testing.T, stdin string, interactive bool, home string, getenv func(string) string, args ...string) result {
+	t.Helper()
 	var out, errb bytes.Buffer
 	env := IO{
 		In: strings.NewReader(stdin), Out: &out, Err: &errb, Interactive: interactive, Now: fixedNow,
-		Getenv: func(k string) string {
-			if k == "USER" {
-				return "vikash"
-			}
-			return ""
-		},
-		Home: func() string { return home },
+		Getenv: getenv,
+		Home:   func() string { return home },
 	}
 	code := Run(args, env)
 	return result{code, out.String(), errb.String()}
@@ -578,5 +583,159 @@ func TestSkillExport(t *testing.T) {
 	r = exec(t, "", false, "", "skill", "export", "extra", "--dir", root)
 	if r.code != 2 {
 		t.Errorf("expected 2 for unexpected argument, got %d", r.code)
+	}
+}
+
+func TestInstallCli(t *testing.T) {
+	home := t.TempDir()
+	sourceDir := t.TempDir()
+	sourceBin := filepath.Join(sourceDir, "sdd")
+	if err := os.WriteFile(sourceBin, []byte("echo binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	getenv := func(k string) string {
+		if k == "SDD_EXEC_PATH" {
+			return sourceBin
+		}
+		return ""
+	}
+
+	// 1. Dry run
+	r := execWithEnv(t, "", false, home, getenv, "install", "--dry-run")
+	if r.code != 0 {
+		t.Fatalf("expected 0 for install --dry-run, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Dry run: would install sdd to") {
+		t.Errorf("unexpected dry run output: %s", r.out)
+	}
+
+	// 2. Real install
+	r = execWithEnv(t, "", false, home, getenv, "install")
+	if r.code != 0 {
+		t.Fatalf("expected 0 for install, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Installed sdd to") {
+		t.Errorf("expected installation confirmation: %s", r.out)
+	}
+
+	installedBin := filepath.Join(home, ".local", "bin", "sdd")
+	if _, err := os.Stat(installedBin); err != nil {
+		t.Fatalf("installed binary not found at %s: %v", installedBin, err)
+	}
+
+	// 3. Repeated install (already installed)
+	installedGetenv := func(k string) string {
+		if k == "SDD_EXEC_PATH" {
+			return installedBin
+		}
+		return ""
+	}
+	r = execWithEnv(t, "", false, home, installedGetenv, "install")
+	if r.code != 0 {
+		t.Fatalf("expected 0 on repeated install, got %d", r.code)
+	}
+	if !strings.Contains(r.out, "already installed") {
+		t.Errorf("expected already installed message, got: %s", r.out)
+	}
+
+	// 4. Force install
+	r = execWithEnv(t, "", false, home, installedGetenv, "install", "--force")
+	if r.code != 0 {
+		t.Fatalf("expected 0 on force install, got %d", r.code)
+	}
+	if !strings.Contains(r.out, "Installed sdd to") {
+		t.Errorf("expected re-installation confirmation, got: %s", r.out)
+	}
+}
+
+func TestUninstallCli(t *testing.T) {
+	home := t.TempDir()
+	binDir := filepath.Join(home, ".local", "bin")
+	if err := os.MkdirAll(binDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	installedBin := filepath.Join(binDir, "sdd")
+	if err := os.WriteFile(installedBin, []byte("echo binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	zshrc := filepath.Join(home, ".zshrc")
+	zshContent := "# sdd:begin path\nexport PATH=\"$HOME/.local/bin:$PATH\"\n# sdd:end path\n"
+	if err := os.WriteFile(zshrc, []byte(zshContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Dry run
+	r := exec(t, "", false, home, "uninstall", "--dry-run")
+	if r.code != 0 {
+		t.Fatalf("expected 0 for uninstall --dry-run, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Dry run: would remove") {
+		t.Errorf("unexpected dry run output: %s", r.out)
+	}
+
+	// 2. Real uninstall with --yes
+	r = exec(t, "", false, home, "uninstall", "--yes")
+	if r.code != 0 {
+		t.Fatalf("expected 0 for uninstall --yes, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Removed") {
+		t.Errorf("expected removal confirmation: %s", r.out)
+	}
+
+	if _, err := os.Stat(installedBin); !os.IsNotExist(err) {
+		t.Errorf("binary was not removed")
+	}
+
+	cleaned, err := os.ReadFile(zshrc)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(cleaned), "sdd:begin path") {
+		t.Errorf("markers still present in zshrc: %s", string(cleaned))
+	}
+}
+
+func TestInteractiveZeroArgInstallPrompt(t *testing.T) {
+	home := t.TempDir()
+	sourceDir := t.TempDir()
+	sourceBin := filepath.Join(sourceDir, "sdd")
+	if err := os.WriteFile(sourceBin, []byte("echo binary"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	getenv := func(k string) string {
+		if k == "SDD_EXEC_PATH" {
+			return sourceBin
+		}
+		return ""
+	}
+
+	// 1. Interactive zero-arg: user says "y" followed by enter to exit
+	r := execWithEnv(t, "y\n\n", true, home, getenv)
+	if r.code != 0 {
+		t.Fatalf("expected 0 for interactive install, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !strings.Contains(r.out, "Successfully installed sdd to") {
+		t.Errorf("expected successful install message: %s", r.out)
+	}
+	if !strings.Contains(r.out, "Press Enter to exit...") {
+		t.Errorf("expected pause prompt 'Press Enter to exit...': %s", r.out)
+	}
+
+	// 2. Interactive zero-arg: user says "n"
+	r = execWithEnv(t, "n\n", true, home, getenv)
+	if r.code != 2 {
+		t.Fatalf("expected exit 2 when user declines, got %d", r.code)
+	}
+	if !strings.Contains(r.err, "usage: sdd <command> [flags]") {
+		t.Errorf("expected usage text on decline: %s", r.err)
+	}
+
+	// 3. Non-interactive zero-arg: immediately prints usage and exits 2
+	r = execWithEnv(t, "", false, home, getenv)
+	if r.code != 2 {
+		t.Fatalf("expected exit 2 for non-interactive zero-arg, got %d", r.code)
 	}
 }

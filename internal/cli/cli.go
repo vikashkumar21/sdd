@@ -62,6 +62,8 @@ commands:
   permissions                generate agent permission configs denying git state writes
   upgrade                    refresh kit files from newer templates without overwriting human edits
   adopt                      adopt an existing hand-crafted kit by generating .sdd/manifest.json
+  install                    install sdd to user binary directory and configure PATH
+  uninstall                  remove installed sdd binary and shell PATH configuration
   version                    print the sdd version
 
 Run "sdd <command> -h" for the flags of a command.
@@ -71,6 +73,9 @@ Exit codes: 0 success, 1 failure or findings, 2 usage error.
 // Run executes one sdd command and returns the process exit code.
 func Run(args []string, env IO) int {
 	if len(args) == 0 {
+		if handled, exitCode := maybeInteractiveInstall(env); handled {
+			return exitCode
+		}
 		fprint(env.Err, usageText)
 		return 2
 	}
@@ -93,6 +98,10 @@ func Run(args []string, env IO) int {
 		return runUpgrade(args[1:], env)
 	case "adopt":
 		return runAdopt(args[1:], env)
+	case "install":
+		return runInstall(args[1:], env)
+	case "uninstall":
+		return runUninstall(args[1:], env)
 	case "version", "--version", "-v":
 		fprintf(env.Out, "sdd %s (templates %s)\n", version.Version, templates.Version)
 		return 0

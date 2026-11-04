@@ -86,6 +86,7 @@ internal/feature/     creation of features/T-xxx-<slug>/
 internal/roadmap/     parsing and editing of task rows
 internal/block/       managed contract block markers
 internal/fsutil/      atomic file writes
+internal/install/     cross-platform user-level binary self-installation and PATH configuration
 internal/permissions/ agent permission manifest generation (.claude, .cursor, .gemini)
 internal/repair/      safe interactive mechanical repair engine (contract parity, table alignment)
 internal/suppress/    finding waivers and baseline suppression register (.sdd/suppressions.json)
@@ -127,6 +128,7 @@ internal/version/     build version (set with -ldflags)
 | D-022 | Agent permission manifest generation targets and merge behaviour | **Approved** 2026-11-02 | n/a | Option A: Native multi-agent manifests (Claude Code, Cursor, Gemini/Antigravity) with non-destructive merge |
 | D-023 | Versioning bump timing and target version | **Approved** 2026-11-02 | n/a | Option Other: Complete T-017 first to finish Milestone 4, then bump release version directly to v1.0.0 |
 | D-024 | Agent Skills standard adoption (`agentskills.io`) | **Approved** 2026-11-03 | n/a | Option A: Adopt Linux Foundation/Anthropic `agentskills.io` standard (`skills/<name>/SKILL.md`, YAML frontmatter, stdlib parser, progressive disclosure) |
+| D-025 | Cross-platform self-installation architecture and locations | **Approved** 2026-11-04 | n/a | Option A: User-level self-installing binary (~/.local/bin on Unix, %LOCALAPPDATA%\Programs on Windows) with automatic PATH setup, plus universal 1-line scripts (install.sh/install.ps1) |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 

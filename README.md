@@ -13,7 +13,15 @@ The workflow it installs: the agent drafts requirements and a plan, **the human 
 
 ## Install
 
-From source (needs Go):
+### 1. Cross-platform self-install & double-click setup (No Go or admin/root required)
+
+Prebuilt static binaries for macOS, Linux, and Windows are available in `dist/` or release downloads:
+
+- **Double-click setup:** Double-click the downloaded binary in macOS Finder or Windows Explorer. An interactive terminal will prompt you to install `sdd` directly to your user path (`~/.local/bin/sdd` on macOS/Linux, `%LOCALAPPDATA%\Programs\sdd\sdd.exe` on Windows) and configure your shell `PATH` (`~/.zshrc`, `~/.bashrc`, or user registry). It pauses with `Press Enter to exit...` so the confirmation remains visible before closing.
+- **CLI self-install:** Run `./sdd install` from any downloaded binary directory.
+- **Uninstallation:** Run `sdd uninstall --yes` to cleanly remove the binary and restore your shell configuration.
+
+### 2. From source (needs Go)
 
 ```bash
 cd /Users/vikash/projects/sdd
@@ -22,7 +30,7 @@ which sdd           # check that no other `sdd` shadows it
 sdd version
 ```
 
-Or use a prebuilt, **unsigned** binary from `dist/` (macOS may quarantine a downloaded binary: `xattr -d com.apple.quarantine sdd_darwin_arm64`; on Windows use `sdd_windows_amd64.exe` or `sdd_windows_arm64.exe`).
+Or run `./dist/sdd_darwin_arm64 install` (on macOS clear quarantine if needed: `xattr -d com.apple.quarantine dist/sdd_darwin_arm64`).
 
 ## Use
 
@@ -72,6 +80,11 @@ sdd adopt                                 # adopt a hand-crafted kit by generati
 sdd adopt --dry-run                       # preview planned manifest JSON without writing
 sdd adopt --yes                           # adopt without interactive confirmation
 sdd adopt --force                         # re-adopt if a manifest already exists (backs up existing manifest)
+
+sdd install                               # install sdd to ~/.local/bin/sdd and configure shell PATH
+sdd install --dry-run                     # preview binary and shell profile changes without writing
+sdd uninstall                             # cleanly remove binary and strip PATH additions from shell profile
+sdd uninstall --yes                       # uninstall without interactive confirmation
 ```
 
 ### Greenfield and brownfield

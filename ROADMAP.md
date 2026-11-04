@@ -33,6 +33,7 @@ Status: living document · Last updated: 2026-10-26
 | M3 | Modernisation and Adaptive Architecture | T-006 – T-013, T-018, T-019 | 36 | Linter clean, os.Root confinement, robust parsing, JSON output, repair, drift detection, Windows support, suppressions |
 | M4 | Context and Task Ingestion | T-014 – T-017 | 12 | Ingest raw text strings, files, PDFs, and Jira issues into staged context |
 | M5 | Open Agent Skills Standards | T-020 – T-023 | 11 | agentskills.io parser, validator, skill new, skill list, prompt progressive disclosure, and sdd-protocol export |
+| M6 | Universal Distribution and Ergonomics | T-024 – T-025 | 8 | Cross-platform self-installation, double-click setup, install command, and 1-line curl/powershell scripts |
 
 ## 4. Tasks
 
@@ -90,6 +91,13 @@ Status: living document · Last updated: 2026-10-26
 | T-022 | sdd skill list and progressive disclosure handover prompt | S | T-021 | Skill catalog discovery and handover prompt enrichment | D-024 | Done |
 | T-023 | SDD protocol export as native agent skill | S | T-021 | Export SDD contract as native skill for Antigravity & Claude | D-024 | Done |
 
+### M6 — Universal Distribution and Ergonomics
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-024 | Cross-platform binary self-installation (sdd install and double-click setup) | M | T-001 | sdd install command, non-PATH double-click detector, user-level PATH setup | D-025 | Awaiting review |
+| T-025 | Universal one-line installer scripts (install.sh and install.ps1) | S | T-024 | Multi-platform curl/sh and irm/iex automated installer scripts | D-025 | Not started |
+
 ## 5. Unknown-technology protocol (spikes)
 
 Unfamiliar technology derails projects. To prevent that:
@@ -116,7 +124,7 @@ Unfamiliar technology derails projects. To prevent that:
 ## 8. Next action
 
 1. M0, M1, M2, M3, M4, and M5 are complete.
-2. Cut release v1.1.0 and build cross-platform binaries.
+2. Implement Milestone 6 (Universal Distribution and Ergonomics), starting with T-024.
 
 ## 9. Change log
 
