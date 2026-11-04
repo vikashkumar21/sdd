@@ -13,7 +13,23 @@ The workflow it installs: the agent drafts requirements and a plan, **the human 
 
 ## Install
 
-### 1. Cross-platform self-install & double-click setup (No Go or admin/root required)
+### 1. Universal One-Line Installer (Recommended — macOS, Linux, Windows)
+
+No Go toolchain or administrator/root permissions required:
+
+**macOS & Linux (bash, zsh, sh):**
+```bash
+curl -fsSL https://raw.githubusercontent.com/vikashkumar21/sdd/main/scripts/install.sh | sh
+```
+
+**Windows (PowerShell):**
+```powershell
+irm https://raw.githubusercontent.com/vikashkumar21/sdd/main/scripts/install.ps1 | iex
+```
+
+This automatically detects your OS and architecture, downloads the verified prebuilt static binary from GitHub Releases, installs it to `~/.local/bin/sdd` (or `%LOCALAPPDATA%\Programs\sdd\sdd.exe`), and safely configures your shell PATH.
+
+### 2. Double-Click Setup & Manual Binary
 
 Prebuilt static binaries for macOS, Linux, and Windows are available in `dist/` or release downloads:
 
@@ -21,7 +37,7 @@ Prebuilt static binaries for macOS, Linux, and Windows are available in `dist/` 
 - **CLI self-install:** Run `./sdd install` from any downloaded binary directory.
 - **Uninstallation:** Run `sdd uninstall --yes` to cleanly remove the binary and restore your shell configuration.
 
-### 2. From source (needs Go)
+### 3. From source (needs Go)
 
 ```bash
 cd /Users/vikash/projects/sdd

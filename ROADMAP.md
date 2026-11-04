@@ -95,8 +95,8 @@ Status: living document · Last updated: 2026-10-26
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
-| T-024 | Cross-platform binary self-installation (sdd install and double-click setup) | M | T-001 | sdd install command, non-PATH double-click detector, user-level PATH setup | D-025 | Awaiting review |
-| T-025 | Universal one-line installer scripts (install.sh and install.ps1) | S | T-024 | Multi-platform curl/sh and irm/iex automated installer scripts | D-025 | Not started |
+| T-024 | Cross-platform binary self-installation (sdd install and double-click setup) | M | T-001 | sdd install command, non-PATH double-click detector, user-level PATH setup | D-025 | Done |
+| T-025 | Universal one-line installer scripts (install.sh and install.ps1) | S | T-024 | Multi-platform curl/sh and irm/iex automated installer scripts | D-025 | Awaiting review |
 
 ## 5. Unknown-technology protocol (spikes)
 
