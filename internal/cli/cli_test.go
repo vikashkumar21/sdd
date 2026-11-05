@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
+	osexec "os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -911,5 +912,82 @@ func TestTaskScaffolding(t *testing.T) {
 	r = exec(t, "", false, "", "task", "new", "--type", "unknown", "T-001", "fail", "--dir", dir)
 	if r.code != 2 {
 		t.Fatalf("expected exit 2 for unknown typology, got %d", r.code)
+	}
+}
+
+func TestWorktreeCommands(t *testing.T) {
+	dir := t.TempDir()
+
+	// Initialise git repo
+	runGit := func(args ...string) {
+		cmd := osexec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %s failed: %v (%s)", strings.Join(args, " "), err, string(out))
+		}
+	}
+	runGit("init")
+	runGit("config", "user.name", "Test User")
+	runGit("config", "user.email", "test@example.com")
+	put(t, dir, "README.md", "# Repo\n")
+	runGit("add", "README.md")
+	runGit("commit", "-m", "init")
+
+	// Create task folder
+	taskFolder := filepath.Join(dir, "features", "T-001-worktree-cli")
+	if err := os.MkdirAll(taskFolder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. sdd task start
+	r := exec(t, "", false, "", "task", "start", "T-001", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for task start, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !strings.Contains(r.out, "Provisioned worktree for T-001:") {
+		t.Errorf("expected provisioned confirmation, got:\n%s", r.out)
+	}
+	if !strings.Contains(r.out, "feature/T-001-worktree-cli") {
+		t.Errorf("expected branch feature/T-001-worktree-cli, got:\n%s", r.out)
+	}
+
+	// 2. sdd task list --json
+	r = exec(t, "", false, "", "task", "list", "--dir", dir, "--json")
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for task list, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	var listItems []map[string]any
+	if err := json.Unmarshal([]byte(r.out), &listItems); err != nil {
+		t.Fatalf("failed to parse task list JSON: %v\nOutput:\n%s", err, r.out)
+	}
+	if len(listItems) != 1 || listItems[0]["task_id"] != "T-001" {
+		t.Errorf("unexpected list JSON: %+v", listItems)
+	}
+
+	// 3. sdd task list (text)
+	r = exec(t, "", false, "", "task", "list", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for task list text, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Active task worktrees:") || !strings.Contains(r.out, "T-001") {
+		t.Errorf("unexpected task list text:\n%s", r.out)
+	}
+
+	// 4. sdd task clean
+	r = exec(t, "", false, "", "task", "clean", "T-001", "--dir", dir, "--delete-branch")
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for task clean, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !strings.Contains(r.out, "Cleaned worktree for T-001") {
+		t.Errorf("expected clean confirmation, got:\n%s", r.out)
+	}
+
+	// 5. sdd task list after clean
+	r = exec(t, "", false, "", "task", "list", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for empty task list, got %d", r.code)
+	}
+	if !strings.Contains(r.out, "No active task worktrees.") {
+		t.Errorf("expected empty message, got:\n%s", r.out)
 	}
 }

@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/vikashkumar21/sdd/internal/roadmap"
+	"github.com/vikashkumar21/sdd/internal/worktree"
 )
 
 // MilestoneInfo records the progress and state of one roadmap milestone.
@@ -45,6 +46,8 @@ type TaskInfo struct {
 	Phase          string    `json:"phase"`
 	Folder         string    `json:"folder,omitempty"`
 	Typology       string    `json:"typology,omitempty"`
+	Worktree       string    `json:"worktree,omitempty"`
+	WorktreeBranch string    `json:"worktree_branch,omitempty"`
 	Gate           *GateInfo `json:"gate,omitempty"`
 	ReviewBlockers int       `json:"review_blockers,omitempty"`
 }
@@ -105,7 +108,15 @@ func Scan(root string) (*ProjectStatus, error) {
 	// 3. Discover feature folders
 	featureFolders := discoverFeatureFolders(absRoot)
 
-	// 4. Group tasks by milestone and calculate task summary
+	// 4. Read active worktrees
+	worktreeMap := make(map[string]worktree.Entry)
+	if reg, err := worktree.ReadRegistry(absRoot); err == nil && reg != nil {
+		for _, w := range reg.Worktrees {
+			worktreeMap[strings.ToUpper(w.TaskID)] = w
+		}
+	}
+
+	// 5. Group tasks by milestone and calculate task summary
 	summary := TaskSummary{Total: len(tasks)}
 	tasksByMilestone := make(map[string][]roadmap.Task)
 	var activeTasks []TaskInfo
@@ -126,11 +137,11 @@ func Scan(root string) (*ProjectStatus, error) {
 			summary.Done++
 		case "blocked":
 			summary.Blocked++
-			tInfo := buildTaskInfo(absRoot, t, normStatus, kind, featureFolders)
+			tInfo := buildTaskInfo(absRoot, t, normStatus, kind, featureFolders, worktreeMap)
 			activeTasks = append(activeTasks, tInfo)
 		case "specifying", "awaiting plan approval", "implementing", "awaiting review":
 			summary.InProgress++
-			tInfo := buildTaskInfo(absRoot, t, normStatus, kind, featureFolders)
+			tInfo := buildTaskInfo(absRoot, t, normStatus, kind, featureFolders, worktreeMap)
 			activeTasks = append(activeTasks, tInfo)
 		case "not started":
 			summary.NotStarted++
@@ -257,7 +268,7 @@ func Scan(root string) (*ProjectStatus, error) {
 	}, nil
 }
 
-func buildTaskInfo(root string, t roadmap.Task, normStatus, kind string, featureFolders map[string]string) TaskInfo {
+func buildTaskInfo(root string, t roadmap.Task, normStatus, kind string, featureFolders map[string]string, worktreeMap map[string]worktree.Entry) TaskInfo {
 	folder := featureFolders[t.ID]
 	typology := ""
 	if folder != "" {
@@ -272,6 +283,13 @@ func buildTaskInfo(root string, t roadmap.Task, normStatus, kind string, feature
 		case strings.HasPrefix(slashFolder, "spikes/"):
 			typology = "spike"
 		}
+	}
+
+	wtPath := ""
+	wtBranch := ""
+	if wt, hasWt := worktreeMap[strings.ToUpper(t.ID)]; hasWt {
+		wtPath = wt.Path
+		wtBranch = wt.Branch
 	}
 
 	var phase string
@@ -344,6 +362,8 @@ func buildTaskInfo(root string, t roadmap.Task, normStatus, kind string, feature
 		Phase:          phase,
 		Folder:         folder,
 		Typology:       typology,
+		Worktree:       wtPath,
+		WorktreeBranch: wtBranch,
 		Gate:           gate,
 		ReviewBlockers: blockers,
 	}
@@ -588,6 +608,9 @@ func RenderText(ps *ProjectStatus) string {
 			}
 			if at.Folder != "" {
 				fmt.Fprintf(&b, "      Folder:    %s\n", at.Folder)
+			}
+			if at.Worktree != "" {
+				fmt.Fprintf(&b, "      Worktree:  %s (branch: %s)\n", at.Worktree, at.WorktreeBranch)
 			}
 			if at.Gate != nil && at.Gate.Gate != "" {
 				fmt.Fprintf(&b, "      Pending:   %s (%s)\n", at.Gate.Gate, at.Gate.Name)

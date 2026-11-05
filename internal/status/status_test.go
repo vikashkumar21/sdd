@@ -435,3 +435,71 @@ func TestStatusTypologies(t *testing.T) {
 		t.Errorf("expected RenderText to include 'Typology:  bugfix', got:\n%s", rendered)
 	}
 }
+
+func TestStatusWorktrees(t *testing.T) {
+	roadmapContent := `# ROADMAP — sdd
+
+## 3. Milestones
+
+| Milestone | Goal | Tasks | Est. hours | Exit criteria |
+|---|---|---|---|---|
+| M1 | Tasks | T-001 | 1 | In progress |
+
+## 4. Tasks
+
+### M1 — Tasks
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Feature with worktree | S | none | Feature | none | Implementing |
+`
+	dir := setupSampleProject(t, roadmapContent)
+
+	// Create feature folder
+	if err := os.MkdirAll(filepath.Join(dir, "features", "T-001-feature-wt"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write .sdd/worktrees.json
+	wtJSON := `{
+  "schema": 1,
+  "worktrees": [
+    {
+      "task_id": "T-001",
+      "typology": "feature",
+      "slug": "feature-wt",
+      "branch": "feature/T-001-feature-wt",
+      "path": ".sdd/worktrees/T-001-feature-wt",
+      "base_ref": "HEAD",
+      "created_at": "2026-11-05T17:00:00Z"
+    }
+  ]
+}`
+	if err := os.MkdirAll(filepath.Join(dir, ".sdd"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".sdd", "worktrees.json"), []byte(wtJSON), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	ps, err := status.Scan(dir)
+	if err != nil {
+		t.Fatalf("Scan error: %v", err)
+	}
+
+	if len(ps.ActiveTasks) != 1 {
+		t.Fatalf("expected 1 active task, got %d", len(ps.ActiveTasks))
+	}
+	t1 := ps.ActiveTasks[0]
+	if t1.Worktree != ".sdd/worktrees/T-001-feature-wt" {
+		t.Errorf("expected Worktree .sdd/worktrees/T-001-feature-wt, got %q", t1.Worktree)
+	}
+	if t1.WorktreeBranch != "feature/T-001-feature-wt" {
+		t.Errorf("expected WorktreeBranch feature/T-001-feature-wt, got %q", t1.WorktreeBranch)
+	}
+
+	rendered := status.RenderText(ps)
+	if !strings.Contains(rendered, "Worktree:  .sdd/worktrees/T-001-feature-wt (branch: feature/T-001-feature-wt)") {
+		t.Errorf("expected RenderText to include Worktree line, got:\n%s", rendered)
+	}
+}

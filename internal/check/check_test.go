@@ -1112,3 +1112,79 @@ func TestTypologyChecks(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckWorktrees(t *testing.T) {
+	root := generate(t)
+
+	// 1. Invalid branch name & unknown task ID
+	badReg := `{
+  "schema": 1,
+  "worktrees": [
+    {
+      "task_id": "T-999",
+      "typology": "feature",
+      "slug": "bad-task",
+      "branch": "invalid_branch_name",
+      "path": ".sdd/worktrees/T-999-bad-task",
+      "base_ref": "HEAD",
+      "created_at": "2026-11-05T17:00:00Z"
+    }
+  ]
+}`
+	put(t, root, ".sdd/worktrees.json", badReg)
+
+	rep, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	foundBranchWarn := false
+	foundTaskErr := false
+	for _, f := range rep.Findings {
+		if f.Rule == "worktree-branch" {
+			foundBranchWarn = true
+			if f.Severity != Warn {
+				t.Errorf("expected worktree-branch to be WARN, got %v", f.Severity)
+			}
+		}
+		if f.Rule == "worktree-registry" {
+			foundTaskErr = true
+			if f.Severity != Error {
+				t.Errorf("expected worktree-registry to be ERROR, got %v", f.Severity)
+			}
+		}
+	}
+	if !foundBranchWarn {
+		t.Errorf("expected worktree-branch warning, got: %+v", rep.Findings)
+	}
+	if !foundTaskErr {
+		t.Errorf("expected worktree-registry error, got: %+v", rep.Findings)
+	}
+
+	// 2. Valid worktree entry
+	goodReg := `{
+  "schema": 1,
+  "worktrees": [
+    {
+      "task_id": "T-001",
+      "typology": "feature",
+      "slug": "scope",
+      "branch": "feature/T-001-scope",
+      "path": ".sdd/worktrees/T-001-scope",
+      "base_ref": "HEAD",
+      "created_at": "2026-11-05T17:00:00Z"
+    }
+  ]
+}`
+	put(t, root, ".sdd/worktrees.json", goodReg)
+
+	repGood, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range repGood.Findings {
+		if f.Rule == "worktree-branch" || f.Rule == "worktree-registry" {
+			t.Errorf("unexpected worktree finding for valid entry: %+v", f)
+		}
+	}
+}

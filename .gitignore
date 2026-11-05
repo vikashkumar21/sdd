@@ -13,3 +13,6 @@ coverage.html
 .idea/
 .vscode/
 *.swp
+
+# SDD worktrees
+.sdd/worktrees/

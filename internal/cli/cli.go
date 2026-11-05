@@ -55,6 +55,9 @@ commands:
   check                      verify the kit is consistent (--json for structured output, --strict for warnings)
   status                     summarise roadmap milestones, active tasks, and gate status
   task new <T-xxx> <slug>    create a task folder (--type feature|bugfix|hotfix|spike)
+  task start <T-xxx>         provision an isolated Git worktree for the task
+  task clean <T-xxx>         safely remove a task's worktree with backup
+  task list                  list active task worktrees (--json for structured output)
   feature new <T-xxx> <slug> create features/T-xxx-<slug>/ from project templates
   bugfix new <T-xxx> <slug>  create bugfixes/T-xxx-<slug>/ with reproduction test template
   hotfix new <T-xxx> <slug>  create hotfixes/T-xxx-<slug>/ with incident patch template

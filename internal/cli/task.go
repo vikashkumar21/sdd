@@ -1,11 +1,13 @@
 package cli
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/vikashkumar21/sdd/internal/feature"
+	"github.com/vikashkumar21/sdd/internal/worktree"
 )
 
 func runBugfix(args []string, env IO) int {
@@ -22,16 +24,153 @@ func runSpike(args []string, env IO) int {
 
 func runTask(args []string, env IO) int {
 	if len(args) == 0 {
-		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>   create a task folder (--type feature|bugfix|hotfix|spike)")
+		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees")
 		return 2
 	}
 	switch args[0] {
 	case "new":
 		return runTaskNewWithFlag(args[1:], env)
+	case "start":
+		return runTaskStart(args[1:], env)
+	case "clean":
+		return runTaskClean(args[1:], env)
+	case "list":
+		return runTaskList(args[1:], env)
 	default:
-		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new> [flags]\n", args[0])
+		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new|start|clean|list> [flags]\n", args[0])
 		return 2
 	}
+}
+
+func runTaskStart(args []string, env IO) int {
+	fs := newFlagSet("task start", env)
+	dir := fs.String("dir", ".", "project root")
+	base := fs.String("base", "", "base ref or branch (default: HEAD)")
+	fromTag := fs.String("from-tag", "", "tag to branch from (primarily for hotfixes)")
+	force := fs.Bool("force", false, "recreate worktree if already exists")
+
+	pos, err := parseInterspersed(fs, args)
+	if err != nil {
+		return parseExit(err)
+	}
+	if len(pos) != 1 {
+		fprintln(env.Err, "usage: sdd task start <T-xxx> [--base <ref>] [--from-tag <tag>] [--force] [--dir <project>]")
+		return 2
+	}
+
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		fprintf(env.Err, "sdd task start: %v\n", err)
+		return 1
+	}
+
+	opts := worktree.StartOptions{
+		Base:    *base,
+		FromTag: *fromTag,
+		Force:   *force,
+		Now:     env.now(),
+	}
+
+	entry, err := worktree.Start(root, pos[0], opts)
+	if err != nil {
+		fprintf(env.Err, "sdd task start: %v\n", err)
+		return 1
+	}
+
+	fprintf(env.Out, "Provisioned worktree for %s:\n", entry.TaskID)
+	fprintf(env.Out, "  Worktree: %s\n", entry.Path)
+	fprintf(env.Out, "  Branch:   %s\n", entry.Branch)
+	fprintf(env.Out, "  Base:     %s\n", entry.BaseRef)
+	fprintf(env.Out, "  Typology: %s\n\n", entry.Typology)
+	fprintf(env.Out, "To begin work in the isolated workspace:\n")
+	fprintf(env.Out, "  cd %s\n", entry.Path)
+	return 0
+}
+
+func runTaskClean(args []string, env IO) int {
+	fs := newFlagSet("task clean", env)
+	dir := fs.String("dir", ".", "project root")
+	force := fs.Bool("force", false, "remove even if uncommitted changes exist (backs up to .sdd/backup/)")
+	deleteBranch := fs.Bool("delete-branch", false, "also delete the local task git branch")
+
+	pos, err := parseInterspersed(fs, args)
+	if err != nil {
+		return parseExit(err)
+	}
+	if len(pos) != 1 {
+		fprintln(env.Err, "usage: sdd task clean <T-xxx> [--force] [--delete-branch] [--dir <project>]")
+		return 2
+	}
+
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		fprintf(env.Err, "sdd task clean: %v\n", err)
+		return 1
+	}
+
+	opts := worktree.CleanOptions{
+		Force:        *force,
+		DeleteBranch: *deleteBranch,
+		Now:          env.now(),
+	}
+
+	if err := worktree.Clean(root, pos[0], opts); err != nil {
+		fprintf(env.Err, "sdd task clean: %v\n", err)
+		return 1
+	}
+
+	fprintf(env.Out, "Cleaned worktree for %s.\n", strings.ToUpper(pos[0]))
+	return 0
+}
+
+func runTaskList(args []string, env IO) int {
+	fs := newFlagSet("task list", env)
+	dir := fs.String("dir", ".", "project root")
+	jsonFlag := fs.Bool("json", false, "output structured JSON")
+
+	pos, err := parseInterspersed(fs, args)
+	if err != nil {
+		return parseExit(err)
+	}
+	if len(pos) > 0 {
+		fprintln(env.Err, "usage: sdd task list [--json] [--dir <project>]")
+		return 2
+	}
+
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		fprintf(env.Err, "sdd task list: %v\n", err)
+		return 1
+	}
+
+	entries, err := worktree.List(root)
+	if err != nil {
+		fprintf(env.Err, "sdd task list: %v\n", err)
+		return 1
+	}
+
+	if *jsonFlag {
+		data, err := json.MarshalIndent(entries, "", "  ")
+		if err != nil {
+			fprintf(env.Err, "sdd task list: %v\n", err)
+			return 1
+		}
+		fprintln(env.Out, string(data))
+		return 0
+	}
+
+	if len(entries) == 0 {
+		fprintln(env.Out, "No active task worktrees.")
+		return 0
+	}
+
+	fprintln(env.Out, "Active task worktrees:")
+	for _, e := range entries {
+		fprintf(env.Out, "  %s (%s): %s\n", e.TaskID, e.Typology, e.Path)
+		fprintf(env.Out, "      Branch: %s\n", e.Branch)
+		fprintf(env.Out, "      Base:   %s\n", e.BaseRef)
+	}
+	return 0
 }
 
 func runTaskNewWithFlag(args []string, env IO) int {

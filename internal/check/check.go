@@ -20,6 +20,7 @@ import (
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 	"github.com/vikashkumar21/sdd/internal/suppress"
+	"github.com/vikashkumar21/sdd/internal/worktree"
 )
 
 // Severity of a finding.
@@ -230,6 +231,32 @@ func (c *checker) run() {
 	c.checkContextManifest()
 	c.checkPermissions()
 	c.checkAgentSkills()
+	c.checkWorktrees(tasks)
+}
+
+func (c *checker) checkWorktrees(tasks []roadmap.Task) {
+	reg, err := worktree.ReadRegistry(c.root)
+	if err != nil {
+		c.add(Error, worktree.RegistryRelPath, 0, "worktree-syntax", "%v", err)
+		return
+	}
+	if len(reg.Worktrees) == 0 {
+		return
+	}
+
+	taskMap := map[string]bool{}
+	for _, t := range tasks {
+		taskMap[strings.ToUpper(t.ID)] = true
+	}
+
+	for _, wt := range reg.Worktrees {
+		if !worktree.IsValidBranch(wt.Branch) {
+			c.add(Warn, worktree.RegistryRelPath, 0, "worktree-branch", "worktree branch %q for %s does not follow standard naming (<typology>/<taskID>-<slug>)", wt.Branch, wt.TaskID)
+		}
+		if len(tasks) > 0 && !taskMap[strings.ToUpper(wt.TaskID)] {
+			c.add(Error, worktree.RegistryRelPath, 0, "worktree-registry", "worktree entry for %s has no corresponding task in ROADMAP.md", wt.TaskID)
+		}
+	}
 }
 
 func (c *checker) checkPermissions() {

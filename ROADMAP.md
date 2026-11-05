@@ -111,8 +111,8 @@ Status: living document · Last updated: 2026-10-26
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
-| T-028 | Work typology foundations: bugfixes, hotfixes, spikes, and task templates | M | T-027 | bugfixes/, hotfixes/, spikes/ directories, specialized lifecycle templates (failing reproduction test for bugs, post-mortem for hotfixes, non-merging spike prototypes), 64KB context budget guard in sdd check, template version bump, and CLI commands | D-027 | Awaiting review |
-| T-029 | Git worktree isolation and concurrent workspace provisioning (sdd task start and clean) | M | T-028 | .sdd/worktrees/ isolation, standardized branch naming, fail-safe cleanup with backup, and sdd status tracking | D-028 | Not started |
+| T-028 | Work typology foundations: bugfixes, hotfixes, spikes, and task templates | M | T-027 | bugfixes/, hotfixes/, spikes/ directories, specialized lifecycle templates (failing reproduction test for bugs, post-mortem for hotfixes, non-merging spike prototypes), 64KB context budget guard in sdd check, template version bump, and CLI commands | D-027 | Done |
+| T-029 | Git worktree isolation and concurrent workspace provisioning (sdd task start and clean) | M | T-028 | .sdd/worktrees/ isolation, standardized branch naming, fail-safe cleanup with backup, and sdd status tracking | D-028 | Awaiting review |
 | T-030 | Static task deconfliction and plan overlap analyzer | S | T-029 | Automated plan file targets analysis, collision detection, and concurrency scheduling | D-028, D-029 | Not started |
 | T-031 | Task Coordinator pre-merge qualification, simulation, and sdd task merge | M | T-030 | Pre-merge validation (0 blockers, tests pass), blast-radius regression sweep, determinism flake guard, dry-run simulation, rebase helper, and GATE 2 presentation (APPROVED MERGE T-xxx) | D-029 | Not started |
 | T-032 | Autonomous multi-agent hierarchy and Task Coordinator skill | M | T-031 | Two-level hierarchy specification, agent contract updates, and canonical skills/task-coordinator/SKILL.md | D-029 | Not started |
@@ -143,13 +143,14 @@ Unfamiliar technology derails projects. To prevent that:
 ## 8. Next action
 
 1. M0 through M7 are complete.
-2. Milestone 8 opened: Autonomous Multi-Agent Git Workflows and Work Typology (T-028 to T-033).
-3. Next task: T-028 Work typology foundations: bugfixes, hotfixes, spikes, and task templates.
+2. Milestone 8 in progress: Autonomous Multi-Agent Git Workflows and Work Typology (T-028 to T-033).
+3. Next task: T-029 Git worktree isolation and concurrent workspace provisioning (sdd task start and clean).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-05 | T-028: Work typology foundations: bugfixes, hotfixes, spikes, and task templates done |
 | 2026-11-05 | Milestone 8 added: Autonomous Multi-Agent Git Workflows and Work Typology (T-028 to T-033; D-027, D-028, D-029) |
 | 2026-11-05 | M7 complete: T-026 (review.md & code-review skill) and T-027 (sdd status command) |
 | 2026-11-04 | M6 complete: T-024 (sdd install & double-click setup) and T-025 (universal 1-line install scripts) |
