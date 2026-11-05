@@ -76,6 +76,8 @@ sdd task list                                 # list active task worktrees (--js
 sdd task clean T-003                          # safely teardown worktree (creates backup if dirty)
 sdd task deconflict                           # analyze plan file collisions across in-flight tasks
 sdd task deconflict T-003 T-004               # analyze collisions between specific tasks (--json, --all)
+sdd task merge T-003 --dry-run                # qualify pre-merge matrix, blast radius, flake guard, and simulate merge
+sdd task merge T-003                          # merge task branch into main after 0 blockers & regression sweeps
 sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements from Jira and stage into context
 sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)

@@ -1167,3 +1167,95 @@ func TestTaskDeconflictJSON(t *testing.T) {
 		t.Errorf("expected 2 batches, got %+v", rep.Batches)
 	}
 }
+
+func TestTaskMerge(t *testing.T) {
+	dir := t.TempDir()
+
+	runGit := func(args ...string) {
+		cmd := osexec.Command("git", args...)
+		cmd.Dir = dir
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %s failed: %v (%s)", strings.Join(args, " "), err, string(out))
+		}
+	}
+	runGit("init")
+	runGit("config", "user.name", "Test User")
+	runGit("config", "user.email", "test@example.com")
+
+	targetBranch := "main"
+	// Check initial branch
+	initBranchCmd := osexec.Command("git", "branch", "--show-current")
+	initBranchCmd.Dir = dir
+	if out, err := initBranchCmd.Output(); err == nil && strings.TrimSpace(string(out)) != "" {
+		targetBranch = strings.TrimSpace(string(out))
+	}
+
+	put(t, dir, "go.mod", "module test.mod\n\ngo 1.27\n")
+	put(t, dir, "README.md", "# Base\n")
+	roadmapContent := `# ROADMAP — sdd
+
+## 4. Tasks
+
+### M1 — Tasks
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Test feature | S | none | outcome | none | Implementing |
+`
+	put(t, dir, "ROADMAP.md", roadmapContent)
+	runGit("add", "go.mod", "README.md", "ROADMAP.md")
+	runGit("commit", "-m", "init")
+
+	// Task folder
+	taskDir := filepath.Join(dir, "features", "T-001-test-feature")
+	_ = os.MkdirAll(taskDir, 0o755)
+	put(t, dir, "features/T-001-test-feature/plan.md", "# Plan — T-001\n\n## 5. Files to create or modify\n\n| Path | Action | Reason |\n|---|---|---|\n| feature.go | create | code |\n")
+	put(t, dir, "features/T-001-test-feature/review.md", "# Code Review — T-001\nStatus: Approved\n\n## 3. Risk & Findings Register\n\n| ID | Category | Severity | Finding | Suggested Action | Status |\n|---|---|---|---|---|---|\n")
+
+	// Feature branch
+	runGit("checkout", "-b", "feature/T-001-test-feature")
+	put(t, dir, "feature.go", "package main\n")
+	runGit("add", "feature.go", "features/T-001-test-feature/plan.md", "features/T-001-test-feature/review.md")
+	runGit("commit", "-m", "implement feature")
+
+	// 1. Dry run
+	r := exec(t, "", false, "", "task", "merge", "T-001", "--dir", dir, "--target", targetBranch, "--dry-run", "--skip-flake-check")
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for dry-run merge, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !strings.Contains(r.out, "Pre-Merge Qualification Report: T-001") {
+		t.Errorf("expected qualification report in output:\n%s", r.out)
+	}
+	if !strings.Contains(r.out, "READY TO MERGE") {
+		t.Errorf("expected READY TO MERGE in output:\n%s", r.out)
+	}
+	if !strings.Contains(r.out, "APPROVED MERGE T-001") {
+		t.Errorf("expected APPROVED MERGE in presentation:\n%s", r.out)
+	}
+
+	// 2. JSON output
+	r = exec(t, "", false, "", "task", "merge", "T-001", "--dir", dir, "--target", targetBranch, "--json", "--skip-flake-check")
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for json flag, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	var rep map[string]any
+	if err := json.Unmarshal([]byte(r.out), &rep); err != nil {
+		t.Fatalf("failed to parse JSON report: %v\nOutput:\n%s", err, r.out)
+	}
+	if rep["task_id"] != "T-001" || rep["ready_to_merge"] != true {
+		t.Errorf("unexpected JSON report: %+v", rep)
+	}
+
+	// 3. Negative case: review blocker
+	put(t, dir, "features/T-001-test-feature/review.md", "# Code Review — T-001\nStatus: Approved\n\n## 3. Risk & Findings Register\n\n| ID | Category | Severity | Finding | Suggested Action | Status |\n|---|---|---|---|---|---|\n| F-001 | Bug | 🔴 Blocker | defect | fix | Open |\n")
+	runGit("add", "features/T-001-test-feature/review.md")
+	runGit("commit", "-m", "add blocker")
+
+	r = exec(t, "", false, "", "task", "merge", "T-001", "--dir", dir, "--target", targetBranch, "--dry-run", "--skip-flake-check")
+	if r.code != 1 {
+		t.Fatalf("expected exit 1 when review has blocker, got %d: %s", r.code, r.out)
+	}
+	if !strings.Contains(r.out, "NOT READY (BLOCKERS DETECTED)") {
+		t.Errorf("expected blocker warning in output:\n%s", r.out)
+	}
+}

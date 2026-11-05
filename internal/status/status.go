@@ -51,6 +51,7 @@ type TaskInfo struct {
 	WorktreeBranch string    `json:"worktree_branch,omitempty"`
 	Gate           *GateInfo `json:"gate,omitempty"`
 	ReviewBlockers int       `json:"review_blockers,omitempty"`
+	MergeReady     bool      `json:"merge_ready,omitempty"`
 }
 
 // TaskSummary aggregates counts across all roadmap tasks.
@@ -368,6 +369,8 @@ func buildTaskInfo(root string, t roadmap.Task, normStatus, kind string, feature
 		blockers = countReviewBlockers(filepath.Join(root, folder, "review.md"))
 	}
 
+	mergeReady := normStatus == "Awaiting review" && blockers == 0
+
 	return TaskInfo{
 		ID:             t.ID,
 		Title:          t.Title,
@@ -380,6 +383,7 @@ func buildTaskInfo(root string, t roadmap.Task, normStatus, kind string, feature
 		WorktreeBranch: wtBranch,
 		Gate:           gate,
 		ReviewBlockers: blockers,
+		MergeReady:     mergeReady,
 	}
 }
 
@@ -634,6 +638,13 @@ func RenderText(ps *ProjectStatus) string {
 			}
 			if at.ReviewBlockers > 0 {
 				fmt.Fprintf(&b, "      Review:    %d unresolved 🔴 Blocker(s)\n", at.ReviewBlockers)
+			}
+			if at.Status == "Awaiting review" {
+				if at.MergeReady {
+					fmt.Fprintf(&b, "      Merge:     QUALIFIED (0 blockers; run 'sdd task merge %s')\n", at.ID)
+				} else {
+					fmt.Fprintf(&b, "      Merge:     BLOCKED (%d review blocker(s))\n", at.ReviewBlockers)
+				}
 			}
 		}
 	}

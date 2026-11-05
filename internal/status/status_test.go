@@ -552,3 +552,62 @@ func TestStatusTaskOverlap(t *testing.T) {
 		t.Errorf("expected overlap warning in status warnings: %+v", ps.Warnings)
 	}
 }
+
+func TestStatusMergeReadiness(t *testing.T) {
+	roadmap := `# ROADMAP — sdd
+
+## 4. Tasks
+
+### M1 — Tasks
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Ready task | S | none | outcome | none | Awaiting review |
+| T-002 | Blocked task | S | none | outcome | none | Awaiting review |
+`
+	dir := setupSampleProject(t, roadmap)
+
+	// T-001 has clean review.md (0 blockers)
+	t1Dir := filepath.Join(dir, "features", "T-001-ready")
+	_ = os.MkdirAll(t1Dir, 0o755)
+	_ = os.WriteFile(filepath.Join(t1Dir, "review.md"), []byte("# Review\nStatus: Approved\n"), 0o644)
+
+	// T-002 has 1 blocker
+	t2Dir := filepath.Join(dir, "features", "T-002-blocked")
+	_ = os.MkdirAll(t2Dir, 0o755)
+	_ = os.WriteFile(filepath.Join(t2Dir, "review.md"), []byte("# Review\nStatus: Approved\n| F-001 | Bug | 🔴 Blocker | defect | fix | Open |\n"), 0o644)
+
+	ps, err := status.Scan(dir)
+	if err != nil {
+		t.Fatalf("Scan failed: %v", err)
+	}
+
+	if len(ps.ActiveTasks) != 2 {
+		t.Fatalf("expected 2 active tasks, got %d", len(ps.ActiveTasks))
+	}
+
+	var t1, t2 *status.TaskInfo
+	for i := range ps.ActiveTasks {
+		if ps.ActiveTasks[i].ID == "T-001" {
+			t1 = &ps.ActiveTasks[i]
+		}
+		if ps.ActiveTasks[i].ID == "T-002" {
+			t2 = &ps.ActiveTasks[i]
+		}
+	}
+
+	if t1 == nil || !t1.MergeReady {
+		t.Errorf("expected T-001 to be MergeReady=true, got %+v", t1)
+	}
+	if t2 == nil || t2.MergeReady {
+		t.Errorf("expected T-002 to be MergeReady=false, got %+v", t2)
+	}
+
+	rendered := status.RenderText(ps)
+	if !strings.Contains(rendered, "Merge:     QUALIFIED (0 blockers; run 'sdd task merge T-001')") {
+		t.Errorf("expected QUALIFIED in rendered text:\n%s", rendered)
+	}
+	if !strings.Contains(rendered, "Merge:     BLOCKED (1 review blocker(s))") {
+		t.Errorf("expected BLOCKED in rendered text:\n%s", rendered)
+	}
+}

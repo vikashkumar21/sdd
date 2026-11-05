@@ -1,11 +1,14 @@
 package cli
 
 import (
+	"bufio"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/vikashkumar21/sdd/internal/coordinator"
 	"github.com/vikashkumar21/sdd/internal/deconflict"
 	"github.com/vikashkumar21/sdd/internal/feature"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
@@ -26,7 +29,7 @@ func runSpike(args []string, env IO) int {
 
 func runTask(args []string, env IO) int {
 	if len(args) == 0 {
-		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees\n  deconflict [tasks...]  analyze plan file collisions and schedule parallel batches")
+		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees\n  deconflict [tasks...]  analyze plan file collisions and schedule parallel batches\n  merge <T-xxx>          qualify pre-merge matrix and merge task into target branch")
 		return 2
 	}
 	switch args[0] {
@@ -40,8 +43,10 @@ func runTask(args []string, env IO) int {
 		return runTaskList(args[1:], env)
 	case "deconflict":
 		return runTaskDeconflict(args[1:], env)
+	case "merge":
+		return runTaskMerge(args[1:], env)
 	default:
-		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new|start|clean|list|deconflict> [flags]\n", args[0])
+		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new|start|clean|list|deconflict|merge> [flags]\n", args[0])
 		return 2
 	}
 }
@@ -391,5 +396,118 @@ func runTaskDeconflict(args []string, env IO) int {
 	}
 
 	fprint(env.Out, deconflict.FormatText(rep))
+	return 0
+}
+
+func runTaskMerge(args []string, env IO) int {
+	fs := newFlagSet("task merge", env)
+	dir := fs.String("dir", ".", "project root")
+	target := fs.String("target", "", "target merge branch (default: main or master)")
+	dryRun := fs.Bool("dry-run", false, "simulate merge and qualify without modifying git state")
+	rebase := fs.Bool("rebase", false, "rebase task branch onto target branch before qualification")
+	skipFlake := fs.Bool("skip-flake-check", false, "skip second run of test suite")
+	jsonFlag := fs.Bool("json", false, "output machine-readable JSON qualification matrix")
+	yesFlag := fs.Bool("yes", false, "skip interactive confirmation prompt")
+
+	pos, err := parseInterspersed(fs, args)
+	if err != nil {
+		return parseExit(err)
+	}
+	if len(pos) != 1 {
+		fprintln(env.Err, "usage: sdd task merge <T-xxx> [--target <branch>] [--dry-run] [--rebase] [--skip-flake-check] [--json] [--yes] [--dir <project>]")
+		return 2
+	}
+
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		fprintf(env.Err, "sdd task merge: %v\n", err)
+		return 1
+	}
+
+	taskID := strings.ToUpper(strings.TrimSpace(pos[0]))
+
+	targetBranch := *target
+	if targetBranch == "" {
+		targetBranch = "main"
+	}
+
+	// Rebase if requested
+	if *rebase {
+		loc, err := worktree.FindTask(root, taskID)
+		if err != nil {
+			fprintf(env.Err, "sdd task merge: locating task %s: %v\n", taskID, err)
+			return 1
+		}
+		branch := fmt.Sprintf("%s/%s-%s", loc.Typology, loc.TaskID, loc.Slug)
+		if err := coordinator.RebaseTaskBranch(root, branch, targetBranch); err != nil {
+			fprintf(env.Err, "sdd task merge: rebase failed: %v\n", err)
+			return 1
+		}
+		fprintf(env.Out, "Successfully rebased %s onto %s.\n\n", branch, targetBranch)
+	}
+
+	opts := coordinator.QualifyOptions{
+		TargetBranch:   targetBranch,
+		SkipFlakeCheck: *skipFlake,
+	}
+
+	rep, err := coordinator.Qualify(root, taskID, opts)
+	if err != nil {
+		fprintf(env.Err, "sdd task merge: qualification error: %v\n", err)
+		return 1
+	}
+
+	if *jsonFlag {
+		data, err := json.MarshalIndent(rep, "", "  ")
+		if err != nil {
+			fprintf(env.Err, "sdd task merge: %v\n", err)
+			return 1
+		}
+		fprintln(env.Out, string(data))
+		if !rep.ReadyToMerge {
+			return 1
+		}
+		return 0
+	}
+
+	fprint(env.Out, coordinator.FormatQualificationReport(rep))
+
+	if *dryRun {
+		fprintln(env.Out)
+		if rep.ReadyToMerge {
+			fprint(env.Out, coordinator.FormatGate2Presentation(rep))
+			return 0
+		}
+		return 1
+	}
+
+	if !rep.ReadyToMerge {
+		fprintln(env.Err, "\nsdd task merge: task is not ready to merge. Resolve blockers above before merging.")
+		return 1
+	}
+
+	// Interactive confirmation if not --yes
+	if !*yesFlag {
+		if !env.Interactive {
+			fprintln(env.Err, "sdd task merge: stdin is not interactive; use --yes to proceed non-interactively")
+			return 1
+		}
+		fprintf(env.Out, "\nProceed with merging %s into %s? [y/N]: ", rep.Branch, rep.TargetBranch)
+		reader := bufio.NewReader(env.In)
+		ans, _ := reader.ReadString('\n')
+		ans = strings.TrimSpace(strings.ToLower(ans))
+		if ans != "y" && ans != "yes" {
+			fprintln(env.Out, "Aborted.")
+			return 0
+		}
+	}
+
+	commitMsg := fmt.Sprintf("feat(%s): merge %s into %s (%s)", rep.Typology, rep.Branch, rep.TargetBranch, rep.TaskID)
+	if err := coordinator.ExecuteMerge(root, rep.Branch, rep.TargetBranch, commitMsg); err != nil {
+		fprintf(env.Err, "sdd task merge: %v\n", err)
+		return 1
+	}
+
+	fprintf(env.Out, "\nSuccessfully merged %s into %s.\n", rep.Branch, rep.TargetBranch)
 	return 0
 }
