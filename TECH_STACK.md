@@ -135,23 +135,24 @@ internal/version/     build version (set with -ldflags)
 
 | Date | Fact | Source | Re-verify at |
 |---|---|---|---|
-| 2026-11-04 | Go 1.22.2 linux/amd64 builds the module; `go vet`, `gofmt -s`, all tests, and `go test -race` pass | Run in the build sandbox (see features/T-001-sdd-v1/validation.md) | M7 |
-| 2026-11-04 | Interactive prompts, terminal detection, and confirmation work under a real pseudo-terminal (script(1)) | Run in the build sandbox | M7 |
-| 2026-11-04 | Static binaries for darwin/arm64, darwin/amd64, linux/amd64, linux/arm64, windows/amd64, windows/arm64 cross-compile with `CGO_ENABLED=0`; only linux/amd64 and darwin/arm64 executed | Run in the build sandbox and make dist | M7 |
-| 2026-11-04 | golangci-lint v2 was NOT available in the build sandbox: `.golangci.yml` is unverified | Absence of the tool | M7 |
+| 2026-11-05 | Go 1.22.2 linux/amd64 builds the module; `go vet`, `gofmt -s`, all tests, and `go test -race` pass | Run in the build sandbox (see features/T-001-sdd-v1/validation.md) | M8 |
+| 2026-11-05 | Interactive prompts, terminal detection, and confirmation work under a real pseudo-terminal (script(1)) | Run in the build sandbox | M8 |
+| 2026-11-05 | Static binaries for darwin/arm64, darwin/amd64, linux/amd64, linux/arm64, windows/amd64, windows/arm64 cross-compile with `CGO_ENABLED=0`; only linux/amd64 and darwin/arm64 executed | Run in the build sandbox and make dist | M8 |
+| 2026-11-05 | golangci-lint v2 was NOT available in the build sandbox: `.golangci.yml` is unverified | Absence of the tool | M8 |
 | 2026-10-26 | GitHub Spec Kit and OpenSpec exist and are widely used (reported: about 115k and 55.9k stars, June 2026). Source: a secondary blog; not independently verified, and their approval model has not been compared with this contract | Secondary web source | H2 review |
-| 2026-11-04 | Go 1.27.3 darwin/arm64 host toolchain verified; matches latest stable Go release on go.dev/dl | Verified on host and go.dev (T-005) | M7 |
-| 2026-11-04 | golangci-lint v2.15.0 on darwin/arm64 clean after codebase lint fixes | Run on host machine (T-005 review) | M7 |
+| 2026-11-05 | Go 1.27.3 darwin/arm64 host toolchain verified; matches latest stable Go release on go.dev/dl | Verified on host and go.dev (T-005) | M8 |
+| 2026-11-05 | golangci-lint v2.15.0 on darwin/arm64 clean after codebase lint fixes | Run on host machine (T-005 review) | M8 |
 | 2026-10-29 | Hypothesis H2 validated: neither Spec Kit nor OpenSpec provides exact gate phrases, human-only commits, or decision registers | Research in T-005 review.md | H2 closed |
-| 2026-11-04 | Go 1.27 os.Root on Windows rejects reserved device names (NUL, COM1..9, LPT1..9) via filepathlite.IsLocal and confines operations using native NT handles | Go stdlib src/os/root_windows.go inspection | M7 |
-| 2026-11-04 | Monorepo detection up to depth 4, cache directory pruning (.turbo, .pnpm-store, etc.), and deterministic multi-language command composition verified | Run in internal/detect tests (T-010) | M7 |
-| 2026-11-04 | Verified-facts expiry, prerequisite dependency drift, and feature status drift checkers active | Run in internal/check tests (T-011) | M7 |
-| 2026-11-04 | Safe interactive repair engine (sdd check --fix) with unified diff preview, selective confirmation, and atomic backups verified | Run in internal/repair and cli tests (T-012) | M7 |
-| 2026-11-04 | Finding suppressions, waiver register (.sdd/suppressions.json), interactive waivers, and stale waiver pruning verified | Run in internal/suppress, check, and cli tests (T-019) | M7 |
-| 2026-11-04 | Agent permission manifest generation for Claude Code, Cursor, and Gemini/Antigravity with non-destructive merge verified | Run in internal/permissions and cli tests (T-013) | M7 |
-| 2026-11-04 | Windows platform compatibility: isDriveRoot rejects drive/UNC roots, fsutil rejects colons/device names, check is CRLF-invariant, Makefile builds .exe | Run in tests and make dist (T-018) | M7 |
-| 2026-11-04 | Linux Foundation / Anthropic agentskills.io standard YAML frontmatter parser, validation regex, progressive disclosure prompt catalog, and sdd-protocol export verified | Run in internal/skill, internal/check, and cli tests (M5) | M7 |
-| 2026-11-04 | Cross-platform binary self-installation (sdd install), interactive double-click terminal setup, and universal 1-line web installer scripts (install.sh/install.ps1) with SHA256 checksum verification verified | Run in internal/install, cli, and script tests (M6) | M7 |
+| 2026-11-05 | Go 1.27 os.Root on Windows rejects reserved device names (NUL, COM1..9, LPT1..9) via filepathlite.IsLocal and confines operations using native NT handles | Go stdlib src/os/root_windows.go inspection | M8 |
+| 2026-11-05 | Monorepo detection up to depth 4, cache directory pruning (.turbo, .pnpm-store, etc.), and deterministic multi-language command composition verified | Run in internal/detect tests (T-010) | M8 |
+| 2026-11-05 | Verified-facts expiry, prerequisite dependency drift, and feature status drift checkers active | Run in internal/check tests (T-011) | M8 |
+| 2026-11-05 | Safe interactive repair engine (sdd check --fix) with unified diff preview, selective confirmation, and atomic backups verified | Run in internal/repair and cli tests (T-012) | M8 |
+| 2026-11-05 | Finding suppressions, waiver register (.sdd/suppressions.json), interactive waivers, and stale waiver pruning verified | Run in internal/suppress, check, and cli tests (T-019) | M8 |
+| 2026-11-05 | Agent permission manifest generation for Claude Code, Cursor, and Gemini/Antigravity with non-destructive merge verified | Run in internal/permissions and cli tests (T-013) | M8 |
+| 2026-11-05 | Windows platform compatibility: isDriveRoot rejects drive/UNC roots, fsutil rejects colons/device names, check is CRLF-invariant, Makefile builds .exe | Run in tests and make dist (T-018) | M8 |
+| 2026-11-05 | Linux Foundation / Anthropic agentskills.io standard YAML frontmatter parser, validation regex, progressive disclosure prompt catalog, and sdd-protocol export verified | Run in internal/skill, internal/check, and cli tests (M5) | M8 |
+| 2026-11-05 | Cross-platform binary self-installation (sdd install), interactive double-click terminal setup, and universal 1-line web installer scripts (install.sh/install.ps1) with SHA256 checksum verification verified | Run in internal/install, cli, and script tests (M6) | M8 |
+| 2026-11-05 | Code review specification (review.md, 3-tier risk grading, zero unresolved blockers check) and sdd status roadmap/gate aggregator verified | Run in internal/status, internal/check, and cli tests (M7) | M8 |
 
 ## 8. Dependency register
 
