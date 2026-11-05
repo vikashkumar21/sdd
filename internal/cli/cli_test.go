@@ -991,3 +991,179 @@ func TestWorktreeCommands(t *testing.T) {
 		t.Errorf("expected empty message, got:\n%s", r.out)
 	}
 }
+
+func TestTaskDeconflict(t *testing.T) {
+	dir := t.TempDir()
+
+	roadmapContent := `# ROADMAP — sdd
+
+## 3. Milestones
+
+| Milestone | Goal | Tasks | Est. hours | Exit criteria |
+|---|---|---|---|---|
+| M1 | Tasks | T-001, T-002 | 10 | Done |
+
+## 4. Tasks
+
+### M1 — Tasks
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | First feature | S | none | Feature | none | Implementing |
+| T-002 | Second feature | S | none | Feature | none | Implementing |
+`
+	put(t, dir, "ROADMAP.md", roadmapContent)
+
+	task1Dir := filepath.Join(dir, "features", "T-001-first-feature")
+	task2Dir := filepath.Join(dir, "features", "T-002-second-feature")
+	if err := os.MkdirAll(task1Dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(task2Dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	plan1 := `# Plan — T-001
+
+## 5. Files to create or modify
+
+| Path | Action | Reason |
+|---|---|---|
+| ` + "`" + `cmd/main.go` + "`" + ` | modify | entry |
+| internal/a.go | create | core |
+`
+	plan2Disjoint := `# Plan — T-002
+
+## 5. Files to create or modify
+
+| Path | Action | Reason |
+|---|---|---|
+| ` + "`" + `internal/b.go` + "`" + ` | create | other |
+`
+	put(t, dir, "features/T-001-first-feature/plan.md", plan1)
+	put(t, dir, "features/T-002-second-feature/plan.md", plan2Disjoint)
+
+	// 1. Positional disjoint
+	r := exec(t, "", false, "", "task", "deconflict", "T-001", "T-002", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for disjoint deconflict, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !strings.Contains(r.out, "Concurrency Status: SAFE") {
+		t.Errorf("expected SAFE concurrency status, got:\n%s", r.out)
+	}
+	if !strings.Contains(r.out, "Wave 1 (Parallel Batch): T-001, T-002") {
+		t.Errorf("expected parallel batch in schedule, got:\n%s", r.out)
+	}
+
+	// 2. Overlapping plans
+	plan2Overlap := `# Plan — T-002
+
+## 5. Files to create or modify
+
+| Path | Action | Reason |
+|---|---|---|
+| ` + "`" + `cmd/main.go` + "`" + ` | modify | conflict |
+| internal/b.go | create | other |
+`
+	put(t, dir, "features/T-002-second-feature/plan.md", plan2Overlap)
+
+	r = exec(t, "", false, "", "task", "deconflict", "T-001", "T-002", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for overlapping deconflict, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "COLLISION HAZARD") {
+		t.Errorf("expected COLLISION HAZARD, got:\n%s", r.out)
+	}
+	if !strings.Contains(r.out, "cmd/main.go") {
+		t.Errorf("expected cmd/main.go in conflict list, got:\n%s", r.out)
+	}
+	if !strings.Contains(r.out, "Wave 1") || !strings.Contains(r.out, "Wave 2") {
+		t.Errorf("expected 2 waves in schedule, got:\n%s", r.out)
+	}
+
+	// 3. Auto-discovery of active in-flight tasks
+	r = exec(t, "", false, "", "task", "deconflict", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for auto-discovery, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Analyzed: 2 task(s) (T-001, T-002)") {
+		t.Errorf("expected 2 tasks analyzed, got:\n%s", r.out)
+	}
+
+	// 4. Invalid task ID argument
+	r = exec(t, "", false, "", "task", "deconflict", "T-999", "T-888", "--dir", dir)
+	if r.code != 1 {
+		t.Fatalf("expected exit 1 for unknown task, got %d", r.code)
+	}
+
+	// 5. Only 1 positional argument
+	r = exec(t, "", false, "", "task", "deconflict", "T-001", "--dir", dir)
+	if r.code != 2 {
+		t.Fatalf("expected exit 2 for single task query, got %d", r.code)
+	}
+}
+
+func TestTaskDeconflictJSON(t *testing.T) {
+	dir := t.TempDir()
+
+	roadmapContent := `# ROADMAP — sdd
+
+## 3. Milestones
+
+| Milestone | Goal | Tasks | Est. hours | Exit criteria |
+|---|---|---|---|---|
+| M1 | Tasks | T-001, T-002 | 10 | Done |
+
+## 4. Tasks
+
+### M1 — Tasks
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | First feature | S | none | Feature | none | Implementing |
+| T-002 | Second feature | S | none | Feature | none | Implementing |
+`
+	put(t, dir, "ROADMAP.md", roadmapContent)
+
+	task1Dir := filepath.Join(dir, "features", "T-001-first-feature")
+	task2Dir := filepath.Join(dir, "features", "T-002-second-feature")
+	_ = os.MkdirAll(task1Dir, 0o755)
+	_ = os.MkdirAll(task2Dir, 0o755)
+
+	plan1 := "# Plan — T-001\n\n## 5. Files to create or modify\n\n| Path | Action | Reason |\n|---|---|---|\n| cmd/main.go | modify | entry |\n"
+	plan2 := "# Plan — T-002\n\n## 5. Files to create or modify\n\n| Path | Action | Reason |\n|---|---|---|\n| cmd/main.go | modify | conflict |\n"
+	put(t, dir, "features/T-001-first-feature/plan.md", plan1)
+	put(t, dir, "features/T-002-second-feature/plan.md", plan2)
+
+	r := exec(t, "", false, "", "task", "deconflict", "T-001", "T-002", "--dir", dir, "--json")
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for json flag, got %d: %s", r.code, r.err)
+	}
+
+	var rep struct {
+		HasConflict bool `json:"has_conflict"`
+		Conflicts   []struct {
+			TaskA       string   `json:"task_a"`
+			TaskB       string   `json:"task_b"`
+			SharedFiles []string `json:"shared_files"`
+		} `json:"conflicts"`
+		Batches [][]string `json:"batches"`
+	}
+
+	if err := json.Unmarshal([]byte(r.out), &rep); err != nil {
+		t.Fatalf("failed to parse JSON output: %v\nOutput:\n%s", err, r.out)
+	}
+
+	if !rep.HasConflict {
+		t.Errorf("expected has_conflict to be true")
+	}
+	if len(rep.Conflicts) != 1 {
+		t.Fatalf("expected 1 conflict, got %d", len(rep.Conflicts))
+	}
+	if rep.Conflicts[0].TaskA != "T-001" || rep.Conflicts[0].TaskB != "T-002" {
+		t.Errorf("unexpected conflict pair: %+v", rep.Conflicts[0])
+	}
+	if len(rep.Batches) != 2 {
+		t.Errorf("expected 2 batches, got %+v", rep.Batches)
+	}
+}

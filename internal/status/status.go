@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/vikashkumar21/sdd/internal/deconflict"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/worktree"
 )
@@ -238,10 +239,23 @@ func Scan(root string) (*ProjectStatus, error) {
 	var warnings []string
 	if len(activeTasks) > 1 {
 		var ids []string
+		var plans []deconflict.TaskPlan
 		for _, at := range activeTasks {
 			ids = append(ids, at.ID)
+			if plan, err := deconflict.LoadTaskPlan(absRoot, at.ID); err == nil {
+				plans = append(plans, *plan)
+			}
 		}
 		warnings = append(warnings, fmt.Sprintf("Multiple tasks are active simultaneously (%s) — SDD Rule 3 requires one task at a time", strings.Join(ids, ", ")))
+
+		if len(plans) > 1 {
+			rep := deconflict.Analyze(plans)
+			if rep.HasConflict {
+				for _, c := range rep.Conflicts {
+					warnings = append(warnings, fmt.Sprintf("File overlap hazard detected between %s and %s on %d file(s): %s", c.TaskA, c.TaskB, len(c.SharedFiles), strings.Join(c.SharedFiles, ", ")))
+				}
+			}
+		}
 	}
 
 	for _, at := range activeTasks {

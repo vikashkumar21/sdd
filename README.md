@@ -74,6 +74,8 @@ sdd spike new T-003 upgrade-command           # creates spikes/T-003-upgrade-com
 sdd task start T-003                          # provision isolated git worktree in .sdd/worktrees/T-003-...
 sdd task list                                 # list active task worktrees (--json supported)
 sdd task clean T-003                          # safely teardown worktree (creates backup if dirty)
+sdd task deconflict                           # analyze plan file collisions across in-flight tasks
+sdd task deconflict T-003 T-004               # analyze collisions between specific tasks (--json, --all)
 sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements from Jira and stage into context
 sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
@@ -133,7 +135,7 @@ sdd uninstall --yes                       # uninstall without interactive confir
 
 ## What `sdd check` verifies
 
-Required files exist · agent contracts are identical across agent files (managed block, or everything after the title line for older kits) · every `D-xxx` and `T-xxx` reference resolves · tables and code fences are intact · task statuses are valid and agree with task folders across all typologies (`features/`, `bugfixes/`, `hotfixes/`, `spikes/`) · worktree branch naming standards · 64KB specification context budget guard · bugfix reproduction step verified · approval records and validation results are filled once a task is past those gates · `SKILLS.md` has the "Human feedback rules" section · unresolved `TODO(human)` placeholders are counted.
+Required files exist · agent contracts are identical across agent files (managed block, or everything after the title line for older kits) · every `D-xxx` and `T-xxx` reference resolves · tables and code fences are intact · task statuses are valid and agree with task folders across all typologies (`features/`, `bugfixes/`, `hotfixes/`, `spikes/`) · worktree branch naming standards · static plan target collisions across concurrent in-flight tasks (`task-overlap`) · 64KB specification context budget guard · bugfix reproduction step verified · approval records and validation results are filled once a task is past those gates · `SKILLS.md` has the "Human feedback rules" section · unresolved `TODO(human)` placeholders are counted.
 
 Finding waivers registered in `.sdd/suppressions.json` are downgraded to informational notes so `--strict` does not exit with failure. In `sdd check --fix`, suppressed repairs are highlighted with `[SUPPRESSED]` badges and can be kept waived or repaired (which clears the waiver). You can also interactively record waivers during `sdd check --fix` by answering `s`. If an issue is resolved, stale waivers are reported in `sdd check` and can be interactively pruned in `sdd check --fix`.
 

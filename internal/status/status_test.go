@@ -503,3 +503,52 @@ func TestStatusWorktrees(t *testing.T) {
 		t.Errorf("expected RenderText to include Worktree line, got:\n%s", rendered)
 	}
 }
+
+func TestStatusTaskOverlap(t *testing.T) {
+	roadmap := `# ROADMAP — sdd
+
+## 3. Milestones
+
+| Milestone | Goal | Tasks | Est. hours | Exit criteria |
+|---|---|---|---|---|
+| M1 | Concurrent | T-001, T-002 | 10 | In progress |
+
+## 4. Tasks
+
+### M1 — Concurrent
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Feature 1 | S | none | Feature | none | Implementing |
+| T-002 | Feature 2 | S | none | Feature | none | Implementing |
+`
+	dir := setupSampleProject(t, roadmap)
+
+	// Create task folders and overlapping plans
+	task1Dir := filepath.Join(dir, "features", "T-001-f1")
+	task2Dir := filepath.Join(dir, "features", "T-002-f2")
+	_ = os.MkdirAll(task1Dir, 0o755)
+	_ = os.MkdirAll(task2Dir, 0o755)
+
+	plan1 := "# Plan — T-001\n\n## 5. Files to create or modify\n\n| Path | Action | Reason |\n|---|---|---|\n| internal/cli/cli.go | modify | cli |\n"
+	plan2 := "# Plan — T-002\n\n## 5. Files to create or modify\n\n| Path | Action | Reason |\n|---|---|---|\n| internal/cli/cli.go | modify | cli overlap |\n"
+	_ = os.WriteFile(filepath.Join(task1Dir, "plan.md"), []byte(plan1), 0o644)
+	_ = os.WriteFile(filepath.Join(task2Dir, "plan.md"), []byte(plan2), 0o644)
+
+	ps, err := status.Scan(dir)
+	if err != nil {
+		t.Fatalf("Scan failed: %v", err)
+	}
+
+	foundOverlapWarning := false
+	for _, w := range ps.Warnings {
+		if strings.Contains(w, "File overlap hazard detected between T-001 and T-002 on 1 file(s): internal/cli/cli.go") {
+			foundOverlapWarning = true
+			break
+		}
+	}
+
+	if !foundOverlapWarning {
+		t.Errorf("expected overlap warning in status warnings: %+v", ps.Warnings)
+	}
+}

@@ -58,6 +58,7 @@ commands:
   task start <T-xxx>         provision an isolated Git worktree for the task
   task clean <T-xxx>         safely remove a task's worktree with backup
   task list                  list active task worktrees (--json for structured output)
+  task deconflict [tasks...] analyze plan file collisions and schedule parallel batches
   feature new <T-xxx> <slug> create features/T-xxx-<slug>/ from project templates
   bugfix new <T-xxx> <slug>  create bugfixes/T-xxx-<slug>/ with reproduction test template
   hotfix new <T-xxx> <slug>  create hotfixes/T-xxx-<slug>/ with incident patch template

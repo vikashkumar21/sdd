@@ -16,6 +16,7 @@ import (
 
 	"github.com/vikashkumar21/sdd/internal/block"
 	"github.com/vikashkumar21/sdd/internal/context"
+	"github.com/vikashkumar21/sdd/internal/deconflict"
 	"github.com/vikashkumar21/sdd/internal/markdown"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
@@ -607,6 +608,41 @@ func (c *checker) checkFeatures(tasks []roadmap.Task) {
 			c.add(Error, "ROADMAP.md", task.Line, "feature-folder", "%s is %q but has no features/%s-<slug>/ folder", task.ID, roadmap.Normalize(task.Status), task.ID)
 		case "done":
 			c.add(Warn, "ROADMAP.md", task.Line, "feature-folder", "%s is Done but has no features/%s-<slug>/ folder", task.ID, task.ID)
+		}
+	}
+
+	// Check concurrent tasks for plan overlap hazards
+	var activePlans []deconflict.TaskPlan
+	for _, task := range tasks {
+		kind := roadmap.Kind(task.Status)
+		if kind == "implementing" || kind == "awaiting review" {
+			folder, hasFolder := folders[task.ID]
+			if !hasFolder {
+				continue
+			}
+			planPath := folder + "/plan.md"
+			content, ok := c.load(planPath)
+			if !ok {
+				patchPath := folder + "/patch.md"
+				content, ok = c.load(patchPath)
+			}
+			if ok {
+				files := deconflict.ExtractPlanFiles(content)
+				if len(files) > 0 {
+					activePlans = append(activePlans, deconflict.TaskPlan{
+						TaskID: task.ID,
+						Files:  files,
+					})
+				}
+			}
+		}
+	}
+	if len(activePlans) > 1 {
+		rep := deconflict.Analyze(activePlans)
+		if rep.HasConflict {
+			for _, conflict := range rep.Conflicts {
+				c.add(Warn, "ROADMAP.md", 0, "task-overlap", "concurrent tasks %s and %s share planned target file(s): %s", conflict.TaskA, conflict.TaskB, strings.Join(conflict.SharedFiles, ", "))
+			}
 		}
 	}
 }

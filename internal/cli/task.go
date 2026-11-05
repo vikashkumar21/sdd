@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/vikashkumar21/sdd/internal/deconflict"
 	"github.com/vikashkumar21/sdd/internal/feature"
+	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/worktree"
 )
 
@@ -24,7 +26,7 @@ func runSpike(args []string, env IO) int {
 
 func runTask(args []string, env IO) int {
 	if len(args) == 0 {
-		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees")
+		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees\n  deconflict [tasks...]  analyze plan file collisions and schedule parallel batches")
 		return 2
 	}
 	switch args[0] {
@@ -36,8 +38,10 @@ func runTask(args []string, env IO) int {
 		return runTaskClean(args[1:], env)
 	case "list":
 		return runTaskList(args[1:], env)
+	case "deconflict":
+		return runTaskDeconflict(args[1:], env)
 	default:
-		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new|start|clean|list> [flags]\n", args[0])
+		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new|start|clean|list|deconflict> [flags]\n", args[0])
 		return 2
 	}
 }
@@ -301,5 +305,91 @@ func executeTaskScaffold(id, slug string, typ feature.Typology, dir, title, from
 	}
 	fprintln(env.Out)
 	fprintf(env.Out, "Next: draft task documents (no code), then stop for `APPROVED %s`.\n", id)
+	return 0
+}
+
+func runTaskDeconflict(args []string, env IO) int {
+	fs := newFlagSet("task deconflict", env)
+	dir := fs.String("dir", ".", "project root")
+	jsonFlag := fs.Bool("json", false, "output structured JSON")
+	allFlag := fs.Bool("all", false, "analyze all tasks in roadmap that have task folders")
+
+	pos, err := parseInterspersed(fs, args)
+	if err != nil {
+		return parseExit(err)
+	}
+
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		fprintf(env.Err, "sdd task deconflict: %v\n", err)
+		return 1
+	}
+
+	var taskIDs []string
+	if len(pos) > 0 {
+		for _, p := range pos {
+			taskIDs = append(taskIDs, strings.ToUpper(strings.TrimSpace(p)))
+		}
+	} else {
+		// Read ROADMAP.md
+		roadmapPath := filepath.Join(root, "ROADMAP.md")
+		data, err := os.ReadFile(roadmapPath)
+		if err != nil {
+			fprintf(env.Err, "sdd task deconflict: read ROADMAP.md: %v\n", err)
+			return 1
+		}
+		tasks := roadmap.Parse(string(data))
+		for _, t := range tasks {
+			if *allFlag {
+				if _, err := worktree.FindTask(root, t.ID); err == nil {
+					taskIDs = append(taskIDs, t.ID)
+				}
+			} else {
+				switch roadmap.Kind(t.Status) {
+				case "specifying", "awaiting plan approval", "implementing", "awaiting review":
+					if _, err := worktree.FindTask(root, t.ID); err == nil {
+						taskIDs = append(taskIDs, t.ID)
+					}
+				}
+			}
+		}
+	}
+
+	if len(taskIDs) < 2 {
+		if len(pos) > 0 {
+			fprintln(env.Err, "sdd task deconflict: specify at least 2 tasks to analyze for conflicts, or use --all to analyze all roadmap tasks")
+			return 2
+		}
+		if len(taskIDs) == 1 {
+			fprintf(env.Out, "Only 1 in-flight task found (%s). No concurrency conflict possible.\n", taskIDs[0])
+			return 0
+		}
+		fprintln(env.Out, "No in-flight tasks found to deconflict. Use 'sdd task deconflict <T-xxx> <T-yyy>' or --all.")
+		return 0
+	}
+
+	var plans []deconflict.TaskPlan
+	for _, id := range taskIDs {
+		plan, err := deconflict.LoadTaskPlan(root, id)
+		if err != nil {
+			fprintf(env.Err, "sdd task deconflict: task %s: %v\n", id, err)
+			return 1
+		}
+		plans = append(plans, *plan)
+	}
+
+	rep := deconflict.Analyze(plans)
+
+	if *jsonFlag {
+		data, err := json.MarshalIndent(rep, "", "  ")
+		if err != nil {
+			fprintf(env.Err, "sdd task deconflict: %v\n", err)
+			return 1
+		}
+		fprintln(env.Out, string(data))
+		return 0
+	}
+
+	fprint(env.Out, deconflict.FormatText(rep))
 	return 0
 }

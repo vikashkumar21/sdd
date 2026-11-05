@@ -1188,3 +1188,110 @@ func TestCheckWorktrees(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckTaskOverlap(t *testing.T) {
+	root := generate(t)
+
+	// Add T-002 to ROADMAP.md
+	edit(t, root, "ROADMAP.md", func(s string) string {
+		lines := strings.Split(s, "\n")
+		var out []string
+		for _, l := range lines {
+			if strings.HasPrefix(l, "| T-001 |") {
+				out = append(out, "| T-001 | First feature | S | none | outcome | none | Implementing |")
+				out = append(out, "| T-002 | Second feature | S | none | outcome | none | Implementing |")
+			} else {
+				out = append(out, l)
+			}
+		}
+		return strings.Join(out, "\n")
+	})
+
+	// Create T-001 folder and plan
+	t1Dir := filepath.Join(root, "features", "T-001-first-feature")
+	_ = os.MkdirAll(t1Dir, 0o755)
+	put(t, root, "features/T-001-first-feature/requirements.md", "# Req T-001\n")
+	put(t, root, "features/T-001-first-feature/validation.md", "# Val T-001\n")
+	plan1 := `# Plan — T-001
+Status: Approved
+
+## 5. Files to create or modify
+
+| Path | Action | Reason |
+|---|---|---|
+| internal/cli/cli.go | modify | cli |
+| cmd/main.go | modify | main |
+
+## 10. Approval record
+Approved by: human Date: 2026-11-05 Phrase received: APPROVED T-001
+`
+	put(t, root, "features/T-001-first-feature/plan.md", plan1)
+
+	// Create T-002 folder and plan
+	t2Dir := filepath.Join(root, "features", "T-002-second-feature")
+	_ = os.MkdirAll(t2Dir, 0o755)
+	put(t, root, "features/T-002-second-feature/requirements.md", "# Req T-002\n")
+	put(t, root, "features/T-002-second-feature/validation.md", "# Val T-002\n")
+
+	// 1. Overlapping plan on internal/cli/cli.go
+	plan2Overlap := `# Plan — T-002
+Status: Approved
+
+## 5. Files to create or modify
+
+| Path | Action | Reason |
+|---|---|---|
+| internal/cli/cli.go | modify | conflict |
+| internal/other.go | create | new |
+
+## 10. Approval record
+Approved by: human Date: 2026-11-05 Phrase received: APPROVED T-002
+`
+	put(t, root, "features/T-002-second-feature/plan.md", plan2Overlap)
+
+	rep, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	foundOverlap := false
+	for _, f := range rep.Findings {
+		if f.Rule == "task-overlap" {
+			foundOverlap = true
+			if f.Severity != Warn {
+				t.Errorf("expected task-overlap finding to be WARN, got %v", f.Severity)
+			}
+			if !strings.Contains(f.Message, "concurrent tasks T-001 and T-002 share planned target file(s): internal/cli/cli.go") {
+				t.Errorf("unexpected message: %s", f.Message)
+			}
+		}
+	}
+	if !foundOverlap {
+		t.Errorf("expected task-overlap warning for overlapping tasks, got: %+v", rep.Findings)
+	}
+
+	// 2. Disjoint plans
+	plan2Disjoint := `# Plan — T-002
+Status: Approved
+
+## 5. Files to create or modify
+
+| Path | Action | Reason |
+|---|---|---|
+| internal/disjoint.go | create | no conflict |
+
+## 10. Approval record
+Approved by: human Date: 2026-11-05 Phrase received: APPROVED T-002
+`
+	put(t, root, "features/T-002-second-feature/plan.md", plan2Disjoint)
+
+	repDisjoint, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range repDisjoint.Findings {
+		if f.Rule == "task-overlap" {
+			t.Errorf("expected no task-overlap warning for disjoint tasks, got: %+v", f)
+		}
+	}
+}
