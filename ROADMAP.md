@@ -115,8 +115,8 @@ Status: living document · Last updated: 2026-10-26
 | T-029 | Git worktree isolation and concurrent workspace provisioning (sdd task start and clean) | M | T-028 | .sdd/worktrees/ isolation, standardized branch naming, fail-safe cleanup with backup, and sdd status tracking | D-028 | Done |
 | T-030 | Static task deconfliction and plan overlap analyzer | S | T-029 | Automated plan file targets analysis, collision detection, and concurrency scheduling | D-028, D-029 | Done |
 | T-031 | Task Coordinator pre-merge qualification, simulation, and sdd task merge | M | T-030 | Pre-merge validation (0 blockers, tests pass), blast-radius regression sweep, determinism flake guard, dry-run simulation, rebase helper, and GATE 2 presentation (APPROVED MERGE T-xxx) | D-029 | Done |
-| T-032 | Autonomous multi-agent hierarchy and Task Coordinator skill | M | T-031 | Two-level hierarchy specification, agent contract updates, and canonical skills/task-coordinator/SKILL.md | D-029 | Awaiting review |
-| T-033 | Ensemble code review standards and AppSec Specialist rubric | M | T-032 | Multi-lens review standard in skills/code-review/SKILL.md (Spec Auditor, AppSec Specialist, Pattern Auditor) and end-to-end integration | D-026, D-029 | Not started |
+| T-032 | Autonomous multi-agent hierarchy and Task Coordinator skill | M | T-031 | Two-level hierarchy specification, agent contract updates, and canonical skills/task-coordinator/SKILL.md | D-029 | Done |
+| T-033 | Ensemble code review standards and AppSec Specialist rubric | M | T-032 | Multi-lens review standard in skills/code-review/SKILL.md (Spec Auditor, AppSec Specialist, Pattern Auditor) and end-to-end integration | D-026, D-029 | Awaiting review |
 
 ## 5. Unknown-technology protocol (spikes)
 

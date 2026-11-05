@@ -22,6 +22,8 @@ type ReviewPromptContext struct {
 	TaskID        string   `json:"taskId"`
 	TaskDir       string   `json:"taskDir"`
 	Typology      string   `json:"typology"`
+	Lens          string   `json:"lens"`
+	LensFocus     []string `json:"lensFocus,omitempty"`
 	Requirements  string   `json:"requirements,omitempty"`
 	Plan          string   `json:"plan,omitempty"`
 	Validation    string   `json:"validation,omitempty"`
@@ -35,6 +37,7 @@ func runPromptReview(args []string, env IO) int {
 	fs := newFlagSet("prompt review", env)
 	dir := fs.String("dir", ".", "project root")
 	jsonFlag := fs.Bool("json", false, "output machine-readable review context bundle as JSON")
+	lensFlag := fs.String("lens", "all", "review lens: spec, security (or appsec), pattern, or all")
 
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
@@ -42,7 +45,19 @@ func runPromptReview(args []string, env IO) int {
 	}
 
 	if len(pos) != 1 {
-		fprintln(env.Err, "usage: sdd prompt review <T-xxx> [--dir <project>] [--json]")
+		fprintln(env.Err, "usage: sdd prompt review <T-xxx> [--lens <spec|security|pattern|all>] [--dir <project>] [--json]")
+		return 2
+	}
+
+	normLens := strings.ToLower(strings.TrimSpace(*lensFlag))
+	if normLens == "appsec" {
+		normLens = "security"
+	}
+	switch normLens {
+	case "spec", "security", "pattern", "all":
+		// valid
+	default:
+		fprintf(env.Err, "sdd prompt review: invalid --lens %q (expected: spec, security, pattern, or all)\n", *lensFlag)
 		return 2
 	}
 
@@ -77,12 +92,15 @@ func runPromptReview(args []string, env IO) int {
 	changedFiles := resolveChangedFiles(root, plan)
 	feedbackRules := extractActiveFeedbackRules(root)
 
-	promptText := buildReviewPrompt(rawTaskID, taskDirRel, changedFiles, feedbackRules)
+	lensFocus := getLensFocusItems(normLens)
+	promptText := buildReviewPromptWithLens(rawTaskID, taskDirRel, normLens, changedFiles, feedbackRules, lensFocus)
 
 	ctx := ReviewPromptContext{
 		TaskID:        rawTaskID,
 		TaskDir:       taskDirRel,
 		Typology:      typology,
+		Lens:          normLens,
+		LensFocus:     lensFocus,
 		Requirements:  requirements,
 		Plan:          plan,
 		Validation:    validation,
@@ -104,6 +122,42 @@ func runPromptReview(args []string, env IO) int {
 
 	fprint(env.Out, promptText)
 	return 0
+}
+
+func getLensFocusItems(lens string) []string {
+	specItems := []string{
+		"Traceability: every requirement (R-xxx) maps to verified code and concrete test evidence in validation.md.",
+		"Plan boundaries: touch ONLY files listed in plan.md Section 5 (zero scope creep).",
+		"Negative and failure cases are explicitly tested and verified.",
+	}
+	secItems := []string{
+		"Input validation & bound sizes on all external inputs; fail safe on ambiguity.",
+		"Filesystem confinement: reject directory traversal, enforce path bounds via os.Root or clean canonical paths.",
+		"Secrets & privacy hygiene: zero credentials, tokens, connection strings, or personal data; synthetic test fixtures only.",
+		"Command execution safety: never concatenate shell strings; use separate arguments.",
+	}
+	patItems := []string{
+		"Architectural decision conformance: strictly respect approved decisions in TECH_STACK.md (D-xxx).",
+		"Standard library purity: zero unapproved third-party dependencies (D-007).",
+		"Determinism: inject clocks, random sources, and ID generators; no map iteration order dependency.",
+		"Code idioms: follow Effective Go, Go Code Review Comments, context.Context first, %w error wrapping.",
+		"Continuous learning: verify compliance with active feedback rules in SKILLS.md §8 (F-xxx).",
+	}
+
+	switch lens {
+	case "spec":
+		return specItems
+	case "security":
+		return secItems
+	case "pattern":
+		return patItems
+	default:
+		var all []string
+		all = append(all, specItems...)
+		all = append(all, secItems...)
+		all = append(all, patItems...)
+		return all
+	}
 }
 
 func findTaskDirectory(root, taskID string) (relDir, typology string, err error) {
@@ -257,11 +311,26 @@ func extractActiveFeedbackRules(root string) string {
 	return strings.Join(ruleLines, "\n")
 }
 
-func buildReviewPrompt(taskID, taskDir string, files []string, feedbackRules string) string {
+func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, feedbackRules string, focusItems []string) string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "# Handover: Independent Subagent Code & Spec Review for %s\n\n", taskID)
-	fmt.Fprintf(&sb, "You are acting as an **Independent Subagent Reviewer** for task `%s`.\n", taskID)
-	sb.WriteString("Your mandate is to impartially audit the implementation before GATE 2 human review.\n")
+
+	lensTitle := "Ensemble Review Triad"
+	roleDesc := "across all three pillars (Spec Auditor, AppSec Specialist, Pattern Auditor)"
+	switch lens {
+	case "spec":
+		lensTitle = "Spec Auditor Lens"
+		roleDesc = "with a dedicated focus on requirement traceability, negative test cases, and plan boundaries"
+	case "security":
+		lensTitle = "AppSec Specialist Lens"
+		roleDesc = "with a dedicated focus on threat modeling, input validation, path confinement, and secret hygiene"
+	case "pattern":
+		lensTitle = "Pattern & Quality Auditor Lens"
+		roleDesc = "with a dedicated focus on architectural decision conformance, determinism, language idioms, and feedback rules"
+	}
+
+	fmt.Fprintf(&sb, "# Handover: Independent Subagent Code & Spec Review for %s (%s)\n\n", taskID, lensTitle)
+	fmt.Fprintf(&sb, "You are acting as an **Independent Subagent Reviewer (%s)** for task `%s`.\n", lensTitle, taskID)
+	fmt.Fprintf(&sb, "Your mandate is to impartially audit the implementation %s before GATE 2 human review.\n", roleDesc)
 	sb.WriteString("**You are strictly independent; the author agent cannot review or approve its own work.**\n\n")
 
 	sb.WriteString("## SDD Anthem & Principles\n")
@@ -269,12 +338,19 @@ func buildReviewPrompt(taskID, taskDir string, files []string, feedbackRules str
 
 	sb.WriteString("## Review Rubric (3-Tier Severity)\n")
 	sb.WriteString("- 🔴 **Blocker (Developer Attention Needed):** Spec violation (`requirements.md` not met), plan drift (files touched outside `plan.md`), security hazard (secrets/unvalidated inputs), test gaps, unapproved dependency. MUST BE RESOLVED before commit.\n")
-	sb.WriteString("- 🟡 **Warning (Attention Suggested):** Sub-optimal pattern, missing doc or comment, edge case risk.\n")
+	sb.WriteString("- 🟡 **Warning (Attention Suggested):** Sub-optimal pattern, edge case risk, missing doc or comment.\n")
 	sb.WriteString("- 🟢 **Minor (Safe / Informational):** Style, minor naming or non-critical improvement.\n\n")
+
+	sb.WriteString("## Lens Focus & Verification Questions\n")
+	for _, item := range focusItems {
+		fmt.Fprintf(&sb, "- [ ] %s\n", item)
+	}
+	sb.WriteString("\n")
 
 	sb.WriteString("## Task Details\n")
 	fmt.Fprintf(&sb, "- **Task ID:** %s\n", taskID)
 	fmt.Fprintf(&sb, "- **Task Directory:** %s\n", taskDir)
+	fmt.Fprintf(&sb, "- **Review Lens:** %s\n", lens)
 	sb.WriteString("- **Changed Files:**\n")
 	if len(files) == 0 {
 		sb.WriteString("  - (none resolved from git diff or plan)\n")
@@ -291,11 +367,10 @@ func buildReviewPrompt(taskID, taskDir string, files []string, feedbackRules str
 
 	sb.WriteString("## Review Instructions\n")
 	fmt.Fprintf(&sb, "1. Inspect the git diff and changed files against `%s/requirements.md` and `%s/plan.md`.\n", taskDir, taskDir)
-	fmt.Fprintf(&sb, "2. Verify that every requirement has concrete test evidence in `%s/validation.md`.\n", taskDir)
-	sb.WriteString("3. Verify that zero files were modified outside the approved plan.\n")
-	fmt.Fprintf(&sb, "4. Record all findings and sign-off in `%s/review.md`.\n", taskDir)
+	fmt.Fprintf(&sb, "2. Verify each point listed under **Lens Focus & Verification Questions**.\n")
+	fmt.Fprintf(&sb, "3. Record all findings and sign-off in `%s/review.md`.\n", taskDir)
 	sb.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")
-	sb.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution.\n")
+	sb.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution (including your lens name).\n")
 
 	return sb.String()
 }

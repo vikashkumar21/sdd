@@ -81,8 +81,12 @@ sdd task merge T-003                          # merge task branch into main afte
 sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements from Jira and stage into context
 sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
-sdd prompt review T-003  # generate turnkey subagent review prompt for Phase C.2 independent audit
-sdd prompt review T-003 --json # structured review context bundle for programmatic Agent SDKs
+sdd prompt review T-003                       # generate turnkey subagent review prompt for Phase C.2 independent audit
+sdd prompt review T-003 --lens spec          # review focused on requirements traceability & plan boundaries
+sdd prompt review T-003 --lens security      # review focused on AppSec, threat surface, input validation & secrets
+sdd prompt review T-003 --lens pattern       # review focused on architecture decisions, determinism & language idioms
+sdd prompt review T-003 --lens all           # ensemble review covering all three lenses (default)
+sdd prompt review T-003 --json               # structured review context bundle with lens metadata for Agent SDKs
 
 sdd skill new code-review --description "Review code for quality" # scaffold a standard agentskills.io skill
 sdd skill new deploy-helper --from-file deploy.txt                # import raw notes with agent refinement scaffolding

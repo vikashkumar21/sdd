@@ -1362,3 +1362,87 @@ func TestPromptReviewJSON(t *testing.T) {
 		t.Errorf("Prompt field missing expected text: %s", ctx.Prompt)
 	}
 }
+
+func TestPromptReviewLens(t *testing.T) {
+	root := t.TempDir()
+
+	featDir := filepath.Join(root, "features", "T-001-lens-test")
+	if err := os.MkdirAll(featDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	put(t, featDir, "requirements.md", "# Requirements — T-001\n")
+	put(t, featDir, "plan.md", "# Plan — T-001\n\n## 5. Files to create or modify\n\n| Path | Action | Reason |\n|---|---|---|\n| pkg/auth.go | modify | auth |\n")
+	put(t, featDir, "validation.md", "# Validation — T-001\n")
+	put(t, featDir, "review.md", "# Code Review — T-001\n")
+
+	// 1. Spec lens
+	rSpec := exec(t, "", false, "", "prompt", "review", "T-001", "--dir", root, "--lens", "spec")
+	if rSpec.code != 0 {
+		t.Fatalf("expected 0 for lens spec, got %d: %s", rSpec.code, rSpec.err)
+	}
+	if !strings.Contains(rSpec.out, "Spec Auditor Lens") || !strings.Contains(rSpec.out, "Traceability:") {
+		t.Errorf("unexpected output for lens spec:\n%s", rSpec.out)
+	}
+
+	// 2. Security lens
+	rSec := exec(t, "", false, "", "prompt", "review", "T-001", "--dir", root, "--lens", "security")
+	if rSec.code != 0 {
+		t.Fatalf("expected 0 for lens security, got %d: %s", rSec.code, rSec.err)
+	}
+	if !strings.Contains(rSec.out, "AppSec Specialist Lens") || !strings.Contains(rSec.out, "Filesystem confinement") {
+		t.Errorf("unexpected output for lens security:\n%s", rSec.out)
+	}
+
+	// 3. Appsec alias
+	rAppsec := exec(t, "", false, "", "prompt", "review", "T-001", "--dir", root, "--lens", "appsec")
+	if rAppsec.code != 0 {
+		t.Fatalf("expected 0 for lens appsec alias, got %d: %s", rAppsec.code, rAppsec.err)
+	}
+	if !strings.Contains(rAppsec.out, "AppSec Specialist Lens") {
+		t.Errorf("expected AppSec Specialist Lens for appsec alias:\n%s", rAppsec.out)
+	}
+
+	// 4. Pattern lens
+	rPat := exec(t, "", false, "", "prompt", "review", "T-001", "--dir", root, "--lens", "pattern")
+	if rPat.code != 0 {
+		t.Fatalf("expected 0 for lens pattern, got %d: %s", rPat.code, rPat.err)
+	}
+	if !strings.Contains(rPat.out, "Pattern & Quality Auditor Lens") || !strings.Contains(rPat.out, "Architectural decision") {
+		t.Errorf("unexpected output for lens pattern:\n%s", rPat.out)
+	}
+
+	// 5. All / default lens
+	rAll := exec(t, "", false, "", "prompt", "review", "T-001", "--dir", root)
+	if rAll.code != 0 {
+		t.Fatalf("expected 0 for default lens, got %d: %s", rAll.code, rAll.err)
+	}
+	if !strings.Contains(rAll.out, "Ensemble Review Triad") {
+		t.Errorf("expected Ensemble Review Triad in default prompt:\n%s", rAll.out)
+	}
+
+	// 6. Invalid lens
+	rInv := exec(t, "", false, "", "prompt", "review", "T-001", "--dir", root, "--lens", "nonexistent")
+	if rInv.code != 2 {
+		t.Errorf("expected exit code 2 for invalid lens, got %d", rInv.code)
+	}
+	if !strings.Contains(rInv.err, "invalid --lens") || !strings.Contains(rInv.err, "spec, security, pattern, or all") {
+		t.Errorf("expected invalid lens error message, got: %s", rInv.err)
+	}
+
+	// 7. Structured JSON with lens metadata
+	rJSON := exec(t, "", false, "", "prompt", "review", "T-001", "--dir", root, "--lens", "security", "--json")
+	if rJSON.code != 0 {
+		t.Fatalf("expected 0 for json lens, got %d: %s", rJSON.code, rJSON.err)
+	}
+	var ctx ReviewPromptContext
+	if err := json.Unmarshal([]byte(rJSON.out), &ctx); err != nil {
+		t.Fatalf("failed to parse json output: %v", err)
+	}
+	if ctx.Lens != "security" {
+		t.Errorf("expected Lens security, got %q", ctx.Lens)
+	}
+	if len(ctx.LensFocus) == 0 {
+		t.Errorf("expected non-empty LensFocus in json output")
+	}
+}

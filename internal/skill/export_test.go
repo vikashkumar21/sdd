@@ -185,6 +185,9 @@ func TestCanonicalCodeReviewSkillValid(t *testing.T) {
 	if !strings.Contains(CanonicalCodeReviewSkill, "3-Tier Risk & Finding Rubric") {
 		t.Errorf("missing rubric in canonical code-review skill")
 	}
+	if !strings.Contains(CanonicalCodeReviewSkill, "The Ensemble Review Triad") {
+		t.Errorf("missing ensemble review triad in canonical code-review skill")
+	}
 }
 
 func TestCanonicalTaskCoordinatorSkillValid(t *testing.T) {

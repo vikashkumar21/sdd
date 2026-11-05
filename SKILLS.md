@@ -153,19 +153,35 @@ Skills exported via `sdd skill export` or authored in `skills/` conform to the L
 
 Code review in SDD is an independent quality and risk audit conducted before Phase D / GATE 2 commit. It ensures that changes satisfy specifications without regressions, architectural drift, or security vulnerabilities.
 
-### 1. The 4 Review Pillars
-1. **Scope & Spec Alignment:** Every requirement (`R-xxx`) in `requirements.md` maps to verified code and tests in `validation.md`. Only files planned in `plan.md` are touched (zero scope creep).
-2. **Architecture & Decision Conformance:** Complies with approved decisions in `TECH_STACK.md` (`D-xxx`), feedback rules in `SKILLS.md` §8 (`F-xxx`), and determinism rules.
-3. **Security & Quality Hygiene:** No exposed credentials or personal data, bound all inputs, clean formatting and linting.
-4. **Continuous Learning:** General patterns discovered during review are captured as `F-xxx` rules or new skills.
+### 1. The Ensemble Review Triad
+Review audits are conducted through three specialized lenses:
+1. **🔎 Spec Auditor Lens (Correctness & Scope):**
+   - **Traceability:** Every requirement (`R-xxx`) in `requirements.md` maps to concrete implementation and test evidence in `validation.md`.
+   - **Boundary Enforcement:** Touch ONLY files listed in `plan.md` Section 5. Zero unapproved file modifications or scope creep.
+   - **Negative Coverage:** Negative, boundary, and failure cases are explicitly tested and verified.
+2. **🛡️ AppSec Specialist Lens (Security & Safety):**
+   - **Threat Surface & Input Validation:** Bound sizes on all external inputs; parse strictly; treat untrusted input as hostile.
+   - **Confinement & Traversal:** Verify filesystem confinement via `os.Root` or clean paths; reject path traversal and escape sequences.
+   - **Secrets & Privacy Hygiene:** Zero credentials, tokens, connection strings, or personal data in logs, tests, docs, or code. Synthetic fixtures only.
+   - **Command Safety:** Never construct shell commands via string concatenation; maintain separate arguments.
+   - **Fail Safe:** Ambiguous or unknown state fails to the most restrictive outcome.
+3. **📐 Pattern & Quality Auditor Lens (Architecture & Standards):**
+   - **Decision Conformance:** Respects all approved decisions in `TECH_STACK.md` (`D-xxx`).
+   - **Standard Library Purity:** Zero unapproved third-party dependencies (`D-007`).
+   - **Determinism:** Inject clocks, random sources, and ID generators; avoid map iteration order dependencies.
+   - **Code Quality:** Idiomatic Go (*Effective Go*, *Go Code Review Comments*); `context.Context` first for blocking/IO; `%w` error wrapping; clean linting (`make lint`).
+   - **Continuous Learning:** Active feedback rules in `SKILLS.md` §8 (`F-xxx`) complied with; recurring patterns captured.
 
 ### 2. 3-Tier Risk Rubric
-- 🔴 **Blocker (Developer Attention Needed):** Spec violation, security hazard, test gap, plan drift. MUST be resolved before GATE 2 commit.
+- 🔴 **Blocker (Developer Attention Needed):** Spec violation, security hazard, test gap, plan drift, unapproved dependency. MUST be resolved before GATE 2 commit.
 - 🟡 **Warning (Attention Suggested):** Sub-optimal pattern, edge case risk, missing doc or comment.
 - 🟢 **Minor (Safe / Informational):** Style, naming refinement, or non-critical micro-optimization.
 
-### 3. Review Artifact (`features/T-xxx-<slug>/review.md`)
-Review findings are recorded in `review.md`. If any unresolved 🔴 Blocker remains, `sdd check` flags an error and the task CANNOT proceed to GATE 2 commit.
+### 3. Review Protocol & Circuit Breaker
+- **Independent Auditor Required:** The primary author agent is strictly forbidden from self-approving its own `review.md`. An independent subagent reviewer must certify `review.md` with 0 Blockers before Phase D close.
+- **3-Loop Circuit Breaker:** At most 3 review-fix iterations (1 initial audit + up to 2 fix attempts) between author and reviewer. If Blockers persist after 3 iterations, the agent MUST halt, mark the task `Blocked`, and escalate to the human.
+- **Review Artifact (`review.md`):** Review findings are recorded in `features/T-xxx-<slug>/review.md` (or typology equivalent). If any unresolved 🔴 Blocker remains, `sdd check` flags an error and the task CANNOT proceed to GATE 2 commit.
+
 
 
 
