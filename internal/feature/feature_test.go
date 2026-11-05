@@ -326,3 +326,75 @@ func TestNewWithLegacy3TemplatesOnly(t *testing.T) {
 		t.Fatalf("expected 3 files on legacy kit, got %d: %+v", len(res.Files), res.Files)
 	}
 }
+
+func TestNewAllTypologies(t *testing.T) {
+	root := kit(t)
+
+	// 1. Bugfix
+	resBug, err := NewWithOptions(root, "T-001", "fix-null-pointer", Options{Type: TypologyBugfix})
+	if err != nil {
+		t.Fatalf("NewWithOptions(bugfix) failed: %v", err)
+	}
+	if resBug.Dir != "bugfixes/T-001-fix-null-pointer" {
+		t.Errorf("expected bugfixes dir, got %s", resBug.Dir)
+	}
+	repro := read(t, root, "bugfixes/T-001-fix-null-pointer/reproduction.md")
+	if !strings.Contains(repro, "Mandatory Step 0: Minimal Failing Test Case") {
+		t.Errorf("expected reproduction.md to have Step 0 failing test section: %s", repro)
+	}
+	if len(resBug.Files) != 5 {
+		t.Errorf("expected 5 files for bugfix, got %d: %+v", len(resBug.Files), resBug.Files)
+	}
+
+	// 2. Cross-typology duplicate refusal
+	_, err = NewWithOptions(root, "T-001", "duplicate-in-hotfixes", Options{Type: TypologyHotfix})
+	if err == nil {
+		t.Fatal("expected error when task already exists in bugfixes, got nil")
+	}
+	if !strings.Contains(err.Error(), "already has a bugfixes folder") {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// Add T-002 and T-003 to ROADMAP.md
+	rmPath := filepath.Join(root, "ROADMAP.md")
+	rmContent := read(t, root, "ROADMAP.md")
+	rmContent += `
+| T-002 | Outage fix | S | none | Hotfix | none | Not started |
+| T-003 | Architecture spike | S | none | Spike | none | Not started |
+`
+	if err := os.WriteFile(rmPath, []byte(rmContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 3. Hotfix
+	resHot, err := NewWithOptions(root, "T-002", "emergency-patch", Options{Type: TypologyHotfix})
+	if err != nil {
+		t.Fatalf("NewWithOptions(hotfix) failed: %v", err)
+	}
+	if resHot.Dir != "hotfixes/T-002-emergency-patch" {
+		t.Errorf("expected hotfixes dir, got %s", resHot.Dir)
+	}
+	if len(resHot.Files) != 4 {
+		t.Errorf("expected 4 files for hotfix, got %d: %+v", len(resHot.Files), resHot.Files)
+	}
+	incident := read(t, root, "hotfixes/T-002-emergency-patch/incident.md")
+	if !strings.Contains(incident, "Incident Overview") {
+		t.Errorf("expected incident.md content, got: %s", incident)
+	}
+
+	// 4. Spike
+	resSpike, err := NewWithOptions(root, "T-003", "investigate-mcp", Options{Type: TypologySpike})
+	if err != nil {
+		t.Fatalf("NewWithOptions(spike) failed: %v", err)
+	}
+	if resSpike.Dir != "spikes/T-003-investigate-mcp" {
+		t.Errorf("expected spikes dir, got %s", resSpike.Dir)
+	}
+	if len(resSpike.Files) != 3 {
+		t.Errorf("expected 3 files for spike, got %d: %+v", len(resSpike.Files), resSpike.Files)
+	}
+	hyp := read(t, root, "spikes/T-003-investigate-mcp/hypotheses.md")
+	if !strings.Contains(hyp, "Disposable Prototype Boundary") {
+		t.Errorf("expected hypotheses.md to have Disposable Prototype Boundary: %s", hyp)
+	}
+}

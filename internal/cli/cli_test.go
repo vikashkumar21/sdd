@@ -847,3 +847,69 @@ func TestStatusCLI(t *testing.T) {
 		t.Fatalf("expected exit 2 for unknown flag, got %d", r.code)
 	}
 }
+
+func TestTaskScaffolding(t *testing.T) {
+	dir := t.TempDir()
+	roadmapContent := `# ROADMAP — sdd
+
+## 3. Milestones
+
+| Milestone | Goal | Tasks | Est. hours | Exit criteria |
+|---|---|---|---|---|
+| M1 | Tasks | T-001, T-002, T-003, T-004 | 10 | Done |
+
+## 4. Tasks
+
+### M1 — Tasks
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Regular feature | S | none | Feature | none | Not started |
+| T-002 | Bug in parser | S | none | Bugfix | none | Not started |
+| T-003 | Production issue | S | none | Hotfix | none | Not started |
+| T-004 | Tech spike | S | none | Spike | none | Not started |
+`
+	put(t, dir, "ROADMAP.md", roadmapContent)
+
+	// 1. sdd bugfix new
+	r := exec(t, "", false, "", "bugfix", "new", "T-002", "parser-bug", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for bugfix new, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !exists(dir, "bugfixes/T-002-parser-bug/reproduction.md") {
+		t.Errorf("expected reproduction.md to exist in bugfixes/T-002-parser-bug")
+	}
+
+	// 2. sdd hotfix new
+	r = exec(t, "", false, "", "hotfix", "new", "T-003", "prod-fix", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for hotfix new, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !exists(dir, "hotfixes/T-003-prod-fix/incident.md") {
+		t.Errorf("expected incident.md to exist in hotfixes/T-003-prod-fix")
+	}
+
+	// 3. sdd spike new
+	r = exec(t, "", false, "", "spike", "new", "T-004", "eval-tool", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for spike new, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !exists(dir, "spikes/T-004-eval-tool/hypotheses.md") {
+		t.Errorf("expected hypotheses.md to exist in spikes/T-004-eval-tool")
+	}
+
+	// 4. sdd task new --type feature
+	r = exec(t, "", false, "", "task", "new", "--type", "feature", "T-001", "my-feature", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for task new --type feature, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !exists(dir, "features/T-001-my-feature/requirements.md") {
+		t.Errorf("expected requirements.md to exist in features/T-001-my-feature")
+	}
+
+	// 5. sdd task new with unknown typology
+	r = exec(t, "", false, "", "task", "new", "--type", "unknown", "T-001", "fail", "--dir", dir)
+	if r.code != 2 {
+		t.Fatalf("expected exit 2 for unknown typology, got %d", r.code)
+	}
+}

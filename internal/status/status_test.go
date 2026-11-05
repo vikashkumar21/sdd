@@ -322,3 +322,116 @@ func TestDeterminism(t *testing.T) {
 		t.Errorf("non-deterministic output:\nRun 1: %s\nRun 2: %s", string(json1), string(json2))
 	}
 }
+
+func TestStatusTypologies(t *testing.T) {
+	roadmapContent := `# ROADMAP — sdd
+
+## 3. Milestones
+
+| Milestone | Goal | Tasks | Est. hours | Exit criteria |
+|---|---|---|---|---|
+| M1 | Multi-Typology | T-001, T-002, T-003, T-004 | 4 | In progress |
+
+## 4. Tasks
+
+### M1 — Multi-Typology
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Normal feature | S | none | outcome | none | Specifying |
+| T-002 | Bugfix leak | S | none | outcome | none | Specifying |
+| T-003 | Hotfix crash | S | none | outcome | none | Implementing |
+| T-004 | Spike arch | S | none | outcome | none | Specifying |
+`
+	dir := setupSampleProject(t, roadmapContent)
+
+	// Create task folders across all 4 typologies
+	if err := os.MkdirAll(filepath.Join(dir, "features", "T-001-normal-feature"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "bugfixes", "T-002-bugfix-leak"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "hotfixes", "T-003-hotfix-crash"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(dir, "spikes", "T-004-spike-arch"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	ps, err := status.Scan(dir)
+	if err != nil {
+		t.Fatalf("Scan error: %v", err)
+	}
+
+	taskMap := make(map[string]status.TaskInfo)
+	for _, at := range ps.ActiveTasks {
+		taskMap[at.ID] = at
+	}
+
+	// 1. T-001 feature
+	t1, ok := taskMap["T-001"]
+	if !ok {
+		t.Fatal("T-001 not found in active tasks")
+	}
+	if t1.Typology != "feature" {
+		t.Errorf("expected T-001 typology 'feature', got %q", t1.Typology)
+	}
+	if !strings.HasPrefix(filepath.ToSlash(t1.Folder), "features/T-001-normal-feature") {
+		t.Errorf("expected T-001 folder in features/, got %q", t1.Folder)
+	}
+	if !strings.Contains(t1.Gate.Action, "requirements.md") {
+		t.Errorf("expected T-001 Gate.Action to mention requirements.md, got %q", t1.Gate.Action)
+	}
+
+	// 2. T-002 bugfix
+	t2, ok := taskMap["T-002"]
+	if !ok {
+		t.Fatal("T-002 not found in active tasks")
+	}
+	if t2.Typology != "bugfix" {
+		t.Errorf("expected T-002 typology 'bugfix', got %q", t2.Typology)
+	}
+	if !strings.HasPrefix(filepath.ToSlash(t2.Folder), "bugfixes/T-002-bugfix-leak") {
+		t.Errorf("expected T-002 folder in bugfixes/, got %q", t2.Folder)
+	}
+	if !strings.Contains(t2.Gate.Action, "reproduction.md") {
+		t.Errorf("expected T-002 Gate.Action to mention reproduction.md, got %q", t2.Gate.Action)
+	}
+
+	// 3. T-003 hotfix
+	t3, ok := taskMap["T-003"]
+	if !ok {
+		t.Fatal("T-003 not found in active tasks")
+	}
+	if t3.Typology != "hotfix" {
+		t.Errorf("expected T-003 typology 'hotfix', got %q", t3.Typology)
+	}
+	if !strings.HasPrefix(filepath.ToSlash(t3.Folder), "hotfixes/T-003-hotfix-crash") {
+		t.Errorf("expected T-003 folder in hotfixes/, got %q", t3.Folder)
+	}
+	if !strings.Contains(t3.Gate.Action, "patch.md") {
+		t.Errorf("expected T-003 Gate.Action to mention patch.md, got %q", t3.Gate.Action)
+	}
+
+	// 4. T-004 spike
+	t4, ok := taskMap["T-004"]
+	if !ok {
+		t.Fatal("T-004 not found in active tasks")
+	}
+	if t4.Typology != "spike" {
+		t.Errorf("expected T-004 typology 'spike', got %q", t4.Typology)
+	}
+	if !strings.HasPrefix(filepath.ToSlash(t4.Folder), "spikes/T-004-spike-arch") {
+		t.Errorf("expected T-004 folder in spikes/, got %q", t4.Folder)
+	}
+	if !strings.Contains(t4.Gate.Action, "hypotheses.md") {
+		t.Errorf("expected T-004 Gate.Action to mention hypotheses.md, got %q", t4.Gate.Action)
+	}
+
+	// Verify text render includes typology
+	rendered := status.RenderText(ps)
+	if !strings.Contains(rendered, "Typology:  bugfix") {
+		t.Errorf("expected RenderText to include 'Typology:  bugfix', got:\n%s", rendered)
+	}
+}

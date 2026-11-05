@@ -44,6 +44,7 @@ type TaskInfo struct {
 	Status         string    `json:"status"`
 	Phase          string    `json:"phase"`
 	Folder         string    `json:"folder,omitempty"`
+	Typology       string    `json:"typology,omitempty"`
 	Gate           *GateInfo `json:"gate,omitempty"`
 	ReviewBlockers int       `json:"review_blockers,omitempty"`
 }
@@ -258,27 +259,55 @@ func Scan(root string) (*ProjectStatus, error) {
 
 func buildTaskInfo(root string, t roadmap.Task, normStatus, kind string, featureFolders map[string]string) TaskInfo {
 	folder := featureFolders[t.ID]
+	typology := ""
+	if folder != "" {
+		slashFolder := filepath.ToSlash(folder)
+		switch {
+		case strings.HasPrefix(slashFolder, "features/"):
+			typology = "feature"
+		case strings.HasPrefix(slashFolder, "bugfixes/"):
+			typology = "bugfix"
+		case strings.HasPrefix(slashFolder, "hotfixes/"):
+			typology = "hotfix"
+		case strings.HasPrefix(slashFolder, "spikes/"):
+			typology = "spike"
+		}
+	}
+
 	var phase string
 	var gate *GateInfo
 
 	switch kind {
 	case "specifying", "awaiting plan approval":
 		phase = "Phase A (Specify)"
+		reqFile := "requirements.md"
+		switch typology {
+		case "hotfix":
+			reqFile = "incident.md"
+		case "bugfix":
+			reqFile = "reproduction.md"
+		case "spike":
+			reqFile = "hypotheses.md"
+		}
 		gate = &GateInfo{
 			TaskID: t.ID,
 			Gate:   "GATE 1",
 			Name:   "Approve requirements and plan",
 			Status: "Pending plan approval",
-			Action: fmt.Sprintf("Review %s/requirements.md and plan.md; reply 'APPROVED %s'", folder, t.ID),
+			Action: fmt.Sprintf("Review %s/%s and plan.md; reply 'APPROVED %s'", folder, reqFile, t.ID),
 		}
 	case "implementing":
 		phase = "Phase B (Implement)"
+		planFile := "plan.md"
+		if typology == "hotfix" {
+			planFile = "patch.md"
+		}
 		gate = &GateInfo{
 			TaskID: t.ID,
 			Gate:   "GATE 2",
 			Name:   "Implementation in progress",
 			Status: "Implementing",
-			Action: fmt.Sprintf("Execute %s/plan.md step by step; gate approval pending verification", folder),
+			Action: fmt.Sprintf("Execute %s/%s step by step; gate approval pending verification", folder, planFile),
 		}
 	case "awaiting review":
 		phase = "Phase D (Close)"
@@ -314,6 +343,7 @@ func buildTaskInfo(root string, t roadmap.Task, normStatus, kind string, feature
 		Status:         normStatus,
 		Phase:          phase,
 		Folder:         folder,
+		Typology:       typology,
 		Gate:           gate,
 		ReviewBlockers: blockers,
 	}
@@ -359,24 +389,26 @@ func parseMilestoneTitles(content string) map[string]string {
 
 func discoverFeatureFolders(root string) map[string]string {
 	folders := make(map[string]string)
-	featuresDir := filepath.Join(root, "features")
-	entries, err := os.ReadDir(featuresDir)
-	if err != nil {
-		return folders
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
+	typologies := []string{"features", "bugfixes", "hotfixes", "spikes"}
+	for _, topDir := range typologies {
+		dir := filepath.Join(root, topDir)
+		entries, err := os.ReadDir(dir)
+		if err != nil {
 			continue
 		}
-		name := entry.Name()
-		if strings.HasPrefix(name, "_") {
-			continue
-		}
-		parts := strings.SplitN(name, "-", 3)
-		if len(parts) >= 2 && strings.HasPrefix(name, "T-") {
-			taskID := parts[0] + "-" + parts[1]
-			folders[taskID] = filepath.Join("features", name)
+		for _, entry := range entries {
+			if !entry.IsDir() {
+				continue
+			}
+			name := entry.Name()
+			if strings.HasPrefix(name, "_") {
+				continue
+			}
+			parts := strings.SplitN(name, "-", 3)
+			if len(parts) >= 2 && strings.HasPrefix(name, "T-") {
+				taskID := parts[0] + "-" + parts[1]
+				folders[taskID] = filepath.Join(topDir, name)
+			}
 		}
 	}
 	return folders
@@ -551,6 +583,9 @@ func RenderText(ps *ProjectStatus) string {
 			fmt.Fprintf(&b, "      Milestone: %s\n", at.Milestone)
 			fmt.Fprintf(&b, "      Phase:     %s\n", at.Phase)
 			fmt.Fprintf(&b, "      Status:    %s\n", at.Status)
+			if at.Typology != "" {
+				fmt.Fprintf(&b, "      Typology:  %s\n", at.Typology)
+			}
 			if at.Folder != "" {
 				fmt.Fprintf(&b, "      Folder:    %s\n", at.Folder)
 			}

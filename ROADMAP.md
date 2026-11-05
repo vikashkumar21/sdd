@@ -111,7 +111,7 @@ Status: living document · Last updated: 2026-10-26
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
-| T-028 | Work typology foundations: bugfixes, hotfixes, spikes, and task templates | M | T-027 | bugfixes/, hotfixes/, spikes/ directories, specialized lifecycle templates (failing reproduction test for bugs, post-mortem for hotfixes, non-merging spike prototypes), 64KB context budget guard in sdd check, template version bump, and CLI commands | D-027 | Not started |
+| T-028 | Work typology foundations: bugfixes, hotfixes, spikes, and task templates | M | T-027 | bugfixes/, hotfixes/, spikes/ directories, specialized lifecycle templates (failing reproduction test for bugs, post-mortem for hotfixes, non-merging spike prototypes), 64KB context budget guard in sdd check, template version bump, and CLI commands | D-027 | Awaiting review |
 | T-029 | Git worktree isolation and concurrent workspace provisioning (sdd task start and clean) | M | T-028 | .sdd/worktrees/ isolation, standardized branch naming, fail-safe cleanup with backup, and sdd status tracking | D-028 | Not started |
 | T-030 | Static task deconfliction and plan overlap analyzer | S | T-029 | Automated plan file targets analysis, collision detection, and concurrency scheduling | D-028, D-029 | Not started |
 | T-031 | Task Coordinator pre-merge qualification, simulation, and sdd task merge | M | T-030 | Pre-merge validation (0 blockers, tests pass), blast-radius regression sweep, determinism flake guard, dry-run simulation, rebase helper, and GATE 2 presentation (APPROVED MERGE T-xxx) | D-029 | Not started |

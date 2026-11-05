@@ -367,83 +367,93 @@ func BuildPlan(root string, opts Options) (*Plan, error) {
 		}
 	}
 
-	// 3. Process task templates
-	for _, name := range []string{"requirements.md", "plan.md", "validation.md", "review.md"} {
-		tmplPath := "features/_templates/" + name
-		rawTmpl, err := set.Raw("features/" + name)
-		if err != nil {
-			return nil, fmt.Errorf("upgrade: read template %s: %w", name, err)
-		}
-		newHash := sum(rawTmpl)
-		entry, hasEntry := manifestFiles[tmplPath]
+	// 3. Process task templates across all 4 typologies
+	typologyTemplates := map[string][]string{
+		"features": {"requirements.md", "plan.md", "validation.md", "review.md"},
+		"bugfixes": {"reproduction.md", "rca.md", "plan.md", "validation.md", "review.md"},
+		"hotfixes": {"incident.md", "patch.md", "validation.md", "post_mortem.md"},
+		"spikes":   {"hypotheses.md", "findings.md", "plan.md"},
+	}
+	typologyOrder := []string{"features", "bugfixes", "hotfixes", "spikes"}
 
-		rawBytes, readErr := rootHandle.ReadFile(filepath.FromSlash(tmplPath))
-		if errors.Is(readErr, fs.ErrNotExist) {
-			plan.Items = append(plan.Items, Item{
-				Path:            tmplPath,
-				Kind:            "file",
-				Action:          ActionCreate,
-				Reason:          "missing task template recreated",
-				ProposedContent: rawTmpl,
-				NewHash:         newHash,
-			})
-			continue
-		} else if readErr != nil {
-			return nil, fmt.Errorf("upgrade: read %s: %w", tmplPath, readErr)
-		}
+	for _, topDir := range typologyOrder {
+		for _, name := range typologyTemplates[topDir] {
+			tmplPath := topDir + "/_templates/" + name
+			rawTmpl, err := set.Raw(topDir + "/" + name)
+			if err != nil {
+				return nil, fmt.Errorf("upgrade: read template %s/%s: %w", topDir, name, err)
+			}
+			newHash := sum(rawTmpl)
+			entry, hasEntry := manifestFiles[tmplPath]
 
-		existing := strings.ReplaceAll(string(rawBytes), "\r\n", "\n")
-		currHash := sum(existing)
-		diff := repair.Diff(existing, rawTmpl, tmplPath)
-
-		isUntouched := hasEntry && currHash == entry.SHA256
-		isUnchanged := currHash == newHash
-
-		switch {
-		case isUnchanged:
-			plan.Items = append(plan.Items, Item{
-				Path:            tmplPath,
-				Kind:            "file",
-				Action:          ActionUnchanged,
-				Reason:          "task template is up-to-date",
-				OriginalContent: existing,
-				ProposedContent: existing,
-				NewHash:         newHash,
-			})
-		case isUntouched:
-			plan.Items = append(plan.Items, Item{
-				Path:            tmplPath,
-				Kind:            "file",
-				Action:          ActionUpdate,
-				Reason:          "untouched task template updated",
-				OriginalContent: existing,
-				ProposedContent: rawTmpl,
-				Diff:            diff,
-				NewHash:         newHash,
-			})
-		default: // Edited by human
-			if opts.Force {
+			rawBytes, readErr := rootHandle.ReadFile(filepath.FromSlash(tmplPath))
+			if errors.Is(readErr, fs.ErrNotExist) {
 				plan.Items = append(plan.Items, Item{
 					Path:            tmplPath,
 					Kind:            "file",
-					Action:          ActionForce,
-					Reason:          "task template overwritten (--force); backup created",
+					Action:          ActionCreate,
+					Reason:          "missing task template recreated",
+					ProposedContent: rawTmpl,
+					NewHash:         newHash,
+				})
+				continue
+			} else if readErr != nil {
+				return nil, fmt.Errorf("upgrade: read %s: %w", tmplPath, readErr)
+			}
+
+			existing := strings.ReplaceAll(string(rawBytes), "\r\n", "\n")
+			currHash := sum(existing)
+			diff := repair.Diff(existing, rawTmpl, tmplPath)
+
+			isUntouched := hasEntry && currHash == entry.SHA256
+			isUnchanged := currHash == newHash
+
+			switch {
+			case isUnchanged:
+				plan.Items = append(plan.Items, Item{
+					Path:            tmplPath,
+					Kind:            "file",
+					Action:          ActionUnchanged,
+					Reason:          "task template is up-to-date",
+					OriginalContent: existing,
+					ProposedContent: existing,
+					NewHash:         newHash,
+				})
+			case isUntouched:
+				plan.Items = append(plan.Items, Item{
+					Path:            tmplPath,
+					Kind:            "file",
+					Action:          ActionUpdate,
+					Reason:          "untouched task template updated",
 					OriginalContent: existing,
 					ProposedContent: rawTmpl,
 					Diff:            diff,
 					NewHash:         newHash,
 				})
-			} else {
-				plan.Items = append(plan.Items, Item{
-					Path:            tmplPath,
-					Kind:            "file",
-					Action:          ActionProposal,
-					Reason:          "customized task template; proposal written",
-					OriginalContent: existing,
-					ProposedContent: rawTmpl,
-					Diff:            diff,
-					NewHash:         newHash,
-				})
+			default: // Edited by human
+				if opts.Force {
+					plan.Items = append(plan.Items, Item{
+						Path:            tmplPath,
+						Kind:            "file",
+						Action:          ActionForce,
+						Reason:          "task template overwritten (--force); backup created",
+						OriginalContent: existing,
+						ProposedContent: rawTmpl,
+						Diff:            diff,
+						NewHash:         newHash,
+					})
+				} else {
+					plan.Items = append(plan.Items, Item{
+						Path:            tmplPath,
+						Kind:            "file",
+						Action:          ActionProposal,
+						Reason:          "customized task template; proposal written",
+						OriginalContent: existing,
+						ProposedContent: rawTmpl,
+						Diff:            diff,
+						NewHash:         newHash,
+					})
+				}
 			}
 		}
 	}

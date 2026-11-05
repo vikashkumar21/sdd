@@ -504,35 +504,68 @@ func (c *checker) checkFeatures(tasks []roadmap.Task) {
 			status[task.ID] = roadmap.Kind(task.Status)
 		}
 	}
-	folders := map[string]string{} // task ID -> folder name
-	entries, _ := os.ReadDir(filepath.Join(c.root, "features"))
-	for _, e := range entries {
-		if !e.IsDir() || e.Name() == "_templates" {
-			continue
-		}
-		rel := "features/" + e.Name()
-		m := featureDirRe.FindStringSubmatch(e.Name())
-		if m == nil {
-			c.add(Error, rel, 0, "feature-folder", "feature folder name must look like T-001-short-slug (lower-case, hyphens)")
-			continue
-		}
-		id := m[1]
-		if prev, dup := folders[id]; dup {
-			c.add(Error, rel, 0, "feature-folder", "%s already has a feature folder (%s)", id, prev)
-		}
-		folders[id] = e.Name()
-		if len(tasks) > 0 {
-			if _, ok := status[id]; !ok {
-				c.add(Error, rel, 0, "feature-folder", "%s has no task row in ROADMAP.md", id)
+	folders := map[string]string{} // task ID -> folder rel path
+	typologies := []string{"features", "bugfixes", "hotfixes", "spikes"}
+	typologyRequiredFiles := map[string][]string{
+		"features": {"requirements.md", "plan.md", "validation.md"},
+		"bugfixes": {"reproduction.md", "rca.md", "plan.md", "validation.md"},
+		"hotfixes": {"incident.md", "patch.md", "validation.md", "post_mortem.md"},
+		"spikes":   {"hypotheses.md", "findings.md", "plan.md"},
+	}
+
+	for _, topDir := range typologies {
+		entries, _ := os.ReadDir(filepath.Join(c.root, topDir))
+		for _, e := range entries {
+			if !e.IsDir() || e.Name() == "_templates" {
+				continue
+			}
+			rel := topDir + "/" + e.Name()
+			m := featureDirRe.FindStringSubmatch(e.Name())
+			if m == nil {
+				c.add(Error, rel, 0, "feature-folder", "%s folder name must look like T-001-short-slug (lower-case, hyphens)", topDir)
+				continue
+			}
+			id := m[1]
+			if prev, dup := folders[id]; dup {
+				c.add(Error, rel, 0, "feature-folder", "%s already has a task folder (%s)", id, prev)
+			}
+			folders[id] = rel
+			if len(tasks) > 0 {
+				if _, ok := status[id]; !ok {
+					c.add(Error, rel, 0, "feature-folder", "%s has no task row in ROADMAP.md", id)
+				}
+			}
+			required := typologyRequiredFiles[topDir]
+			for _, f := range required {
+				content, ok := c.load(rel + "/" + f)
+				if !ok {
+					c.add(Error, rel+"/"+f, 0, "feature-folder", "%s folder is missing %s", topDir, f)
+				} else {
+					// 64KB context budget guard
+					if len(content) > 65536 {
+						c.add(Warn, rel+"/"+f, 0, "context-budget", "%s is %d KB (exceeds recommended 64KB context budget; consider splitting into smaller tasks or moving background data to .sdd/context/)", f, len(content)/1024)
+					}
+				}
+			}
+			// Check context budget for optional templates if present
+			if revContent, ok := c.load(rel + "/review.md"); ok {
+				if len(revContent) > 65536 {
+					c.add(Warn, rel+"/review.md", 0, "context-budget", "review.md is %d KB (exceeds recommended 64KB context budget; consider archiving findings)", len(revContent)/1024)
+				}
+			}
+			// Bugfix Step 0 check
+			if topDir == "bugfixes" && (status[id] == "awaiting review" || status[id] == "done") {
+				if repro, ok := c.load(rel + "/reproduction.md"); ok {
+					if strings.Contains(repro, "<paste real failure output") || strings.Contains(repro, "[ ] Yes") {
+						c.add(Error, rel+"/reproduction.md", 0, "bugfix-reproduction", "task is %s but reproduction.md has not verified a minimal failing test case (Step 0)", status[id])
+					}
+				}
+			}
+			c.checkGateDiscipline(rel, status[id])
+			if topDir == "features" || topDir == "bugfixes" {
+				c.checkReviewDocument(rel, status[id])
 			}
 		}
-		for _, f := range []string{"requirements.md", "plan.md", "validation.md"} {
-			if _, ok := c.load(rel + "/" + f); !ok {
-				c.add(Error, rel+"/"+f, 0, "feature-folder", "feature folder is missing %s", f)
-			}
-		}
-		c.checkGateDiscipline(rel, status[id])
-		c.checkReviewDocument(rel, status[id])
 	}
 	for _, task := range tasks {
 		base := strings.SplitN(task.ID, ".", 2)[0]
@@ -552,10 +585,14 @@ func (c *checker) checkFeatures(tasks []roadmap.Task) {
 }
 
 func (c *checker) checkGateDiscipline(rel, kind string) {
+	planFile := "plan.md"
+	if _, ok := c.load(rel + "/patch.md"); ok {
+		planFile = "patch.md"
+	}
 	switch kind {
 	case "implementing", "awaiting review", "done":
-		if plan, ok := c.load(rel + "/plan.md"); ok && approvalRe.MatchString(plan) {
-			c.add(Warn, rel+"/plan.md", 0, "gate-discipline", "task is past plan approval but the approval record is still blank")
+		if plan, ok := c.load(rel + "/" + planFile); ok && approvalRe.MatchString(plan) {
+			c.add(Warn, rel+"/"+planFile, 0, "gate-discipline", "task is past plan approval but the approval record is still blank")
 		}
 	}
 	switch kind {

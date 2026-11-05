@@ -1,6 +1,6 @@
 # AGENTS.md — sdd agent contract (all agents)
 
-<!-- sdd:begin contract templates=1.1.0 -->
+<!-- sdd:begin contract templates=1.2.0 -->
 > **ANTHEM: ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**
 
 This is the operating contract for AI agents working on `sdd`. The rules are identical in every agent file (CLAUDE.md, GEMINI.md, AGENTS.md); only the title line differs. If you change a rule in one file, mirror it in the others in the same change set (§9). `sdd check` verifies that they match.

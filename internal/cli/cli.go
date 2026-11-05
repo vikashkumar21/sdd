@@ -54,7 +54,11 @@ commands:
   init                       generate the spec-driven kit in this project (new or existing)
   check                      verify the kit is consistent (--json for structured output, --strict for warnings)
   status                     summarise roadmap milestones, active tasks, and gate status
-  feature new <T-xxx> <slug> create features/T-xxx-<slug>/ from the project's templates
+  task new <T-xxx> <slug>    create a task folder (--type feature|bugfix|hotfix|spike)
+  feature new <T-xxx> <slug> create features/T-xxx-<slug>/ from project templates
+  bugfix new <T-xxx> <slug>  create bugfixes/T-xxx-<slug>/ with reproduction test template
+  hotfix new <T-xxx> <slug>  create hotfixes/T-xxx-<slug>/ with incident patch template
+  spike new <T-xxx> <slug>   create spikes/T-xxx-<slug>/ with hypotheses template
   skill new <name>           scaffold a new agentskills.io skill (skills/<name>/SKILL.md)
   skill list                 list available skills in the project (--json for structured output)
   skill export               export the SDD protocol as a native agent skill
@@ -87,8 +91,16 @@ func Run(args []string, env IO) int {
 		return runCheck(args[1:], env)
 	case "status":
 		return runStatus(args[1:], env)
+	case "task":
+		return runTask(args[1:], env)
 	case "feature":
 		return runFeature(args[1:], env)
+	case "bugfix":
+		return runBugfix(args[1:], env)
+	case "hotfix":
+		return runHotfix(args[1:], env)
+	case "spike":
+		return runSpike(args[1:], env)
 	case "skill":
 		return runSkill(args[1:], env)
 	case "prompt":

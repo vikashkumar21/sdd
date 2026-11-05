@@ -999,3 +999,116 @@ Status: UnknownStatus
 		t.Errorf("expected warning for invalid review status: %+v", repInvalid.Findings)
 	}
 }
+
+func TestContextBudgetGuard(t *testing.T) {
+	root := generate(t)
+	featureDir := filepath.Join(root, "features", "T-001-scope")
+	if err := os.MkdirAll(featureDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	// 70KB content (exceeds 65536 bytes)
+	largeContent := "# Requirements — T-001\n" + strings.Repeat("a", 70000)
+	put(t, root, "features/T-001-scope/requirements.md", largeContent)
+	put(t, root, "features/T-001-scope/plan.md", "# Plan — T-001\nStatus: Implemented\nApproved by: Vikash\n")
+	put(t, root, "features/T-001-scope/validation.md", "# Validation — T-001\nStatus: Complete\n")
+
+	rep, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	foundBudgetWarn := false
+	for _, f := range rep.Findings {
+		if f.Rule == "context-budget" && strings.Contains(f.Message, "64KB context budget") {
+			foundBudgetWarn = true
+			if f.Severity != Warn {
+				t.Errorf("expected context-budget severity to be WARN, got %v", f.Severity)
+			}
+		}
+	}
+	if !foundBudgetWarn {
+		t.Errorf("expected context-budget warning, got: %+v", rep.Findings)
+	}
+}
+
+func TestTypologyChecks(t *testing.T) {
+	root := generate(t)
+
+	// Update ROADMAP to include T-001 (bugfix), T-002 (hotfix), T-003 (spike)
+	edit(t, root, "ROADMAP.md", func(s string) string {
+		lines := strings.Split(s, "\n")
+		var out []string
+		for _, l := range lines {
+			if strings.HasPrefix(l, "| T-001 |") {
+				out = append(out, "| T-001 | Bugfix memory leak | S | none | outcome | none | Awaiting review |")
+				out = append(out, "| T-002 | Hotfix panic | S | none | outcome | none | Specifying |")
+				out = append(out, "| T-003 | Spike prototype | S | none | outcome | none | Specifying |")
+			} else {
+				out = append(out, l)
+			}
+		}
+		return strings.Join(out, "\n")
+	})
+
+	// 1. Bugfix folder with unverified Step 0
+	bugDir := filepath.Join(root, "bugfixes", "T-001-mem-leak")
+	if err := os.MkdirAll(bugDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	put(t, root, "bugfixes/T-001-mem-leak/reproduction.md", "# Reproduction\n[ ] Yes, verified\n```bash\n<paste real failure output here>\n```\n")
+	put(t, root, "bugfixes/T-001-mem-leak/rca.md", "# RCA\nRoot cause\n")
+	put(t, root, "bugfixes/T-001-mem-leak/plan.md", "# Plan\nStatus: Implemented\nApproved by: Vikash\n")
+	put(t, root, "bugfixes/T-001-mem-leak/validation.md", "# Validation\nStatus: Complete\n")
+	put(t, root, "bugfixes/T-001-mem-leak/review.md", "# Review\nStatus: Approved\n")
+
+	// 2. Hotfix folder
+	hotfixDir := filepath.Join(root, "hotfixes", "T-002-panic")
+	if err := os.MkdirAll(hotfixDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	put(t, root, "hotfixes/T-002-panic/incident.md", "# Incident\n")
+	put(t, root, "hotfixes/T-002-panic/patch.md", "# Patch\n")
+	put(t, root, "hotfixes/T-002-panic/validation.md", "# Validation\n")
+	put(t, root, "hotfixes/T-002-panic/post_mortem.md", "# Post-mortem\n")
+
+	// 3. Spike folder
+	spikeDir := filepath.Join(root, "spikes", "T-003-proto")
+	if err := os.MkdirAll(spikeDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	put(t, root, "spikes/T-003-proto/hypotheses.md", "# Hypotheses\n")
+	put(t, root, "spikes/T-003-proto/findings.md", "# Findings\n")
+	put(t, root, "spikes/T-003-proto/plan.md", "# Plan\n")
+
+	rep, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	foundReproErr := false
+	for _, f := range rep.Findings {
+		if f.Rule == "bugfix-reproduction" {
+			foundReproErr = true
+			if f.Severity != Error {
+				t.Errorf("expected bugfix-reproduction severity to be ERROR, got %v", f.Severity)
+			}
+		}
+	}
+	if !foundReproErr {
+		t.Errorf("expected bugfix-reproduction error for unverified reproduction test, got findings: %+v", rep.Findings)
+	}
+
+	// Now fix reproduction.md with verified output
+	put(t, root, "bugfixes/T-001-mem-leak/reproduction.md", "# Reproduction\n[x] Yes, verified\n```bash\npanic: runtime error\nexit status 2\n```\n")
+
+	repGood, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range repGood.Findings {
+		if f.Rule == "bugfix-reproduction" {
+			t.Errorf("unexpected bugfix-reproduction error after verification: %+v", f)
+		}
+	}
+}

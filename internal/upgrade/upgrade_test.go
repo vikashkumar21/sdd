@@ -398,3 +398,61 @@ func TestUpgradeCreatesMissingReviewTemplate(t *testing.T) {
 		t.Errorf("unexpected content in created review.md: %s", string(content))
 	}
 }
+
+func TestUpgradeTypologies(t *testing.T) {
+	root := generateKit(t)
+
+	// Remove bugfixes, hotfixes, spikes templates to simulate an older kit
+	_ = os.RemoveAll(filepath.Join(root, "bugfixes"))
+	_ = os.RemoveAll(filepath.Join(root, "hotfixes"))
+	_ = os.RemoveAll(filepath.Join(root, "spikes"))
+
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	createdMap := map[string]bool{}
+	for _, it := range plan.Items {
+		if it.Action == ActionCreate {
+			createdMap[it.Path] = true
+		}
+	}
+
+	expectedTemplates := []string{
+		"bugfixes/_templates/reproduction.md",
+		"bugfixes/_templates/rca.md",
+		"bugfixes/_templates/plan.md",
+		"bugfixes/_templates/validation.md",
+		"bugfixes/_templates/review.md",
+		"hotfixes/_templates/incident.md",
+		"hotfixes/_templates/patch.md",
+		"hotfixes/_templates/validation.md",
+		"hotfixes/_templates/post_mortem.md",
+		"spikes/_templates/hypotheses.md",
+		"spikes/_templates/findings.md",
+		"spikes/_templates/plan.md",
+	}
+
+	for _, tmpl := range expectedTemplates {
+		if !createdMap[tmpl] {
+			t.Errorf("expected plan to create %s, but it was not in create items", tmpl)
+		}
+	}
+
+	rep, err := Apply(plan, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, tmpl := range expectedTemplates {
+		abs := filepath.Join(root, filepath.FromSlash(tmpl))
+		if _, err := os.Stat(abs); err != nil {
+			t.Errorf("expected %s to be created on disk, but stat failed: %v", tmpl, err)
+		}
+	}
+
+	if len(rep.Created) < len(expectedTemplates) {
+		t.Errorf("expected at least %d created templates, got %d", len(expectedTemplates), len(rep.Created))
+	}
+}

@@ -129,16 +129,25 @@ func BuildPlan(root string, a Answers, det detect.Result, set *templates.Set, no
 		}
 		p.Ops = append(p.Ops, op)
 	}
-	for _, name := range []string{"requirements.md", "plan.md", "validation.md", "review.md"} {
-		content, err := set.Raw("features/" + name)
-		if err != nil {
-			return Plan{}, err
+	typologyTemplates := map[string][]string{
+		"features": {"requirements.md", "plan.md", "validation.md", "review.md"},
+		"bugfixes": {"reproduction.md", "rca.md", "plan.md", "validation.md", "review.md"},
+		"hotfixes": {"incident.md", "patch.md", "validation.md", "post_mortem.md"},
+		"spikes":   {"hypotheses.md", "findings.md", "plan.md"},
+	}
+	typologyOrder := []string{"features", "bugfixes", "hotfixes", "spikes"}
+	for _, topDir := range typologyOrder {
+		for _, name := range typologyTemplates[topDir] {
+			content, err := set.Raw(topDir + "/" + name)
+			if err != nil {
+				return Plan{}, err
+			}
+			op, err := wholeOp(root, topDir+"/_templates/"+name, content, false, force)
+			if err != nil {
+				return Plan{}, err
+			}
+			p.Ops = append(p.Ops, op)
 		}
-		op, err := wholeOp(root, "features/_templates/"+name, content, false, force)
-		if err != nil {
-			return Plan{}, err
-		}
-		p.Ops = append(p.Ops, op)
 	}
 	return p, nil
 }
