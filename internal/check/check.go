@@ -532,6 +532,7 @@ func (c *checker) checkFeatures(tasks []roadmap.Task) {
 			}
 		}
 		c.checkGateDiscipline(rel, status[id])
+		c.checkReviewDocument(rel, status[id])
 	}
 	for _, task := range tasks {
 		base := strings.SplitN(task.ID, ".", 2)[0]

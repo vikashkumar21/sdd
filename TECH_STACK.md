@@ -129,6 +129,7 @@ internal/version/     build version (set with -ldflags)
 | D-023 | Versioning bump timing and target version | **Approved** 2026-11-02 | n/a | Option Other: Complete T-017 first to finish Milestone 4, then bump release version directly to v1.0.0 |
 | D-024 | Agent Skills standard adoption (`agentskills.io`) | **Approved** 2026-11-03 | n/a | Option A: Adopt Linux Foundation/Anthropic `agentskills.io` standard (`skills/<name>/SKILL.md`, YAML frontmatter, stdlib parser, progressive disclosure) |
 | D-025 | Cross-platform self-installation architecture and locations | **Approved** 2026-11-04 | n/a | Option A: User-level self-installing binary (~/.local/bin on Unix, %LOCALAPPDATA%\Programs on Windows) with automatic PATH setup, plus universal 1-line scripts (install.sh/install.ps1) |
+| D-026 | Code review specification, rubric, and task artifact (`review.md`) | **Approved** 2026-11-05 | n/a | Option A: Standard 4th task artifact (features/T-xxx/review.md), canonical agentskills.io code-review skill (skills/code-review/SKILL.md), 3-tier risk grading (🔴 Blocker, 🟡 Warning, 🟢 Minor), and sdd check strict verification |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 

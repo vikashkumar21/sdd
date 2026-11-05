@@ -368,7 +368,7 @@ func BuildPlan(root string, opts Options) (*Plan, error) {
 	}
 
 	// 3. Process task templates
-	for _, name := range []string{"requirements.md", "plan.md", "validation.md"} {
+	for _, name := range []string{"requirements.md", "plan.md", "validation.md", "review.md"} {
 		tmplPath := "features/_templates/" + name
 		rawTmpl, err := set.Raw("features/" + name)
 		if err != nil {

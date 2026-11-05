@@ -360,3 +360,41 @@ func TestUpgradeForce(t *testing.T) {
 		t.Error("expected backup under --force")
 	}
 }
+
+func TestUpgradeCreatesMissingReviewTemplate(t *testing.T) {
+	root := generateKit(t)
+	reviewPath := filepath.Join(root, "features", "_templates", "review.md")
+	_ = os.Remove(reviewPath)
+
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var reviewItem *Item
+	for i := range plan.Items {
+		if plan.Items[i].Path == "features/_templates/review.md" {
+			reviewItem = &plan.Items[i]
+			break
+		}
+	}
+	if reviewItem == nil || reviewItem.Action != ActionCreate {
+		t.Fatalf("expected ActionCreate for missing review.md template, got: %+v", reviewItem)
+	}
+
+	rep, err := Apply(plan, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rep.Created) == 0 {
+		t.Errorf("expected review.md to be created in report")
+	}
+
+	content, err := os.ReadFile(reviewPath)
+	if err != nil {
+		t.Fatalf("failed to read created review.md: %v", err)
+	}
+	if !strings.Contains(string(content), "# Code Review — T-xxx <title>") {
+		t.Errorf("unexpected content in created review.md: %s", string(content))
+	}
+}

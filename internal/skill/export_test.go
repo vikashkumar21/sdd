@@ -167,3 +167,47 @@ func TestExportProtocolSkillForceBackup(t *testing.T) {
 		t.Errorf("backup content mismatch: %s", string(backupBytes))
 	}
 }
+
+func TestCanonicalCodeReviewSkillValid(t *testing.T) {
+	parsed, err := Parse([]byte(CanonicalCodeReviewSkill))
+	if err != nil {
+		t.Fatalf("canonical code-review skill parse error: %v", err)
+	}
+
+	errs := Validate(parsed, filepath.Join("skills", "code-review"))
+	if len(errs) > 0 {
+		t.Fatalf("canonical code-review skill validation errors: %+v", errs)
+	}
+
+	if parsed.Name != "code-review" {
+		t.Errorf("Name = %s, want code-review", parsed.Name)
+	}
+	if !strings.Contains(CanonicalCodeReviewSkill, "3-Tier Risk & Finding Rubric") {
+		t.Errorf("missing rubric in canonical code-review skill")
+	}
+}
+
+func TestExportSkillsAll(t *testing.T) {
+	root := t.TempDir()
+
+	results, err := ExportSkills("all", ExportOptions{
+		ProjectRoot: root,
+		Clock:       fixedClock,
+	})
+	if err != nil {
+		t.Fatalf("ExportSkills failed: %v", err)
+	}
+	if len(results) != 2 {
+		t.Fatalf("expected 2 exported skills, got %d", len(results))
+	}
+
+	protoPath := filepath.Join(root, "skills", "sdd-protocol", "SKILL.md")
+	if _, err := os.Stat(protoPath); err != nil {
+		t.Errorf("sdd-protocol not exported: %v", err)
+	}
+
+	revPath := filepath.Join(root, "skills", "code-review", "SKILL.md")
+	if _, err := os.Stat(revPath); err != nil {
+		t.Errorf("code-review not exported: %v", err)
+	}
+}

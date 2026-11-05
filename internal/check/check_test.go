@@ -903,3 +903,99 @@ Body.
 		t.Errorf("expected skill-frontmatter finding for missing frontmatter: %+v", rep3.Findings)
 	}
 }
+
+func TestCheckReviewDocument(t *testing.T) {
+	root := generate(t)
+	featureDir := filepath.Join(root, "features", "T-001-scope")
+	if err := os.MkdirAll(featureDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	put(t, root, "features/T-001-scope/requirements.md", "# Requirements — T-001\nStatus: Complete\n")
+	put(t, root, "features/T-001-scope/plan.md", "# Plan — T-001\nStatus: Implemented\nApproved by: Vikash\n")
+	put(t, root, "features/T-001-scope/validation.md", "# Validation — T-001\nStatus: Complete\n")
+
+	// Update ROADMAP T-001 to Awaiting review
+	edit(t, root, "ROADMAP.md", func(s string) string {
+		lines := strings.Split(s, "\n")
+		for i, l := range lines {
+			if strings.HasPrefix(l, "| T-001 |") {
+				lines[i] = strings.Replace(l, "Not started", "Awaiting review", 1)
+				break
+			}
+		}
+		return strings.Join(lines, "\n")
+	})
+
+	// 1. review.md with an unresolved 🔴 Blocker
+	badReview := `# Code Review — T-001
+Status: Changes requested
+
+## 3. Risk & Findings Register
+| ID | Category | Severity | Finding | Suggested Action | Status |
+|---|---|---|---|---|---|
+| F-001 | Correctness | 🔴 Blocker | Missing bounds check | Add bounds check | Open |
+`
+	put(t, root, "features/T-001-scope/review.md", badReview)
+
+	rep, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundBlocker := false
+	for _, f := range rep.Findings {
+		if f.Rule == "review" && strings.Contains(f.Message, "unresolved 🔴 Blocker") {
+			foundBlocker = true
+			if f.Severity != Error {
+				t.Errorf("expected Blocker finding to be Error severity, got %v", f.Severity)
+			}
+		}
+	}
+	if !foundBlocker {
+		t.Errorf("expected unresolved blocker error in findings: %+v", rep.Findings)
+	}
+
+	// 2. Resolve blocker and set status to Approved
+	goodReview := `# Code Review — T-001
+Status: Approved
+
+## 3. Risk & Findings Register
+| ID | Category | Severity | Finding | Suggested Action | Status |
+|---|---|---|---|---|---|
+| F-001 | Correctness | 🔴 Blocker | Missing bounds check | Add bounds check | Resolved |
+`
+	put(t, root, "features/T-001-scope/review.md", goodReview)
+
+	repGood, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range repGood.Findings {
+		if f.Rule == "review" && strings.Contains(f.Message, "Blocker") {
+			t.Errorf("unexpected blocker error after resolution: %+v", f)
+		}
+	}
+
+	// 3. Invalid status header
+	invalidStatusReview := `# Code Review — T-001
+Status: UnknownStatus
+
+## 3. Risk & Findings Register
+`
+	put(t, root, "features/T-001-scope/review.md", invalidStatusReview)
+
+	repInvalid, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundStatusWarn := false
+	for _, f := range repInvalid.Findings {
+		if f.Rule == "review" && strings.Contains(f.Message, "review.md status is") {
+			foundStatusWarn = true
+			break
+		}
+	}
+	if !foundStatusWarn {
+		t.Errorf("expected warning for invalid review status: %+v", repInvalid.Findings)
+	}
+}

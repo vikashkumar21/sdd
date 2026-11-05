@@ -24,7 +24,10 @@ var (
 	slugRe = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 )
 
-var templateNames = []string{"requirements.md", "plan.md", "validation.md"}
+var (
+	requiredTemplateNames = []string{"requirements.md", "plan.md", "validation.md"}
+	optionalTemplateNames = []string{"review.md"}
+)
 
 // Result describes what New created.
 type Result struct {
@@ -149,8 +152,17 @@ func NewWithOptions(root, id, slug string, opts Options) (Result, error) {
 		docFormat = entry.Format
 	}
 
-	rendered := make(map[string]string, len(templateNames))
-	for _, name := range templateNames {
+	templatesToRender := make([]string, 0, len(requiredTemplateNames)+len(optionalTemplateNames))
+	templatesToRender = append(templatesToRender, requiredTemplateNames...)
+	for _, name := range optionalTemplateNames {
+		rel := "features/_templates/" + name
+		if _, err := rootHandle.Stat(filepath.FromSlash(rel)); err == nil {
+			templatesToRender = append(templatesToRender, name)
+		}
+	}
+
+	rendered := make(map[string]string, len(templatesToRender))
+	for _, name := range templatesToRender {
 		rel := "features/_templates/" + name
 		tpl, err := rootHandle.ReadFile(filepath.FromSlash(rel))
 		if err != nil {
@@ -171,7 +183,7 @@ func NewWithOptions(root, id, slug string, opts Options) (Result, error) {
 
 	dirRel := "features/" + id + "-" + slug
 	res := Result{Dir: dirRel, StagedContext: docStagedPath}
-	for _, name := range templateNames {
+	for _, name := range templatesToRender {
 		rel := dirRel + "/" + name
 		if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(rel), []byte(rendered[name]), 0o644); err != nil {
 			return res, err

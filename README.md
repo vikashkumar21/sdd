@@ -4,7 +4,7 @@
 
 - agent contracts: `CLAUDE.md`, `GEMINI.md`, `AGENTS.md` (identical rules)
 - living documents: `MISSION.md`, `TECH_STACK.md`, `ROADMAP.md`, `SKILLS.md`
-- per-task templates in `features/_templates/` (`requirements.md`, `plan.md`, `validation.md`)
+- per-task templates in `features/_templates/` (`requirements.md`, `plan.md`, `validation.md`, `review.md`)
 - a `.sdd/manifest.json` recording what was generated
 
 The workflow it installs: the agent drafts requirements and a plan, **the human approves before any code**, the agent implements and verifies, and **the human reviews and commits**. The anthem: *always be deterministic, and take human approval or decisions to accomplish that determinism.*
@@ -73,9 +73,10 @@ sdd skill new deploy-helper --from-file deploy.txt                # import raw n
 sdd skill new quick-fix --from-text "run make verify"            # import raw inline text into skill body
 sdd skill list                                # list available skills with scope, status, and descriptions
 sdd skill list --json                         # output skill catalog as structured JSON
-sdd skill export                              # export canonical sdd-protocol skill to skills/sdd-protocol/
-sdd skill export --target ./sdk/skills        # export SDD skill for programmatic Agent SDK applications
-sdd skill export --global                     # export SDD skill to user's global agent skill directory
+sdd skill export                              # export canonical skills (sdd-protocol and code-review) to skills/
+sdd skill export --skill code-review          # export specific canonical skill
+sdd skill export --target ./sdk/skills        # export SDD skills for programmatic Agent SDK applications
+sdd skill export --global                     # export SDD skills to user's global agent skill directory
 
 sdd ingest --file notes.txt --name meeting    # stage external files into .sdd/context/
 sdd ingest --text "meeting notes..."          # stage raw text strings as context

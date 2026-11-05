@@ -61,7 +61,57 @@ Reply with:     DECIDE D-xxx: <A|B|C|other>
 - All actions taken by SDK agents must respect GATE 1 (waiting for human approval string) before executing code-modifying tools.
 `
 
-// ExportOptions holds parameters for exporting the canonical SDD skill.
+// CanonicalCodeReviewSkill is the reference agentskills.io definition of the SDD code review standard.
+const CanonicalCodeReviewSkill = `---
+name: code-review
+description: Deterministic code review rubric, progressive context ingestion, 3-tier risk grading (Blocker, Warning, Minor), and task review artifact guidelines for AI coding agents.
+---
+
+# SDD Code Review Standard
+
+> **ANTHEM: ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**
+
+## Overview & Triggers
+Activate this skill whenever:
+- Performing code review on a feature branch, staged change set, or pull request.
+- Verifying code against approved specifications before Phase D / GATE 2 commit.
+- Inspecting code diffs for spec alignment, architectural drift, security hazards, or unhandled errors.
+
+## The 4 Review Pillars
+Every code review evaluates the changes against four mandatory pillars:
+
+1. **Correctness & Spec Alignment:**
+   - Every requirement (R-xxx) in requirements.md maps to concrete implementation and test evidence in validation.md.
+   - Touch ONLY files listed in plan.md. Zero scope creep.
+   - Negative and failure cases are explicitly tested.
+
+2. **Architectural & Decision Conformance:**
+   - Respects all approved decisions in TECH_STACK.md (D-xxx).
+   - Zero unapproved third-party dependencies (D-007 standard library purity).
+   - Complies with active human feedback rules in SKILLS.md §8 (F-xxx).
+   - Deterministic by construction: inject clocks, random sources, and avoid map iteration order dependencies.
+
+3. **Security & Quality Hygiene:**
+   - No credentials, tokens, connection strings, or personal data in logs, tests, or code.
+   - Bound sizes on all external inputs; fail safe on ambiguity.
+   - Clean linting (make lint) and formatting (gofmt -s).
+
+4. **Continuous Learning & Feedback Synthesis:**
+   - If a finding reveals a recurring or general pattern, formulate an F-xxx rule for SKILLS.md §8 or scaffold a new skill via sdd skill new.
+
+## 3-Tier Risk & Finding Rubric
+
+| Severity | Definition | Action Required |
+|---|---|---|
+| 🔴 **Blocker** | Spec violation, security hazard, test gap, plan deviation, unapproved dependency. | MUST be resolved before GATE 2 commit. |
+| 🟡 **Warning** | Sub-optimal pattern, edge case risk, missing doc or comment. | Developer attention suggested; address or explicitly accept. |
+| 🟢 **Minor** | Style, naming refinement, or non-critical micro-optimization. | Informational suggestion; non-blocking. |
+
+## Review Output Format
+Record all findings in features/T-xxx-<slug>/review.md following the standard template. If any 🔴 Blocker remains, the review outcome is "Changes requested" and the task CANNOT proceed to GATE 2.
+`
+
+// ExportOptions holds parameters for exporting canonical SDD skills.
 type ExportOptions struct {
 	ProjectRoot string
 	TargetDir   string
@@ -73,13 +123,30 @@ type ExportOptions struct {
 
 // ExportResult contains the outcome of skill export.
 type ExportResult struct {
+	Name      string // Skill name (e.g. sdd-protocol, code-review)
 	Path      string // Slash-separated path to created SKILL.md
 	BackupDir string // Relative backup dir if overwritten
 }
 
 // ExportProtocolSkill exports the canonical sdd-protocol skill to the target destination.
 func ExportProtocolSkill(opts ExportOptions) (ExportResult, error) {
+	return ExportSkill("sdd-protocol", opts)
+}
+
+// ExportSkill exports a named canonical skill (sdd-protocol or code-review).
+func ExportSkill(skillName string, opts ExportOptions) (ExportResult, error) {
 	var res ExportResult
+	res.Name = skillName
+
+	var content string
+	switch skillName {
+	case "sdd-protocol":
+		content = CanonicalSDDProtocolSkill
+	case "code-review":
+		content = CanonicalCodeReviewSkill
+	default:
+		return res, fmt.Errorf("unknown canonical skill %q (expected sdd-protocol, code-review, or all)", skillName)
+	}
 
 	var targetBase string
 	if opts.Global {
@@ -114,12 +181,12 @@ func ExportProtocolSkill(opts ExportOptions) (ExportResult, error) {
 		targetBase = filepath.Join(opts.ProjectRoot, "skills")
 	}
 
-	destDir := filepath.Join(targetBase, "sdd-protocol")
+	destDir := filepath.Join(targetBase, skillName)
 	destFile := filepath.Join(destDir, "SKILL.md")
 
 	if existingBytes, readErr := os.ReadFile(destFile); readErr == nil {
 		if !opts.Force {
-			return res, fmt.Errorf("skill \"sdd-protocol\" already exists at %s (use --force to overwrite)", filepath.ToSlash(destFile))
+			return res, fmt.Errorf("skill %q already exists at %s (use --force to overwrite)", skillName, filepath.ToSlash(destFile))
 		}
 		now := time.Now().UTC()
 		if opts.Clock != nil {
@@ -134,7 +201,7 @@ func ExportProtocolSkill(opts ExportOptions) (ExportResult, error) {
 			backupPath = filepath.Join(opts.ProjectRoot, filepath.FromSlash(backupRel), relDest)
 			res.BackupDir = backupRel
 		} else {
-			backupPath = filepath.Join(targetBase, ".backup", backupTimestamp, "sdd-protocol", "SKILL.md")
+			backupPath = filepath.Join(targetBase, ".backup", backupTimestamp, skillName, "SKILL.md")
 			res.BackupDir = filepath.ToSlash(filepath.Join(targetBase, ".backup", backupTimestamp))
 		}
 
@@ -143,7 +210,7 @@ func ExportProtocolSkill(opts ExportOptions) (ExportResult, error) {
 		}
 	}
 
-	parsed, parseErr := Parse([]byte(CanonicalSDDProtocolSkill))
+	parsed, parseErr := Parse([]byte(content))
 	if parseErr != nil {
 		return res, fmt.Errorf("canonical skill frontmatter invalid: %w", parseErr)
 	}
@@ -152,10 +219,33 @@ func ExportProtocolSkill(opts ExportOptions) (ExportResult, error) {
 		return res, fmt.Errorf("canonical skill validation failed: %s", validationErrors[0].Message)
 	}
 
-	if err := fsutil.WriteAtomic(destFile, []byte(CanonicalSDDProtocolSkill), 0o644); err != nil {
+	if err := fsutil.WriteAtomic(destFile, []byte(content), 0o644); err != nil {
 		return res, fmt.Errorf("write skill file: %w", err)
 	}
 
 	res.Path = filepath.ToSlash(destFile)
 	return res, nil
+}
+
+// ExportSkills exports one or all canonical skills according to skillName ("all", "sdd-protocol", "code-review").
+func ExportSkills(skillName string, opts ExportOptions) ([]ExportResult, error) {
+	target := strings.TrimSpace(skillName)
+	if target == "" || target == "all" {
+		names := []string{"sdd-protocol", "code-review"}
+		var results []ExportResult
+		for _, name := range names {
+			res, err := ExportSkill(name, opts)
+			if err != nil {
+				return results, err
+			}
+			results = append(results, res)
+		}
+		return results, nil
+	}
+
+	res, err := ExportSkill(target, opts)
+	if err != nil {
+		return nil, err
+	}
+	return []ExportResult{res}, nil
 }

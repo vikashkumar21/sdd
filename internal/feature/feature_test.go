@@ -47,14 +47,18 @@ func TestNewCreatesFolderFromProjectTemplates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Dir != "features/T-001-define-scope" || len(res.Files) != 3 || !res.StatusUpdated {
+	if res.Dir != "features/T-001-define-scope" || len(res.Files) != 4 || !res.StatusUpdated {
 		t.Fatalf("unexpected result: %+v", res)
 	}
 	req := read(t, root, "features/T-001-define-scope/requirements.md")
 	if !strings.HasPrefix(req, "# Requirements — T-001 Define mission and scope (docs only)") {
 		t.Errorf("title not taken from the roadmap row: %q", strings.SplitN(req, "\n", 2)[0])
 	}
-	if strings.Contains(req, "T-xxx") || strings.Contains(read(t, root, "features/T-001-define-scope/plan.md"), "T-xxx") {
+	rev := read(t, root, "features/T-001-define-scope/review.md")
+	if !strings.HasPrefix(rev, "# Code Review — T-001 Define mission and scope (docs only)") {
+		t.Errorf("review title not taken from roadmap row: %q", strings.SplitN(rev, "\n", 2)[0])
+	}
+	if strings.Contains(req, "T-xxx") || strings.Contains(read(t, root, "features/T-001-define-scope/plan.md"), "T-xxx") || strings.Contains(rev, "T-xxx") {
 		t.Error("T-xxx tokens were not replaced")
 	}
 	if !strings.Contains(read(t, root, "features/T-001-define-scope/plan.md"), "`APPROVED T-001`") {
@@ -303,5 +307,22 @@ func TestNewFromDocInvalidPDF(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "missing %PDF- header signature") {
 		t.Errorf("unexpected error: %v", err)
+	}
+}
+
+func TestNewWithLegacy3TemplatesOnly(t *testing.T) {
+	root := kit(t)
+	// Remove review.md template to simulate legacy kit
+	reviewTpl := filepath.Join(root, "features", "_templates", "review.md")
+	if err := os.Remove(reviewTpl); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := New(root, "T-001", "legacy-task", "")
+	if err != nil {
+		t.Fatalf("unexpected failure on legacy kit without review.md: %v", err)
+	}
+	if len(res.Files) != 3 {
+		t.Fatalf("expected 3 files on legacy kit, got %d: %+v", len(res.Files), res.Files)
 	}
 }

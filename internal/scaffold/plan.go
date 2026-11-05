@@ -129,7 +129,7 @@ func BuildPlan(root string, a Answers, det detect.Result, set *templates.Set, no
 		}
 		p.Ops = append(p.Ops, op)
 	}
-	for _, name := range []string{"requirements.md", "plan.md", "validation.md"} {
+	for _, name := range []string{"requirements.md", "plan.md", "validation.md", "review.md"} {
 		content, err := set.Raw("features/" + name)
 		if err != nil {
 			return Plan{}, err

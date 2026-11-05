@@ -533,12 +533,12 @@ func TestSkillList(t *testing.T) {
 func TestSkillExport(t *testing.T) {
 	root := t.TempDir()
 
-	// 1. Export to project root skills/
+	// 1. Export to project root skills/ (defaults to all)
 	r := exec(t, "", false, "", "skill", "export", "--dir", root)
 	if r.code != 0 {
 		t.Fatalf("expected 0 for skill export, got %d: %s", r.code, r.err)
 	}
-	if !strings.Contains(r.out, "Exported SDD protocol skill to") {
+	if !strings.Contains(r.out, "Exported skill sdd-protocol to") || !strings.Contains(r.out, "Exported skill code-review to") {
 		t.Errorf("unexpected stdout: %s", r.out)
 	}
 	skillPath := filepath.Join(root, "skills", "sdd-protocol", "SKILL.md")
@@ -548,6 +548,14 @@ func TestSkillExport(t *testing.T) {
 	}
 	if !strings.Contains(string(content), "name: sdd-protocol") {
 		t.Errorf("missing name in exported skill: %s", string(content))
+	}
+	revSkillPath := filepath.Join(root, "skills", "code-review", "SKILL.md")
+	revContent, err := os.ReadFile(revSkillPath)
+	if err != nil {
+		t.Fatalf("failed to read exported code-review skill: %v", err)
+	}
+	if !strings.Contains(string(revContent), "name: code-review") {
+		t.Errorf("missing name in exported code-review skill: %s", string(revContent))
 	}
 
 	// 2. Collision refusal without --force
@@ -579,7 +587,23 @@ func TestSkillExport(t *testing.T) {
 		t.Fatalf("custom skill file not created: %v", err)
 	}
 
-	// 5. Unexpected argument
+	// 5. Export specific skill
+	specDir := t.TempDir()
+	r = exec(t, "", false, "", "skill", "export", "--dir", root, "--target", specDir, "--skill", "code-review")
+	if r.code != 0 {
+		t.Fatalf("expected 0 for export --skill code-review, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Exported skill code-review to") {
+		t.Errorf("unexpected output: %s", r.out)
+	}
+	if _, err := os.Stat(filepath.Join(specDir, "code-review", "SKILL.md")); err != nil {
+		t.Errorf("code-review skill not created: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(specDir, "sdd-protocol", "SKILL.md")); !os.IsNotExist(err) {
+		t.Errorf("sdd-protocol should not have been exported")
+	}
+
+	// 6. Unexpected argument
 	r = exec(t, "", false, "", "skill", "export", "extra", "--dir", root)
 	if r.code != 2 {
 		t.Errorf("expected 2 for unexpected argument, got %d", r.code)

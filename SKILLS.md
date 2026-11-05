@@ -149,4 +149,23 @@ Skills exported via `sdd skill export` or authored in `skills/` conform to the L
   ```
 - **Gating Enforcement:** SDK agents operating under `sdd-protocol` must enforce GATE 1 programmatically—refusing to invoke file-modifying or code-writing tools until the human sends the exact `APPROVED T-xxx` token.
 
+## 10. Code Review and Verification Standard
+
+Code review in SDD is an independent quality and risk audit conducted before Phase D / GATE 2 commit. It ensures that changes satisfy specifications without regressions, architectural drift, or security vulnerabilities.
+
+### 1. The 4 Review Pillars
+1. **Scope & Spec Alignment:** Every requirement (`R-xxx`) in `requirements.md` maps to verified code and tests in `validation.md`. Only files planned in `plan.md` are touched (zero scope creep).
+2. **Architecture & Decision Conformance:** Complies with approved decisions in `TECH_STACK.md` (`D-xxx`), feedback rules in `SKILLS.md` §8 (`F-xxx`), and determinism rules.
+3. **Security & Quality Hygiene:** No exposed credentials or personal data, bound all inputs, clean formatting and linting.
+4. **Continuous Learning:** General patterns discovered during review are captured as `F-xxx` rules or new skills.
+
+### 2. 3-Tier Risk Rubric
+- 🔴 **Blocker (Developer Attention Needed):** Spec violation, security hazard, test gap, plan drift. MUST be resolved before GATE 2 commit.
+- 🟡 **Warning (Attention Suggested):** Sub-optimal pattern, edge case risk, missing doc or comment.
+- 🟢 **Minor (Safe / Informational):** Style, naming refinement, or non-critical micro-optimization.
+
+### 3. Review Artifact (`features/T-xxx-<slug>/review.md`)
+Review findings are recorded in `review.md`. If any unresolved 🔴 Blocker remains, `sdd check` flags an error and the task CANNOT proceed to GATE 2 commit.
+
+
 

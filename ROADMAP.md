@@ -34,7 +34,7 @@ Status: living document · Last updated: 2026-10-26
 | M4 | Context and Task Ingestion | T-014 – T-017 | 12 | Ingest raw text strings, files, PDFs, and Jira issues into staged context |
 | M5 | Open Agent Skills Standards | T-020 – T-023 | 11 | agentskills.io parser, validator, skill new, skill list, prompt progressive disclosure, and sdd-protocol export |
 | M6 | Universal Distribution and Ergonomics | T-024 – T-025 | 8 | Cross-platform self-installation, double-click setup, install command, and 1-line curl/powershell scripts |
-| M7 | Advanced Ergonomics and Ecosystem Integrations | T-026 | 6 | sdd status summary command, shell completion, CI workflow examples |
+| M7 | Agent Code Review Standards and Ergonomics | T-026 – T-027 | 10 | review.md 4th task doc, official code-review skill, sdd check verification, and sdd status |
 
 ## 4. Tasks
 
@@ -99,11 +99,12 @@ Status: living document · Last updated: 2026-10-26
 | T-024 | Cross-platform binary self-installation (sdd install and double-click setup) | M | T-001 | sdd install command, non-PATH double-click detector, user-level PATH setup | D-025 | Done |
 | T-025 | Universal one-line installer scripts (install.sh and install.ps1) | S | T-024 | Multi-platform curl/sh and irm/iex automated installer scripts | D-025 | Done |
 
-### M7 — Advanced Ergonomics and Ecosystem Integrations
+### M7 — Agent Code Review Standards and Ergonomics
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
-| T-026 | sdd status: summarise roadmap, task progress, and gate status | S | T-025 | Fast CLI summary of active tasks, roadmap milestones, and pending gates | none | Not started |
+| T-026 | Official code-review skill and task review template (review.md) | M | T-025 | 4th task artifact review.md, canonical agentskills.io code-review skill, and sdd check rules | D-026 | Awaiting review |
+| T-027 | sdd status: summarise roadmap, task progress, and gate status | S | T-026 | Fast CLI summary of active tasks, roadmap milestones, and pending gates | none | Not started |
 
 ## 5. Unknown-technology protocol (spikes)
 
