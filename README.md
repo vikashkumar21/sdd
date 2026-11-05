@@ -63,6 +63,9 @@ sdd check --fix          # interactive mechanical repair (contract parity, table
 sdd check --fix --dry-run # preview repairs with unified diffs without modifying files
 sdd check --fix --yes    # apply repairs without confirmation (backs up to .sdd/backup/)
 
+sdd status               # summarise roadmap milestones, active tasks, and pending gates
+sdd status --json        # machine-readable JSON summary for agent orchestration and CI
+
 sdd feature new T-003 upgrade-command         # creates features/T-003-upgrade-command/ from your templates
 sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements from Jira and stage into context
 sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements

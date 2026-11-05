@@ -53,6 +53,7 @@ usage: sdd <command> [flags]
 commands:
   init                       generate the spec-driven kit in this project (new or existing)
   check                      verify the kit is consistent (--json for structured output, --strict for warnings)
+  status                     summarise roadmap milestones, active tasks, and gate status
   feature new <T-xxx> <slug> create features/T-xxx-<slug>/ from the project's templates
   skill new <name>           scaffold a new agentskills.io skill (skills/<name>/SKILL.md)
   skill list                 list available skills in the project (--json for structured output)
@@ -84,6 +85,8 @@ func Run(args []string, env IO) int {
 		return runInit(args[1:], env)
 	case "check":
 		return runCheck(args[1:], env)
+	case "status":
+		return runStatus(args[1:], env)
 	case "feature":
 		return runFeature(args[1:], env)
 	case "skill":

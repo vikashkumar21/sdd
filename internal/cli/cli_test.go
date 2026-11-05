@@ -763,3 +763,87 @@ func TestInteractiveZeroArgInstallPrompt(t *testing.T) {
 		t.Fatalf("expected exit 2 for non-interactive zero-arg, got %d", r.code)
 	}
 }
+
+func TestStatusCLI(t *testing.T) {
+	dir := t.TempDir()
+	roadmapContent := `# ROADMAP — sdd
+
+## 3. Milestones
+
+| Milestone | Goal | Tasks | Est. hours | Exit criteria |
+|---|---|---|---|---|
+| M0 | Scaffolding | T-000 | 1 | Done |
+| M1 | Status Command | T-001 | 3 | In progress |
+
+## 4. Tasks
+
+### M0 — Scaffolding
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-000 | Scaffolding task | S | none | Setup | D-001 | Done |
+
+### M1 — Status Command
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Add sdd status | S | T-000 | Status CLI | none | Specifying |
+`
+	put(t, dir, "ROADMAP.md", roadmapContent)
+
+	// 1. Human-readable text status
+	r := exec(t, "", false, "", "status", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !strings.Contains(r.out, "Active Task:") {
+		t.Errorf("expected 'Active Task:' in output: %s", r.out)
+	}
+	if !strings.Contains(r.out, "T-001") {
+		t.Errorf("expected 'T-001' in output: %s", r.out)
+	}
+	if !strings.Contains(r.out, "GATE 1") {
+		t.Errorf("expected 'GATE 1' in output: %s", r.out)
+	}
+	if !strings.Contains(r.out, "Roadmap Milestones:") {
+		t.Errorf("expected 'Roadmap Milestones:' in output: %s", r.out)
+	}
+
+	// 2. Machine-readable JSON output
+	r = exec(t, "", false, "", "status", "--dir", dir, "--json")
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 with --json, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	var res map[string]any
+	if err := json.Unmarshal([]byte(r.out), &res); err != nil {
+		t.Fatalf("failed to parse JSON output: %v\nOutput: %s", err, r.out)
+	}
+	if summary, ok := res["task_summary"].(map[string]any); !ok || summary["total"] != float64(2) {
+		t.Errorf("expected task_summary.total = 2, got: %v", res["task_summary"])
+	}
+
+	// 3. Missing ROADMAP.md error
+	emptyDir := t.TempDir()
+	r = exec(t, "", false, "", "status", "--dir", emptyDir)
+	if r.code != 1 {
+		t.Fatalf("expected exit 1 for missing ROADMAP.md, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !strings.Contains(r.err, "ROADMAP.md not found") {
+		t.Errorf("expected 'ROADMAP.md not found' in stderr, got: %s", r.err)
+	}
+
+	// 4. Unexpected positional argument
+	r = exec(t, "", false, "", "status", "unexpected")
+	if r.code != 2 {
+		t.Fatalf("expected exit 2 for unexpected argument, got %d", r.code)
+	}
+	if !strings.Contains(r.err, `unexpected argument "unexpected"`) {
+		t.Errorf("expected 'unexpected argument' in stderr, got: %s", r.err)
+	}
+
+	// 5. Invalid flag
+	r = exec(t, "", false, "", "status", "--unknown-flag")
+	if r.code != 2 {
+		t.Fatalf("expected exit 2 for unknown flag, got %d", r.code)
+	}
+}

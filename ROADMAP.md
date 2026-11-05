@@ -103,8 +103,8 @@ Status: living document · Last updated: 2026-10-26
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
-| T-026 | Official code-review skill and task review template (review.md) | M | T-025 | 4th task artifact review.md, canonical agentskills.io code-review skill, and sdd check rules | D-026 | Awaiting review |
-| T-027 | sdd status: summarise roadmap, task progress, and gate status | S | T-026 | Fast CLI summary of active tasks, roadmap milestones, and pending gates | none | Not started |
+| T-026 | Official code-review skill and task review template (review.md) | M | T-025 | 4th task artifact review.md, canonical agentskills.io code-review skill, and sdd check rules | D-026 | Done |
+| T-027 | sdd status: summarise roadmap, task progress, and gate status | S | T-026 | Fast CLI summary of active tasks, roadmap milestones, and pending gates | none | Awaiting review |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -124,7 +124,6 @@ Unfamiliar technology derails projects. To prevent that:
 ## 7. Parking lot (do not start without a new approved task)
 
 - Language packs for Rust, Kotlin, C#
-- `sdd status` (summarise the roadmap)
 - A CI workflow example for `sdd check --strict`
 - Optional shell completion
 - Enhance table markdown parser to treat backslashes inside inline code spans as non-escaping backticks
