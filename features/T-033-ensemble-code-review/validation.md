@@ -58,4 +58,4 @@ Ran `./bin/sdd prompt review T-033 --lens security --json` twice; diff was byte-
 
 ## 8. Sign-off
 Suggested commit message: `feat(review): codify ensemble review triad, AppSec Specialist rubric, and lens CLI options (T-033)`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-033`
+Reviewed by: Vikash (human)   Date: 2026-11-05   Reply received: `COMMITTED T-033`

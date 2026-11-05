@@ -3,7 +3,7 @@
 .PHONY: build install test vet fmt fmt-check lint verify check dist clean
 
 MODULE  := github.com/vikashkumar21/sdd
-VERSION ?= 1.3.0
+VERSION ?= 1.4.0
 LDFLAGS := -s -w -X $(MODULE)/internal/version.Version=$(VERSION)
 BIN     := bin/sdd
 

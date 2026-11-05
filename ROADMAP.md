@@ -116,7 +116,7 @@ Status: living document · Last updated: 2026-10-26
 | T-030 | Static task deconfliction and plan overlap analyzer | S | T-029 | Automated plan file targets analysis, collision detection, and concurrency scheduling | D-028, D-029 | Done |
 | T-031 | Task Coordinator pre-merge qualification, simulation, and sdd task merge | M | T-030 | Pre-merge validation (0 blockers, tests pass), blast-radius regression sweep, determinism flake guard, dry-run simulation, rebase helper, and GATE 2 presentation (APPROVED MERGE T-xxx) | D-029 | Done |
 | T-032 | Autonomous multi-agent hierarchy and Task Coordinator skill | M | T-031 | Two-level hierarchy specification, agent contract updates, and canonical skills/task-coordinator/SKILL.md | D-029 | Done |
-| T-033 | Ensemble code review standards and AppSec Specialist rubric | M | T-032 | Multi-lens review standard in skills/code-review/SKILL.md (Spec Auditor, AppSec Specialist, Pattern Auditor) and end-to-end integration | D-026, D-029 | Awaiting review |
+| T-033 | Ensemble code review standards and AppSec Specialist rubric | M | T-032 | Multi-lens review standard in skills/code-review/SKILL.md (Spec Auditor, AppSec Specialist, Pattern Auditor) and end-to-end integration | D-026, D-029 | Done |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -142,14 +142,15 @@ Unfamiliar technology derails projects. To prevent that:
 
 ## 8. Next action
 
-1. M0 through M7 are complete.
-2. Milestone 8 in progress: Autonomous Multi-Agent Git Workflows and Work Typology (T-028 to T-033).
-3. Next task: T-032 Autonomous multi-agent hierarchy and Task Coordinator skill.
+1. M0 through M8 are complete (all 34 planned tasks delivered and verified).
+2. Review parking lot and discuss next milestones with human.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-05 | T-033: Ensemble code review standards and AppSec Specialist rubric done (Milestone 8 complete) |
+| 2026-11-05 | T-032: Autonomous multi-agent hierarchy and Task Coordinator skill done |
 | 2026-11-05 | T-031: Task Coordinator pre-merge qualification, simulation, and sdd task merge done |
 | 2026-11-05 | T-030: Static task deconfliction and plan overlap analyzer done |
 | 2026-11-05 | T-029: Git worktree isolation and concurrent workspace provisioning (sdd task start and clean) done |
