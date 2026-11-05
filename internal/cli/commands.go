@@ -250,6 +250,17 @@ func agentFor(name string) (display, file string) {
 }
 
 func runPrompt(args []string, env IO) int {
+	for i, a := range args {
+		if a == "review" {
+			reviewArgs := append([]string{}, args[:i]...)
+			reviewArgs = append(reviewArgs, args[i+1:]...)
+			return runPromptReview(reviewArgs, env)
+		}
+		if !strings.HasPrefix(a, "-") {
+			break
+		}
+	}
+
 	fs := newFlagSet("prompt", env)
 	dir := fs.String("dir", ".", "project root")
 	task := fs.String("task", "", "focus task, for example T-001 (default: the first open task)")

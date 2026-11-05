@@ -168,7 +168,7 @@ func runSkillExport(args []string, env IO) int {
 	fs := newFlagSet("skill export", env)
 	dir := fs.String("dir", ".", "project root")
 	target := fs.String("target", "", "custom destination directory for exported skill")
-	skillName := fs.String("skill", "all", "canonical skill to export: sdd-protocol, code-review, or all")
+	skillName := fs.String("skill", "all", "canonical skill to export: sdd-protocol, code-review, task-coordinator, or all")
 	global := fs.Bool("global", false, "export to user's global agent skill directory")
 	force := fs.Bool("force", false, "overwrite existing skill (backs up previous version to .sdd/backup/)")
 

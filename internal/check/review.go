@@ -9,7 +9,8 @@ import (
 )
 
 var (
-	reviewStatusRe = regexp.MustCompile(`(?i)^Status:\s*([^\r\n]+)`)
+	reviewStatusRe   = regexp.MustCompile(`(?i)^Status:\s*([^\r\n]+)`)
+	reviewReviewerRe = regexp.MustCompile(`(?i)^Reviewer:\s*([^\r\n]+)`)
 )
 
 func (c *checker) checkReviewDocument(rel string, taskStatus string) {
@@ -24,6 +25,8 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 	scanner := bufio.NewScanner(strings.NewReader(content))
 	lineNum := 0
 	var reviewStatus string
+	var reviewer string
+	var reviewerLine int
 
 	for scanner.Scan() {
 		lineNum++
@@ -55,6 +58,15 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 			}
 		}
 
+		// Check reviewer attribution
+		if reviewer == "" && reviewReviewerRe.MatchString(trimmed) {
+			m := reviewReviewerRe.FindStringSubmatch(trimmed)
+			if len(m) > 1 {
+				reviewer = strings.TrimSpace(m[1])
+				reviewerLine = lineNum
+			}
+		}
+
 		// 2. Check for unresolved 🔴 Blocker findings
 		if strings.Contains(line, "🔴") || strings.Contains(strings.ToLower(line), "blocker") {
 			// Check if this is a table row in the findings register
@@ -82,7 +94,25 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 		}
 	}
 
-	// 3. If task is Done in ROADMAP.md, review status should be Approved
+	// 3. If task is Awaiting review or Done in ROADMAP.md and review is Approved, verify independent reviewer
+	if (normTaskStatus == "awaiting review" || normTaskStatus == "done") && reviewStatus == "approved" {
+		revLower := strings.ToLower(reviewer)
+		isPlaceholder := reviewer == "" ||
+			strings.Contains(revLower, "<agent") ||
+			strings.Contains(revLower, "[agent") ||
+			strings.Contains(revLower, "______") ||
+			strings.Contains(revLower, "pending") ||
+			revLower == "self" ||
+			revLower == "author"
+		if normTaskStatus == "awaiting review" {
+			isPlaceholder = isPlaceholder || strings.Contains(revLower, "self-audit") || strings.Contains(revLower, "self-approved")
+		}
+		if isPlaceholder {
+			c.add(Warn, reviewPath, reviewerLine, "review", "task is %s with Approved review.md but reviewer attribution is missing, placeholder, or self-approved (%q); independent subagent reviewer required", roadmap.Normalize(taskStatus), reviewer)
+		}
+	}
+
+	// 4. If task is Done in ROADMAP.md, review status should be Approved
 	if normTaskStatus == "done" {
 		if reviewStatus != "" && reviewStatus != "approved" {
 			c.add(Warn, reviewPath, 0, "review", "task is Done in ROADMAP.md but review.md status is %q", reviewStatus)

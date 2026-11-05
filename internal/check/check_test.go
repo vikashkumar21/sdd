@@ -958,6 +958,7 @@ Status: Changes requested
 	// 2. Resolve blocker and set status to Approved
 	goodReview := `# Code Review — T-001
 Status: Approved
+Reviewer: Independent Subagent Auditor
 
 ## 3. Risk & Findings Register
 | ID | Category | Severity | Finding | Suggested Action | Status |
@@ -997,6 +998,33 @@ Status: UnknownStatus
 	}
 	if !foundStatusWarn {
 		t.Errorf("expected warning for invalid review status: %+v", repInvalid.Findings)
+	}
+
+	// 4. Approved review with self-approved reviewer triggers warning
+	selfApprovedReview := `# Code Review — T-001
+Status: Approved
+Reviewer: Antigravity (self-audit)
+
+## 3. Risk & Findings Register
+`
+	put(t, root, "features/T-001-scope/review.md", selfApprovedReview)
+
+	repSelf, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundSelfWarn := false
+	for _, f := range repSelf.Findings {
+		if f.Rule == "review" && strings.Contains(f.Message, "self-approved") {
+			foundSelfWarn = true
+			if f.Severity != Warn {
+				t.Errorf("expected self-approved reviewer to be Warn severity, got %v", f.Severity)
+			}
+			break
+		}
+	}
+	if !foundSelfWarn {
+		t.Errorf("expected warning for self-approved reviewer: %+v", repSelf.Findings)
 	}
 }
 
@@ -1060,7 +1088,7 @@ func TestTypologyChecks(t *testing.T) {
 	put(t, root, "bugfixes/T-001-mem-leak/rca.md", "# RCA\nRoot cause\n")
 	put(t, root, "bugfixes/T-001-mem-leak/plan.md", "# Plan\nStatus: Implemented\nApproved by: Vikash\n")
 	put(t, root, "bugfixes/T-001-mem-leak/validation.md", "# Validation\nStatus: Complete\n")
-	put(t, root, "bugfixes/T-001-mem-leak/review.md", "# Review\nStatus: Approved\n")
+	put(t, root, "bugfixes/T-001-mem-leak/review.md", "# Review\nStatus: Approved\nReviewer: Independent Subagent Reviewer\n")
 
 	// 2. Hotfix folder
 	hotfixDir := filepath.Join(root, "hotfixes", "T-002-panic")

@@ -105,8 +105,8 @@ func TestRenderedFilesHaveNoTemplateLeftovers(t *testing.T) {
 				}
 			}
 		}
-		if !strings.Contains(read(t, root, "CLAUDE.md"), "13. Always use the staging cluster.") {
-			t.Errorf("%s: extra rule was not numbered 13", mode)
+		if !strings.Contains(read(t, root, "CLAUDE.md"), "15. Always use the staging cluster.") {
+			t.Errorf("%s: extra rule was not numbered 15", mode)
 		}
 	}
 }

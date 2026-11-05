@@ -182,7 +182,7 @@ func TestInteractiveInit(t *testing.T) {
 	if exists(root, "GEMINI.md") {
 		t.Error("GEMINI.md was not requested")
 	}
-	if !strings.Contains(read(t, root, "CLAUDE.md"), "14. Never email customers.") {
+	if !strings.Contains(read(t, root, "CLAUDE.md"), "16. Never email customers.") {
 		t.Error("extra rules not rendered in the contract")
 	}
 }
@@ -539,7 +539,7 @@ func TestSkillExport(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("expected 0 for skill export, got %d: %s", r.code, r.err)
 	}
-	if !strings.Contains(r.out, "Exported skill sdd-protocol to") || !strings.Contains(r.out, "Exported skill code-review to") {
+	if !strings.Contains(r.out, "Exported skill sdd-protocol to") || !strings.Contains(r.out, "Exported skill code-review to") || !strings.Contains(r.out, "Exported skill task-coordinator to") {
 		t.Errorf("unexpected stdout: %s", r.out)
 	}
 	skillPath := filepath.Join(root, "skills", "sdd-protocol", "SKILL.md")
@@ -557,6 +557,14 @@ func TestSkillExport(t *testing.T) {
 	}
 	if !strings.Contains(string(revContent), "name: code-review") {
 		t.Errorf("missing name in exported code-review skill: %s", string(revContent))
+	}
+	coordSkillPath := filepath.Join(root, "skills", "task-coordinator", "SKILL.md")
+	coordContent, err := os.ReadFile(coordSkillPath)
+	if err != nil {
+		t.Fatalf("failed to read exported task-coordinator skill: %v", err)
+	}
+	if !strings.Contains(string(coordContent), "name: task-coordinator") {
+		t.Errorf("missing name in exported task-coordinator skill: %s", string(coordContent))
 	}
 
 	// 2. Collision refusal without --force
@@ -1257,5 +1265,100 @@ func TestTaskMerge(t *testing.T) {
 	}
 	if !strings.Contains(r.out, "NOT READY (BLOCKERS DETECTED)") {
 		t.Errorf("expected blocker warning in output:\n%s", r.out)
+	}
+}
+
+func TestPromptReview(t *testing.T) {
+	root := t.TempDir()
+
+	featDir := filepath.Join(root, "features", "T-001-test-feature")
+	if err := os.MkdirAll(featDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	put(t, featDir, "requirements.md", "# Requirements — T-001\n\n| ID | Requirement |\n|---|---|\n| R-001 | The system SHALL work |\n")
+	put(t, featDir, "plan.md", "# Plan — T-001\n\n## 5. Files to create or modify\n\n| Path | Action | Reason |\n|---|---|---|\n| internal/service/service.go | create | core service |\n| internal/service/service_test.go | create | tests |\n")
+	put(t, featDir, "validation.md", "# Validation — T-001\n\nTraceability matrix\n")
+	put(t, featDir, "review.md", "# Code Review — T-001\nStatus: Pending\n")
+
+	put(t, root, "SKILLS.md", "# SKILLS\n\n## 8. Human feedback rules (binding; grows over time)\n\n### Register\n\n| ID | Date | Rule | Applies to | Source | Verified by | Status |\n|---|---|---|---|---|---|---|\n| F-001 | 2026-11-05 | No bare panics allowed | Go code | review | make test | Active |\n")
+
+	// 1. Standard text handover prompt
+	r := exec(t, "", false, "", "prompt", "review", "T-001", "--dir", root)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for prompt review, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !strings.Contains(r.out, "# Handover: Independent Subagent Code & Spec Review for T-001") {
+		t.Errorf("missing header in prompt: %s", r.out)
+	}
+	if !strings.Contains(r.out, "🔴 **Blocker") {
+		t.Errorf("missing rubric in prompt: %s", r.out)
+	}
+	if !strings.Contains(r.out, "internal/service/service.go") {
+		t.Errorf("missing changed file in prompt: %s", r.out)
+	}
+	if !strings.Contains(r.out, "F-001") || !strings.Contains(r.out, "No bare panics allowed") {
+		t.Errorf("missing feedback rule in prompt: %s", r.out)
+	}
+
+	// 2. Unknown task ID failure
+	r = exec(t, "", false, "", "prompt", "review", "T-999", "--dir", root)
+	if r.code != 1 {
+		t.Fatalf("expected exit 1 for unknown task, got %d", r.code)
+	}
+	if !strings.Contains(r.err, "not found across") {
+		t.Errorf("expected not found error, got: %s", r.err)
+	}
+
+	// 3. Missing task argument failure
+	r = exec(t, "", false, "", "prompt", "review", "--dir", root)
+	if r.code != 2 {
+		t.Fatalf("expected exit 2 for missing task argument, got %d", r.code)
+	}
+
+	// 4. Invalid task ID format
+	r = exec(t, "", false, "", "prompt", "review", "invalid_task", "--dir", root)
+	if r.code != 1 {
+		t.Fatalf("expected exit 1 for invalid task format, got %d", r.code)
+	}
+}
+
+func TestPromptReviewJSON(t *testing.T) {
+	root := t.TempDir()
+
+	hotfixDir := filepath.Join(root, "hotfixes", "T-042-prod-patch")
+	if err := os.MkdirAll(hotfixDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	put(t, hotfixDir, "requirements.md", "# Requirements — T-042\n")
+	put(t, hotfixDir, "patch.md", "# Patch Plan — T-042\n\n## 5. Files to create or modify\n\n| Path | Action | Reason |\n|---|---|---|\n| cmd/hotfix.go | modify | quickfix |\n")
+	put(t, hotfixDir, "validation.md", "# Validation — T-042\n")
+	put(t, hotfixDir, "review.md", "# Code Review — T-042\nStatus: Pending\n")
+
+	r := exec(t, "", false, "", "prompt", "review", "T-042", "--dir", root, "--json")
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for prompt review --json, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+
+	var ctx ReviewPromptContext
+	if err := json.Unmarshal([]byte(r.out), &ctx); err != nil {
+		t.Fatalf("failed to parse JSON context: %v\nOutput:\n%s", err, r.out)
+	}
+
+	if ctx.TaskID != "T-042" {
+		t.Errorf("expected TaskID T-042, got %q", ctx.TaskID)
+	}
+	if ctx.Typology != "hotfixes" {
+		t.Errorf("expected Typology hotfixes, got %q", ctx.Typology)
+	}
+	if ctx.TaskDir != "hotfixes/T-042-prod-patch" {
+		t.Errorf("expected TaskDir hotfixes/T-042-prod-patch, got %q", ctx.TaskDir)
+	}
+	if len(ctx.ChangedFiles) != 1 || ctx.ChangedFiles[0] != "cmd/hotfix.go" {
+		t.Errorf("expected cmd/hotfix.go in ChangedFiles, got %v", ctx.ChangedFiles)
+	}
+	if !strings.Contains(ctx.Prompt, "Handover: Independent Subagent Code & Spec Review for T-042") {
+		t.Errorf("Prompt field missing expected text: %s", ctx.Prompt)
 	}
 }

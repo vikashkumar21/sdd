@@ -81,13 +81,16 @@ sdd task merge T-003                          # merge task branch into main afte
 sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements from Jira and stage into context
 sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
+sdd prompt review T-003  # generate turnkey subagent review prompt for Phase C.2 independent audit
+sdd prompt review T-003 --json # structured review context bundle for programmatic Agent SDKs
 
 sdd skill new code-review --description "Review code for quality" # scaffold a standard agentskills.io skill
 sdd skill new deploy-helper --from-file deploy.txt                # import raw notes with agent refinement scaffolding
 sdd skill new quick-fix --from-text "run make verify"            # import raw inline text into skill body
 sdd skill list                                # list available skills with scope, status, and descriptions
 sdd skill list --json                         # output skill catalog as structured JSON
-sdd skill export                              # export canonical skills (sdd-protocol and code-review) to skills/
+sdd skill export                              # export canonical skills (sdd-protocol, code-review, task-coordinator) to skills/
+sdd skill export --skill task-coordinator     # export specific canonical skill
 sdd skill export --skill code-review          # export specific canonical skill
 sdd skill export --target ./sdk/skills        # export SDD skills for programmatic Agent SDK applications
 sdd skill export --global                     # export SDD skills to user's global agent skill directory

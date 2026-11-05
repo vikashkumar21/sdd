@@ -17,7 +17,7 @@ import (
 
 // Version identifies the embedded template set. Bump it whenever any template
 // changes so that generated projects record which templates they came from.
-const Version = "1.2.0"
+const Version = "1.3.0"
 
 //go:embed all:data
 var embedded embed.FS

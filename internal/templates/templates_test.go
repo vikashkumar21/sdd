@@ -7,6 +7,12 @@ import (
 	"testing"
 )
 
+func TestVersion(t *testing.T) {
+	if Version != "1.3.0" {
+		t.Errorf("Version = %q, want 1.3.0", Version)
+	}
+}
+
 func TestEveryLanguageHasACompletePack(t *testing.T) {
 	set, err := New("")
 	if err != nil {

@@ -61,4 +61,4 @@ Ran `TestDeterminism` in `internal/coordinator/qualify_test.go`: byte-identical 
 
 ## 8. Sign-off
 Suggested commit message: `feat(coordinator): add pre-merge qualification engine and sdd task merge (T-031)`
-Reviewed by: Vikash (human)   Date: 2026-11-05   Reply received: pending
+Reviewed by: Vikash (human)   Date: 2026-11-05   Reply received: `COMMITTED T-031`

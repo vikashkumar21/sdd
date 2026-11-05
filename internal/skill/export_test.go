@@ -187,6 +187,25 @@ func TestCanonicalCodeReviewSkillValid(t *testing.T) {
 	}
 }
 
+func TestCanonicalTaskCoordinatorSkillValid(t *testing.T) {
+	parsed, err := Parse([]byte(CanonicalTaskCoordinatorSkill))
+	if err != nil {
+		t.Fatalf("canonical task-coordinator skill parse error: %v", err)
+	}
+
+	errs := Validate(parsed, filepath.Join("skills", "task-coordinator"))
+	if len(errs) > 0 {
+		t.Fatalf("canonical task-coordinator skill validation errors: %+v", errs)
+	}
+
+	if parsed.Name != "task-coordinator" {
+		t.Errorf("Name = %s, want task-coordinator", parsed.Name)
+	}
+	if !strings.Contains(CanonicalTaskCoordinatorSkill, "Two-Tier Agent Roles") {
+		t.Errorf("missing two-tier roles in canonical task-coordinator skill")
+	}
+}
+
 func TestExportSkillsAll(t *testing.T) {
 	root := t.TempDir()
 
@@ -197,8 +216,8 @@ func TestExportSkillsAll(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ExportSkills failed: %v", err)
 	}
-	if len(results) != 2 {
-		t.Fatalf("expected 2 exported skills, got %d", len(results))
+	if len(results) != 3 {
+		t.Fatalf("expected 3 exported skills, got %d", len(results))
 	}
 
 	protoPath := filepath.Join(root, "skills", "sdd-protocol", "SKILL.md")
@@ -209,5 +228,10 @@ func TestExportSkillsAll(t *testing.T) {
 	revPath := filepath.Join(root, "skills", "code-review", "SKILL.md")
 	if _, err := os.Stat(revPath); err != nil {
 		t.Errorf("code-review not exported: %v", err)
+	}
+
+	coordPath := filepath.Join(root, "skills", "task-coordinator", "SKILL.md")
+	if _, err := os.Stat(coordPath); err != nil {
+		t.Errorf("task-coordinator not exported: %v", err)
 	}
 }
