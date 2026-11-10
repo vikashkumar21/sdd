@@ -18,6 +18,7 @@ import (
 
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 	"github.com/vikashkumar21/sdd/internal/update"
+	"github.com/vikashkumar21/sdd/internal/version"
 )
 
 var fixedNow = func() time.Time { return time.Date(2026, 10, 22, 9, 0, 0, 0, time.UTC) }
@@ -1676,8 +1677,8 @@ func TestSelfUpdate_CheckOnly(t *testing.T) {
 		t.Errorf("expected update available message, got %q", r.out)
 	}
 
-	// 2. Already up-to-date (mocking 1.4.0)
-	clientCurrent, _, _ := setupSelfUpdateMock(t, "1.4.0", "binary-1.4.0")
+	// 2. Already up-to-date (matching current version)
+	clientCurrent, _, _ := setupSelfUpdateMock(t, version.Version, "binary-"+version.Version)
 	r = execSelfUpdate(t, "", false, clientCurrent, "", "update", "--check")
 	if r.code != 0 {
 		t.Fatalf("expected code 0, got %d: %s", r.code, r.err)
