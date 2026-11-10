@@ -126,7 +126,7 @@ Status: living document · Last updated: 2026-10-26
 | T-035 | Pre-GATE 1 Plan Review Subagent and 3-Subagent Parallel Review Triad | M | T-034 | Phase A plan review subagent, 3 parallel review lenses in Phase C.2, contract and CLI updates | D-031 | Done |
 | T-036 | Binding Human Feedback Rule F-001 (Resolve all review findings) | S | T-035 | Binding rule F-001 in SKILLS.md §8, contract enforcement, and sdd check rules | D-032 | Done |
 | T-037 | Document lifecycle YAML frontmatter metadata and .ragignore generation | M | T-034 | YAML frontmatter (status, task_id, superseded_by) and .ragignore for deterministic RAG filtering | D-033 | Done |
-| T-038 | Native sdd self-update CLI binary updater | S | T-034 | In-place self-update command fetching and replacing latest release binary from GitHub | none | Not started |
+| T-038 | Native sdd self-update CLI binary updater | S | T-034 | In-place self-update command fetching and replacing latest release binary from GitHub | D-034 | Awaiting review |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -153,13 +153,14 @@ Unfamiliar technology derails projects. To prevent that:
 ## 8. Next action
 
 1. M0 through M8 are complete (34 tasks delivered).
-2. Milestone 9 in progress: Multi-Agent Workspace Ergonomics and Review Ensemble (T-034 to T-037 done; T-038 remaining).
-3. Next task: T-038 Native sdd self-update CLI binary updater.
+2. Milestone 9 complete: Multi-Agent Workspace Ergonomics and Review Ensemble (T-034 to T-038 delivered).
+3. Next milestone: Milestone 10: Remote CI & PR Orchestration.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-10 | T-038: Native sdd self-update CLI binary updater awaiting review (Milestone 9 complete) |
 | 2026-11-10 | T-037: Document lifecycle YAML frontmatter metadata and .ragignore generation done |
 | 2026-11-10 | T-036: Binding Human Feedback Rule F-001 (Resolve all review findings) done |
 | 2026-11-10 | T-035: Pre-GATE 1 Plan Review Subagent and 3-Subagent Parallel Review Triad done |

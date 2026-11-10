@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -23,6 +24,7 @@ type IO struct {
 	Now         func() time.Time
 	Getenv      func(string) string
 	Home        func() string
+	HTTPClient  *http.Client
 }
 
 func (e IO) now() time.Time {
@@ -76,6 +78,7 @@ commands:
   adopt                      adopt an existing hand-crafted kit by generating .sdd/manifest.json
   install                    install sdd to user binary directory and configure PATH
   uninstall                  remove installed sdd binary and shell PATH configuration
+  self-update                update sdd binary in place to the latest GitHub release (alias: update)
   version                    print the sdd version
 
 Run "sdd <command> -h" for the flags of a command.
@@ -124,6 +127,8 @@ func Run(args []string, env IO) int {
 		return runInstall(args[1:], env)
 	case "uninstall":
 		return runUninstall(args[1:], env)
+	case "self-update", "update":
+		return runSelfUpdate(args[1:], env)
 	case "version", "--version", "-v":
 		fprintf(env.Out, "sdd %s (templates %s)\n", version.Version, templates.Version)
 		return 0

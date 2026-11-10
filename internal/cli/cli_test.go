@@ -2,15 +2,22 @@ package cli
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
 	osexec "os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/vikashkumar21/sdd/internal/scaffold"
+	"github.com/vikashkumar21/sdd/internal/update"
 )
 
 var fixedNow = func() time.Time { return time.Date(2026, 10, 22, 9, 0, 0, 0, time.UTC) }
@@ -1537,5 +1544,334 @@ func TestPromptPlanReviewJSON(t *testing.T) {
 	}
 	if len(ctx.Rubric) == 0 {
 		t.Errorf("expected non-empty Rubric in json output")
+	}
+}
+
+type cliMockRoundTripper func(req *http.Request) (*http.Response, error)
+
+func (f cliMockRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func setupSelfUpdateMock(t *testing.T, latestVersion, binaryPayload string) (*http.Client, string, string) {
+	t.Helper()
+	assetName := update.AssetName(runtime.GOOS, runtime.GOARCH)
+
+	hasher := sha256.New()
+	hasher.Write([]byte(binaryPayload))
+	binHash := hex.EncodeToString(hasher.Sum(nil))
+	checksums := fmt.Sprintf("%s  %s\n", binHash, assetName)
+
+	client := &http.Client{
+		Transport: cliMockRoundTripper(func(req *http.Request) (*http.Response, error) {
+			path := req.URL.Path
+			switch path {
+			case "/repos/vikashkumar21/sdd/releases/latest":
+				rel := update.Release{
+					TagName:     "v" + latestVersion,
+					Name:        "Release " + latestVersion,
+					PublishedAt: "2026-11-10T12:00:00Z",
+					Assets: []update.Asset{
+						{
+							Name:               assetName,
+							BrowserDownloadURL: "https://mock.local/download/" + assetName,
+							Size:               int64(len(binaryPayload)),
+						},
+						{
+							Name:               "SHA256SUMS",
+							BrowserDownloadURL: "https://mock.local/download/SHA256SUMS",
+							Size:               int64(len(checksums)),
+						},
+					},
+				}
+				data, _ := json.Marshal(rel)
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(data)),
+					Header:     make(http.Header),
+				}, nil
+			case "/repos/vikashkumar21/sdd/releases/tags/v1.3.0":
+				rel := update.Release{
+					TagName:     "v1.3.0",
+					Name:        "Release 1.3.0",
+					PublishedAt: "2026-11-01T12:00:00Z",
+					Assets: []update.Asset{
+						{
+							Name:               assetName,
+							BrowserDownloadURL: "https://mock.local/download/" + assetName,
+							Size:               int64(len(binaryPayload)),
+						},
+						{
+							Name:               "SHA256SUMS",
+							BrowserDownloadURL: "https://mock.local/download/SHA256SUMS",
+							Size:               int64(len(checksums)),
+						},
+					},
+				}
+				data, _ := json.Marshal(rel)
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader(data)),
+					Header:     make(http.Header),
+				}, nil
+			case "/download/" + assetName:
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader([]byte(binaryPayload))),
+					Header:     make(http.Header),
+				}, nil
+			case "/download/SHA256SUMS":
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(bytes.NewReader([]byte(checksums))),
+					Header:     make(http.Header),
+				}, nil
+			default:
+				return &http.Response{
+					StatusCode: http.StatusNotFound,
+					Status:     "404 Not Found",
+					Body:       io.NopCloser(bytes.NewReader([]byte("not found"))),
+					Header:     make(http.Header),
+				}, nil
+			}
+		}),
+	}
+	return client, assetName, binHash
+}
+
+func execSelfUpdate(t *testing.T, stdin string, interactive bool, client *http.Client, binPath string, args ...string) result {
+	t.Helper()
+	var out, errb bytes.Buffer
+	env := IO{
+		In:          strings.NewReader(stdin),
+		Out:         &out,
+		Err:         &errb,
+		Interactive: interactive,
+		Now:         fixedNow,
+		Getenv: func(k string) string {
+			if k == "SDD_UPDATE_BASE_URL" {
+				return "https://mock.local/repos/vikashkumar21/sdd"
+			}
+			if k == "SDD_EXEC_PATH" {
+				return binPath
+			}
+			return ""
+		},
+		Home:       func() string { return "" },
+		HTTPClient: client,
+	}
+	code := Run(args, env)
+	return result{code, out.String(), errb.String()}
+}
+
+func TestSelfUpdate_CheckOnly(t *testing.T) {
+	client, _, _ := setupSelfUpdateMock(t, "9.0.0", "binary-9.0.0")
+
+	// 1. Update available
+	r := execSelfUpdate(t, "", false, client, "", "self-update", "--check")
+	if r.code != 0 {
+		t.Fatalf("expected code 0, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Update available:") || !strings.Contains(r.out, "9.0.0") {
+		t.Errorf("expected update available message, got %q", r.out)
+	}
+
+	// 2. Already up-to-date (mocking 1.4.0)
+	clientCurrent, _, _ := setupSelfUpdateMock(t, "1.4.0", "binary-1.4.0")
+	r = execSelfUpdate(t, "", false, clientCurrent, "", "update", "--check")
+	if r.code != 0 {
+		t.Fatalf("expected code 0, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "sdd is up-to-date") {
+		t.Errorf("expected up-to-date message, got %q", r.out)
+	}
+}
+
+func TestSelfUpdate_CheckOnly_JSON(t *testing.T) {
+	client, _, _ := setupSelfUpdateMock(t, "9.0.0", "binary-9.0.0")
+
+	r := execSelfUpdate(t, "", false, client, "", "self-update", "--check", "--json")
+	if r.code != 0 {
+		t.Fatalf("expected code 0, got %d: %s", r.code, r.err)
+	}
+
+	var res update.CheckResult
+	if err := json.Unmarshal([]byte(r.out), &res); err != nil {
+		t.Fatalf("failed to decode JSON check result: %v (raw: %s)", err, r.out)
+	}
+	if !res.UpdateAvailable {
+		t.Errorf("expected UpdateAvailable true")
+	}
+	if res.LatestVersion != "9.0.0" {
+		t.Errorf("got LatestVersion %q, want 9.0.0", res.LatestVersion)
+	}
+}
+
+func TestSelfUpdate_DryRun(t *testing.T) {
+	tmpDir := t.TempDir()
+	binPath := filepath.Join(tmpDir, "sdd")
+	if err := os.WriteFile(binPath, []byte("initial-binary"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	client, _, _ := setupSelfUpdateMock(t, "9.0.0", "binary-9.0.0")
+
+	r := execSelfUpdate(t, "", false, client, binPath, "self-update", "--dry-run", "--yes")
+	if r.code != 0 {
+		t.Fatalf("expected code 0, got %d: %s", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Dry run complete: binary not modified") {
+		t.Errorf("expected dry run complete message, got %q", r.out)
+	}
+
+	content, err := os.ReadFile(binPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != "initial-binary" {
+		t.Errorf("binary was modified during dry-run: %q", string(content))
+	}
+}
+
+func TestSelfUpdate_TargetVersion(t *testing.T) {
+	client, _, _ := setupSelfUpdateMock(t, "9.0.0", "binary-1.3.0")
+
+	r := execSelfUpdate(t, "", false, client, "", "self-update", "--check", "--version", "1.3.0", "--json")
+	if r.code != 0 {
+		t.Fatalf("expected code 0, got %d: %s", r.code, r.err)
+	}
+
+	var res update.CheckResult
+	if err := json.Unmarshal([]byte(r.out), &res); err != nil {
+		t.Fatalf("failed to parse JSON: %v", err)
+	}
+	if res.LatestVersion != "1.3.0" {
+		t.Errorf("got %q, want 1.3.0", res.LatestVersion)
+	}
+}
+
+func TestSelfUpdate_InteractiveAndYes(t *testing.T) {
+	client, _, _ := setupSelfUpdateMock(t, "9.0.0", "new-payload-9.0.0")
+
+	t.Run("non-interactive with yes flag", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		binPath := filepath.Join(tmpDir, "sdd")
+		if err := os.WriteFile(binPath, []byte("old-payload"), 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		r := execSelfUpdate(t, "", false, client, binPath, "self-update", "--yes")
+		if r.code != 0 {
+			t.Fatalf("expected code 0, got %d: %s", r.code, r.err)
+		}
+		if !strings.Contains(r.out, "Successfully updated sdd to 9.0.0") {
+			t.Errorf("unexpected output: %q", r.out)
+		}
+
+		content, _ := os.ReadFile(binPath)
+		if string(content) != "new-payload-9.0.0" {
+			t.Errorf("binary content = %q, want new-payload-9.0.0", string(content))
+		}
+	})
+
+	t.Run("interactive prompt confirmed", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		binPath := filepath.Join(tmpDir, "sdd")
+		if err := os.WriteFile(binPath, []byte("old-payload"), 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		r := execSelfUpdate(t, "y\n", true, client, binPath, "self-update")
+		if r.code != 0 {
+			t.Fatalf("expected code 0, got %d: %s", r.code, r.err)
+		}
+		if !strings.Contains(r.out, "Successfully updated sdd to 9.0.0") {
+			t.Errorf("unexpected output: %q", r.out)
+		}
+
+		content, _ := os.ReadFile(binPath)
+		if string(content) != "new-payload-9.0.0" {
+			t.Errorf("binary content = %q, want new-payload-9.0.0", string(content))
+		}
+	})
+
+	t.Run("interactive prompt cancelled", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		binPath := filepath.Join(tmpDir, "sdd")
+		if err := os.WriteFile(binPath, []byte("old-payload"), 0755); err != nil {
+			t.Fatal(err)
+		}
+
+		r := execSelfUpdate(t, "n\n", true, client, binPath, "self-update")
+		if r.code != 0 {
+			t.Fatalf("expected code 0, got %d: %s", r.code, r.err)
+		}
+		if !strings.Contains(r.out, "Update cancelled") {
+			t.Errorf("expected cancellation message, got %q", r.out)
+		}
+
+		content, _ := os.ReadFile(binPath)
+		if string(content) != "old-payload" {
+			t.Errorf("binary was modified on cancellation: %q", string(content))
+		}
+	})
+}
+
+func TestSelfUpdate_ChecksumMismatch(t *testing.T) {
+	assetName := update.AssetName(runtime.GOOS, runtime.GOARCH)
+	badClient := &http.Client{
+		Transport: cliMockRoundTripper(func(req *http.Request) (*http.Response, error) {
+			path := req.URL.Path
+			switch path {
+			case "/repos/vikashkumar21/sdd/releases/latest":
+				rel := update.Release{
+					TagName: "v9.0.0",
+					Assets: []update.Asset{
+						{Name: assetName, BrowserDownloadURL: "https://mock.local/download/" + assetName},
+						{Name: "SHA256SUMS", BrowserDownloadURL: "https://mock.local/download/SHA256SUMS"},
+					},
+				}
+				data, _ := json.Marshal(rel)
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader(data))}, nil
+			case "/download/" + assetName:
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader([]byte("corrupt-bytes")))}, nil
+			case "/download/SHA256SUMS":
+				// mismatched hash
+				chk := fmt.Sprintf("%s  %s\n", strings.Repeat("a", 64), assetName)
+				return &http.Response{StatusCode: 200, Body: io.NopCloser(bytes.NewReader([]byte(chk)))}, nil
+			default:
+				return &http.Response{StatusCode: 404, Body: io.NopCloser(bytes.NewReader([]byte("not found")))}, nil
+			}
+		}),
+	}
+
+	tmpDir := t.TempDir()
+	binPath := filepath.Join(tmpDir, "sdd")
+	if err := os.WriteFile(binPath, []byte("original-unmodified"), 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	r := execSelfUpdate(t, "", false, badClient, binPath, "self-update", "--yes")
+	if r.code != 1 {
+		t.Fatalf("expected code 1 on checksum failure, got %d", r.code)
+	}
+	if !strings.Contains(r.err, "checksum mismatch") {
+		t.Errorf("expected checksum mismatch error, got %q", r.err)
+	}
+
+	content, _ := os.ReadFile(binPath)
+	if string(content) != "original-unmodified" {
+		t.Errorf("binary was modified on checksum failure: %q", string(content))
+	}
+}
+
+func TestSelfUpdate_InvalidVersionTag(t *testing.T) {
+	client, _, _ := setupSelfUpdateMock(t, "9.0.0", "binary-9.0.0")
+	r := execSelfUpdate(t, "", false, client, "", "self-update", "--version", "../../escape", "--check")
+	if r.code != 1 {
+		t.Fatalf("expected code 1 on invalid version tag, got %d", r.code)
+	}
+	if !strings.Contains(r.err, "invalid version tag") {
+		t.Errorf("expected invalid version tag error, got %q", r.err)
 	}
 }

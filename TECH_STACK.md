@@ -137,6 +137,7 @@ internal/version/     build version (set with -ldflags)
 | D-031 | Pre-GATE 1 Plan Review Subagent and 3-Subagent Parallel Review Triad | **Approved** 2026-11-10 | n/a | Option A: Add Plan Reviewer subagent in Phase A before GATE 1; spawn 3 parallel subagent reviewers (Spec Auditor, AppSec Specialist, Pattern Auditor) in Phase C.2 |
 | D-032 | Human Feedback Rule F-001 (Resolve all review findings: Blockers, Warnings, and Minors) | **Approved** 2026-11-10 | n/a | Option A: Enact binding Rule F-001 in SKILLS.md §8 and contracts: worker agents must resolve all Blockers, Warnings, and Minors before GATE 2; any retained item must be explicitly justified |
 | D-033 | Lifecycle YAML frontmatter metadata and `.ragignore` for RAG filtering | **Approved** 2026-11-10 | n/a | Option A: Standard YAML frontmatter (status: active/draft/completed/superseded/deprecated, task_id, superseded_by, last_reviewed) and .ragignore generation for deterministic vector/RAG indexing |
+| D-034 | Native binary self-update architecture and verification | **Approved** 2026-11-10 | n/a | Option A: In-place self-update via sdd self-update with GitHub Releases API, SHA256 checksum verification, atomic swap, and rollback |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 
@@ -166,6 +167,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-10 | Pre-GATE 1 plan review protocol (sdd prompt plan-review, --json export), 3-subagent parallel review triad (sdd prompt review --lens), batch remediation protocol, and template version 1.5.0 verified | Run in internal/cli, internal/check, and templates tests (T-035) | M10 |
 | 2026-11-10 | Binding Human Feedback Rule F-001 (all review findings resolved before GATE 2), mechanical sdd check verification of Blockers/Warnings/Minors, and template version 1.6.0 verified | Run in internal/check, internal/cli, and templates tests (T-036) | M10 |
 | 2026-11-10 | Document lifecycle YAML frontmatter metadata (status, task_id, last_reviewed, superseded_by), .ragignore generation (sdd init/upgrade), mechanical validation (ragignore-missing, lifecycle-status, lifecycle-date, lifecycle-superseded), and template version 1.7.0 verified | Run in internal/doc, internal/scaffold, internal/upgrade, internal/check, and templates tests (T-037) | M10 |
+| 2026-11-10 | Native binary self-update (sdd self-update), GitHub Releases API, SHA256 integrity verification, symlink-aware atomic binary replacement, and 100% offline mock tests verified | Run in internal/update, internal/cli tests (T-038) | M10 |
 
 ## 8. Dependency register
 

@@ -36,6 +36,7 @@ Prebuilt static binaries for macOS, Linux, and Windows are available in `dist/` 
 
 - **Double-click setup:** Double-click the downloaded binary in macOS Finder or Windows Explorer. An interactive terminal will prompt you to install `sdd` directly to your user path (`~/.local/bin/sdd` on macOS/Linux, `%LOCALAPPDATA%\Programs\sdd\sdd.exe` on Windows) and configure your shell `PATH` (`~/.zshrc`, `~/.bashrc`, or user registry). It pauses with `Press Enter to exit...` so the confirmation remains visible before closing.
 - **CLI self-install:** Run `./sdd install` from any downloaded binary directory.
+- **In-place self-update:** Run `sdd self-update` (or `sdd update`) to automatically check, download, verify SHA256 integrity, and upgrade your binary to the latest GitHub release.
 - **Uninstallation:** Run `sdd uninstall --yes` to cleanly remove the binary and restore your shell configuration.
 
 ### 3. From source (needs Go)
@@ -125,6 +126,13 @@ sdd install                               # install sdd to ~/.local/bin/sdd and 
 sdd install --dry-run                     # preview binary and shell profile changes without writing
 sdd uninstall                             # cleanly remove binary and strip PATH additions from shell profile
 sdd uninstall --yes                       # uninstall without interactive confirmation
+
+sdd self-update                           # update sdd binary in place to the latest GitHub release (alias: sdd update)
+sdd self-update --check                   # check if an update is available without downloading or modifying files
+sdd self-update --check --json            # machine-readable JSON update check
+sdd self-update --dry-run                 # download and verify binary without replacing executable
+sdd self-update --version 1.5.0           # install a specific release version (upgrade or downgrade)
+sdd self-update --yes                     # proceed without interactive confirmation
 ```
 
 ### Greenfield and brownfield
