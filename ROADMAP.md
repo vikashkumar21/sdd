@@ -126,7 +126,7 @@ Status: living document · Last updated: 2026-10-26
 | T-035 | Pre-GATE 1 Plan Review Subagent and 3-Subagent Parallel Review Triad | M | T-034 | Phase A plan review subagent, 3 parallel review lenses in Phase C.2, contract and CLI updates | D-031 | Done |
 | T-036 | Binding Human Feedback Rule F-001 (Resolve all review findings) | S | T-035 | Binding rule F-001 in SKILLS.md §8, contract enforcement, and sdd check rules | D-032 | Done |
 | T-037 | Document lifecycle YAML frontmatter metadata and .ragignore generation | M | T-034 | YAML frontmatter (status, task_id, superseded_by) and .ragignore for deterministic RAG filtering | D-033 | Done |
-| T-038 | Native sdd self-update CLI binary updater | S | T-034 | In-place self-update command fetching and replacing latest release binary from GitHub | D-034 | Awaiting review |
+| T-038 | Native sdd self-update CLI binary updater | S | T-034 | In-place self-update command fetching and replacing latest release binary from GitHub | D-034 | Done |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -160,7 +160,7 @@ Unfamiliar technology derails projects. To prevent that:
 
 | Date | Change |
 |---|---|
-| 2026-11-10 | T-038: Native sdd self-update CLI binary updater awaiting review (Milestone 9 complete) |
+| 2026-11-10 | T-038: Native sdd self-update CLI binary updater done (Milestone 9 complete) |
 | 2026-11-10 | T-037: Document lifecycle YAML frontmatter metadata and .ragignore generation done |
 | 2026-11-10 | T-036: Binding Human Feedback Rule F-001 (Resolve all review findings) done |
 | 2026-11-10 | T-035: Pre-GATE 1 Plan Review Subagent and 3-Subagent Parallel Review Triad done |

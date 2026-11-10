@@ -1,12 +1,12 @@
 ---
-status: draft
+status: completed
 task_id: T-038
 ---
 # Plan — T-038 Native sdd self-update CLI binary updater
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
-Status: Draft
+Status: Completed
 
 ## 1. Approach summary
 Implement a self-contained in-place binary self-update engine in `internal/update` using pure Go standard library (`net/http`, `crypto/sha256`, `os`, `path/filepath`, `runtime`), wire the CLI command `sdd self-update` (with alias `sdd update`) into `internal/cli`, provide flags (`--check`, `--dry-run`, `--version`, `--force`, `--yes`, `--json`), and verify with 100% offline unit and integration tests using `httptest.Server`.

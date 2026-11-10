@@ -1,12 +1,12 @@
 ---
-status: draft
+status: completed
 task_id: T-038
 ---
 # Requirements — T-038 Native sdd self-update CLI binary updater
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
-Status: Approved
+Status: Completed
 Roadmap ref: `ROADMAP.md` T-038
 
 ## 1. Goal
