@@ -281,6 +281,7 @@ func BuildPlan(root string, opts Options) (*Plan, error) {
 		{"ROADMAP.md", "base/ROADMAP.md.tmpl", false},
 		{"SKILLS.md", "base/SKILLS.md.tmpl", false},
 		{"README.md", "base/README.md.tmpl", true},
+		{".ragignore", "base/.ragignore.tmpl", false},
 	}
 	for _, doc := range coreDocs {
 		rendered, err := set.Render(doc.tmpl, data)

@@ -124,8 +124,8 @@ Status: living document · Last updated: 2026-10-26
 |---|---|---|---|---|---|---|
 | T-034 | Unified tasks/ directory hierarchy and sdd upgrade auto-migration | M | T-033 | Reorganize typology folders under tasks/, sdd upgrade auto-migration, update CLI and sdd check | D-030 | Done |
 | T-035 | Pre-GATE 1 Plan Review Subagent and 3-Subagent Parallel Review Triad | M | T-034 | Phase A plan review subagent, 3 parallel review lenses in Phase C.2, contract and CLI updates | D-031 | Done |
-| T-036 | Binding Human Feedback Rule F-001 (Resolve all review findings) | S | T-035 | Binding rule F-001 in SKILLS.md §8, contract enforcement, and sdd check rules | D-032 | Awaiting review |
-| T-037 | Document lifecycle YAML frontmatter metadata and .ragignore generation | M | T-034 | YAML frontmatter (status, task_id, superseded_by) and .ragignore for deterministic RAG filtering | D-033 | Not started |
+| T-036 | Binding Human Feedback Rule F-001 (Resolve all review findings) | S | T-035 | Binding rule F-001 in SKILLS.md §8, contract enforcement, and sdd check rules | D-032 | Done |
+| T-037 | Document lifecycle YAML frontmatter metadata and .ragignore generation | M | T-034 | YAML frontmatter (status, task_id, superseded_by) and .ragignore for deterministic RAG filtering | D-033 | Implementing |
 | T-038 | Native sdd self-update CLI binary updater | S | T-034 | In-place self-update command fetching and replacing latest release binary from GitHub | none | Not started |
 
 ## 5. Unknown-technology protocol (spikes)
@@ -153,13 +153,14 @@ Unfamiliar technology derails projects. To prevent that:
 ## 8. Next action
 
 1. M0 through M8 are complete (34 tasks delivered).
-2. Milestone 9 in progress: Multi-Agent Workspace Ergonomics and Review Ensemble (T-034, T-035 done; T-036 to T-038 remaining).
-3. Next task: T-036 Binding Human Feedback Rule F-001 (Resolve all review findings).
+2. Milestone 9 in progress: Multi-Agent Workspace Ergonomics and Review Ensemble (T-034 to T-036 done; T-037, T-038 remaining).
+3. Next task: T-037 Document lifecycle YAML frontmatter metadata and .ragignore generation.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-10 | T-036: Binding Human Feedback Rule F-001 (Resolve all review findings) done |
 | 2026-11-10 | T-035: Pre-GATE 1 Plan Review Subagent and 3-Subagent Parallel Review Triad done |
 | 2026-11-10 | T-034: Unified tasks/ directory hierarchy and sdd upgrade auto-migration done |
 | 2026-11-10 | Milestone 9 added: Multi-Agent Workspace Ergonomics and Review Ensemble (T-034 to T-038; D-030, D-031, D-032, D-033) |

@@ -73,7 +73,7 @@ func TestGreenfieldCreatesTheWholeKit(t *testing.T) {
 	rep := apply(t, plan(t, root, answers(), false))
 	want := []string{
 		"CLAUDE.md", "GEMINI.md", "AGENTS.md", "MISSION.md", "TECH_STACK.md", "ROADMAP.md", "SKILLS.md",
-		"README.md", "tasks/features/_templates/requirements.md", "tasks/features/_templates/plan.md",
+		"README.md", ".ragignore", "tasks/features/_templates/requirements.md", "tasks/features/_templates/plan.md",
 		"tasks/features/_templates/validation.md", "tasks/features/_templates/review.md", ".sdd/manifest.json",
 	}
 	for _, rel := range want {
@@ -221,7 +221,7 @@ func TestOutputIsDeterministic(t *testing.T) {
 	rootA, rootB := t.TempDir(), t.TempDir()
 	apply(t, plan(t, rootA, answers(), false))
 	apply(t, plan(t, rootB, answers(), false))
-	for _, rel := range []string{"CLAUDE.md", "MISSION.md", "TECH_STACK.md", "ROADMAP.md", "SKILLS.md", "README.md", ".sdd/manifest.json"} {
+	for _, rel := range []string{"CLAUDE.md", "MISSION.md", "TECH_STACK.md", "ROADMAP.md", "SKILLS.md", "README.md", ".ragignore", ".sdd/manifest.json"} {
 		if read(t, rootA, rel) != read(t, rootB, rel) {
 			t.Errorf("%s differs between two identical runs", rel)
 		}

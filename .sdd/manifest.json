@@ -5,7 +5,7 @@
     "version": "0.1.0"
   },
   "templates": {
-    "version": "1.6.0"
+    "version": "1.7.0"
   },
   "generated": "2026-10-26",
   "answers": {
@@ -77,6 +77,12 @@
       "path": "README.md",
       "kind": "file",
       "state": "existing"
+    },
+    {
+      "path": ".ragignore",
+      "kind": "file",
+      "state": "created",
+      "sha256": "72c46b0f41580fb2e02b900e2ed01f6e2d957f6fbbd9e2822979833694c89474"
     },
     {
       "path": "tasks/features/_templates/requirements.md",

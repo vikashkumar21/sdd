@@ -17,6 +17,7 @@ import (
 	"github.com/vikashkumar21/sdd/internal/block"
 	"github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/deconflict"
+	"github.com/vikashkumar21/sdd/internal/doc"
 	"github.com/vikashkumar21/sdd/internal/markdown"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
@@ -205,6 +206,7 @@ func (c *checker) run() {
 
 	c.requireFiles(agents)
 	c.checkReadme()
+	c.checkRAGIgnore()
 	docs := c.markdownFiles()
 	for _, rel := range docs {
 		text, ok := c.load(rel)
@@ -213,6 +215,7 @@ func (c *checker) run() {
 		}
 		c.checkFences(rel, text)
 		c.checkTables(rel, text)
+		c.checkLifecycle(rel, text)
 	}
 	c.checkReferences(docs)
 	c.checkParity(agents)
@@ -315,6 +318,13 @@ func (c *checker) checkReadme() {
 	}
 }
 
+func (c *checker) checkRAGIgnore() {
+	ragignorePath := filepath.Join(c.root, ".ragignore")
+	if _, err := os.Stat(ragignorePath); os.IsNotExist(err) {
+		c.add(Warn, ".ragignore", 0, "ragignore-missing", "missing root .ragignore file; run sdd upgrade or create one for RAG filtering")
+	}
+}
+
 func (c *checker) checkOptionalAgents(required []string) {
 	have := map[string]bool{}
 	for _, r := range required {
@@ -383,6 +393,28 @@ func (c *checker) checkTables(rel, text string) {
 				c.add(Error, rel, r.LineNo, "table-format", "table row has %d columns, header has %d (pipes mismatch or unescaped literal pipe)", r.Columns, want)
 			}
 		}
+	}
+}
+
+func (c *checker) checkLifecycle(rel, text string) {
+	meta, hasFM, isLife, _, err := doc.ParseFrontmatter([]byte(text))
+	if err != nil {
+		c.add(Warn, rel, 0, "lifecycle-syntax", "malformed frontmatter: %v", err)
+		return
+	}
+	if !hasFM || !isLife {
+		return
+	}
+
+	fileExists := func(target string) bool {
+		targetPath := filepath.Join(c.root, filepath.FromSlash(target))
+		_, err := os.Stat(targetPath)
+		return err == nil
+	}
+
+	errs := doc.ValidateLifecycle(meta, rel, fileExists)
+	for _, e := range errs {
+		c.add(Warn, rel, 0, e.Rule, "%s", e.Message)
 	}
 }
 

@@ -181,6 +181,18 @@ func TestDetectsProblems(t *testing.T) {
 				return strings.Replace(s, "\n| T-001 |", "\n| T-000 |", 1)
 			})
 		}, Error, "duplicate task ID"},
+		{"missing ragignore", func(t *testing.T, root string) {
+			_ = os.Remove(filepath.Join(root, ".ragignore"))
+		}, Warn, "ragignore"},
+		{"invalid lifecycle status", func(t *testing.T, root string) {
+			edit(t, root, "MISSION.md", func(s string) string { return "---\nstatus: invalid_status\n---\n" + s })
+		}, Warn, "invalid status"},
+		{"malformed lifecycle date", func(t *testing.T, root string) {
+			edit(t, root, "MISSION.md", func(s string) string { return "---\nstatus: active\nlast_reviewed: 11-10-2026\n---\n" + s })
+		}, Warn, "invalid date format"},
+		{"superseded with nonexistent target", func(t *testing.T, root string) {
+			edit(t, root, "MISSION.md", func(s string) string { return "---\nstatus: superseded\nsuperseded_by: nonexistent.md\n---\n" + s })
+		}, Warn, "does not exist"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1445,6 +1457,134 @@ Approved by: human Date: 2026-11-05 Phrase received: APPROVED T-002
 	for _, f := range repDisjoint.Findings {
 		if f.Rule == "task-overlap" {
 			t.Errorf("expected no task-overlap warning for disjoint tasks, got: %+v", f)
+		}
+	}
+}
+
+func TestRAGIgnoreAndLifecycle(t *testing.T) {
+	root := generate(t)
+
+	// 1. Initially fresh kit has .ragignore and no lifecycle warnings
+	r1 := run(t, root)
+	for _, f := range r1.Findings {
+		if f.Rule == "ragignore-missing" || strings.HasPrefix(f.Rule, "lifecycle-") {
+			t.Errorf("unexpected finding on fresh kit: %+v", f)
+		}
+	}
+
+	// 2. Missing .ragignore reports ragignore-missing rule
+	_ = os.Remove(filepath.Join(root, ".ragignore"))
+	r2 := run(t, root)
+	foundRagMissing := false
+	for _, f := range r2.Findings {
+		if f.Rule == "ragignore-missing" {
+			foundRagMissing = true
+			if f.Severity != Warn {
+				t.Errorf("expected ragignore-missing to be WARN, got %v", f.Severity)
+			}
+			break
+		}
+	}
+	if !foundRagMissing {
+		t.Errorf("expected ragignore-missing warning, findings: %+v", r2.Findings)
+	}
+
+	// Recreate .ragignore to isolate lifecycle tests
+	put(t, root, ".ragignore", ".sdd/\nbin/\n")
+
+	// 3. Document with valid frontmatter has no warnings
+	put(t, root, "MISSION.md", `---
+status: active
+task_id: T-037
+last_reviewed: 2026-11-10
+---
+# MISSION — demo
+`)
+	r3 := run(t, root)
+	for _, f := range r3.Findings {
+		if strings.HasPrefix(f.Rule, "lifecycle-") {
+			t.Errorf("unexpected lifecycle finding on valid doc: %+v", f)
+		}
+	}
+
+	// 4. Invalid status reports lifecycle-status
+	put(t, root, "MISSION.md", `---
+status: bogus_status
+---
+# MISSION — demo
+`)
+	r4 := run(t, root)
+	foundStatus := false
+	for _, f := range r4.Findings {
+		if f.Rule == "lifecycle-status" {
+			foundStatus = true
+			if f.Severity != Warn {
+				t.Errorf("expected lifecycle-status to be WARN, got %v", f.Severity)
+			}
+		}
+	}
+	if !foundStatus {
+		t.Errorf("expected lifecycle-status warning, got: %+v", r4.Findings)
+	}
+
+	// 5. Malformed date reports lifecycle-date
+	put(t, root, "MISSION.md", `---
+status: active
+last_reviewed: 10/11/2026
+---
+# MISSION — demo
+`)
+	r5 := run(t, root)
+	foundDate := false
+	for _, f := range r5.Findings {
+		if f.Rule == "lifecycle-date" {
+			foundDate = true
+			if f.Severity != Warn {
+				t.Errorf("expected lifecycle-date to be WARN, got %v", f.Severity)
+			}
+		}
+	}
+	if !foundDate {
+		t.Errorf("expected lifecycle-date warning, got: %+v", r5.Findings)
+	}
+
+	// 6. Superseded with missing target reports lifecycle-superseded
+	put(t, root, "MISSION.md", `---
+status: superseded
+superseded_by: nonexistent-file.md
+---
+# MISSION — demo
+`)
+	r6 := run(t, root)
+	foundSuper := false
+	for _, f := range r6.Findings {
+		if f.Rule == "lifecycle-superseded" {
+			foundSuper = true
+			if f.Severity != Warn {
+				t.Errorf("expected lifecycle-superseded to be WARN, got %v", f.Severity)
+			}
+		}
+	}
+	if !foundSuper {
+		t.Errorf("expected lifecycle-superseded warning, got: %+v", r6.Findings)
+	}
+
+	// 7. Non-lifecycle frontmatter (like skills) does not trigger lifecycle validation
+	put(t, root, "MISSION.md", `---
+status: active
+---
+# MISSION — demo
+`)
+	put(t, root, "skills/test/SKILL.md", `---
+name: test
+description: A test skill
+---
+# Test Skill
+`)
+	r7 := run(t, root)
+	for _, f := range r7.Findings {
+		if strings.HasPrefix(f.Rule, "lifecycle-") {
+			t.Errorf("unexpected lifecycle finding on skill frontmatter: %+v", f)
 		}
 	}
 }

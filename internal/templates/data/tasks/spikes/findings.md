@@ -1,3 +1,6 @@
+---
+status: draft
+---
 # Spike Findings & Decisions — T-xxx <title>
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.

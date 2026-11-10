@@ -117,6 +117,7 @@ func BuildPlan(root string, a Answers, det detect.Result, set *templates.Set, no
 		{"ROADMAP.md", "base/ROADMAP.md.tmpl", false},
 		{"SKILLS.md", "base/SKILLS.md.tmpl", false},
 		{"README.md", "base/README.md.tmpl", true},
+		{".ragignore", "base/.ragignore.tmpl", false},
 	}
 	for _, w := range whole {
 		content, err := set.Render(w.tmpl, data)

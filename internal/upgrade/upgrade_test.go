@@ -1,6 +1,7 @@
 package upgrade
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
@@ -643,5 +644,77 @@ func TestUpgradeMigrationIsDeterministic(t *testing.T) {
 
 	if string(m1) != string(m2) {
 		t.Errorf("manifests after upgrade are not identical across runs:\n--- run 1 ---\n%s\n--- run 2 ---\n%s", string(m1), string(m2))
+	}
+}
+
+func TestUpgradeInstallsMissingRAGIgnore(t *testing.T) {
+	root := generateKit(t)
+
+	// Remove .ragignore if present
+	ragignorePath := filepath.Join(root, ".ragignore")
+	_ = os.Remove(ragignorePath)
+
+	// Also remove .ragignore entry from manifest to simulate kit created before .ragignore
+	manifestPath := filepath.Join(root, ".sdd", "manifest.json")
+	m, ok, err := scaffold.ReadManifest(root)
+	if err != nil || !ok {
+		t.Fatal(err)
+	}
+	var filtered []scaffold.FileEntry
+	for _, f := range m.Files {
+		if f.Path != ".ragignore" {
+			filtered = append(filtered, f)
+		}
+	}
+	m.Files = filtered
+	mBytes, err := json.MarshalIndent(m, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, append(mBytes, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatalf("BuildPlan failed: %v", err)
+	}
+
+	var ragItem *Item
+	for i := range plan.Items {
+		if plan.Items[i].Path == ".ragignore" {
+			ragItem = &plan.Items[i]
+			break
+		}
+	}
+	if ragItem == nil {
+		t.Fatal("expected .ragignore in plan items")
+	}
+	if ragItem.Action != ActionCreate {
+		t.Fatalf("expected ActionCreate for missing .ragignore, got %v", ragItem.Action)
+	}
+
+	rep, err := Apply(plan, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	found := false
+	for _, c := range rep.Created {
+		if c == ".ragignore" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected .ragignore in rep.Created, got: %+v", rep.Created)
+	}
+
+	content, err := os.ReadFile(ragignorePath)
+	if err != nil {
+		t.Fatalf("missing .ragignore file on disk: %v", err)
+	}
+	if !strings.Contains(string(content), ".sdd/") {
+		t.Errorf("expected .sdd/ in .ragignore content, got:\n%s", string(content))
 	}
 }
