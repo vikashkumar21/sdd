@@ -58,6 +58,17 @@ Document body
 			wantBodyPrefix: "Document body",
 		},
 		{
+			name:    "quoted value containing hash and large body line",
+			content: "---\nstatus: active\ntask_id: \"T-001 # draft\"\n---\n" + strings.Repeat("A", 70000) + "\n",
+			wantMeta: doc.LifecycleMetadata{
+				Status: "active",
+				TaskID: "T-001 # draft",
+			},
+			wantHasFM:      true,
+			wantIsLife:     true,
+			wantBodyPrefix: strings.Repeat("A", 100),
+		},
+		{
 			name: "non-lifecycle frontmatter (e.g. skill)",
 			content: `---
 name: code-review

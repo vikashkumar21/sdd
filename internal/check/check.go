@@ -406,9 +406,19 @@ func (c *checker) checkLifecycle(rel, text string) {
 		return
 	}
 
+	rootHandle, rerr := os.OpenRoot(c.root)
+	if rerr != nil {
+		c.add(Error, rel, 0, "lifecycle-root", "cannot open project root: %v", rerr)
+		return
+	}
+	defer func() { _ = rootHandle.Close() }()
+
 	fileExists := func(target string) bool {
-		targetPath := filepath.Join(c.root, filepath.FromSlash(target))
-		_, err := os.Stat(targetPath)
+		clean := filepath.Clean(filepath.FromSlash(strings.TrimSpace(target)))
+		if !filepath.IsLocal(clean) {
+			return false
+		}
+		_, err := rootHandle.Stat(clean)
 		return err == nil
 	}
 

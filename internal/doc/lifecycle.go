@@ -1,7 +1,6 @@
 package doc
 
 import (
-	"bufio"
 	"bytes"
 	"fmt"
 	"path/filepath"
@@ -10,15 +9,17 @@ import (
 )
 
 var (
-	dateRegex   = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
-	validStatus = map[string]bool{
-		"active":     true,
-		"draft":      true,
-		"completed":  true,
-		"superseded": true,
-		"deprecated": true,
-	}
+	dateRegex = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
 )
+
+func isValidStatus(status string) bool {
+	switch strings.ToLower(status) {
+	case "active", "draft", "completed", "superseded", "deprecated":
+		return true
+	default:
+		return false
+	}
+}
 
 // LifecycleMetadata represents the standard YAML frontmatter lifecycle schema.
 type LifecycleMetadata struct {
@@ -43,73 +44,65 @@ func (e LifecycleValidationError) Error() string {
 // It returns the parsed metadata, whether frontmatter was present,
 // whether it represents lifecycle metadata, the remaining markdown body, and any error.
 func ParseFrontmatter(data []byte) (meta LifecycleMetadata, hasFrontmatter bool, isLifecycle bool, body []byte, err error) {
-	scanner := bufio.NewScanner(bytes.NewReader(data))
-	lineNo := 0
-	foundOpening := false
+	lines := bytes.Split(data, []byte("\n"))
+	startIdx := -1
+	endIdx := -1
+	byteOffset := 0
 
-	for scanner.Scan() {
-		lineNo++
-		trimmed := strings.TrimSpace(scanner.Text())
-		if trimmed == "" {
-			continue
+	for i, rawLine := range lines {
+		lineStr := string(bytes.TrimRight(rawLine, "\r"))
+		trimmed := strings.TrimSpace(lineStr)
+
+		if startIdx == -1 {
+			if trimmed == "" {
+				byteOffset += len(rawLine) + 1
+				continue
+			}
+			if trimmed == "---" {
+				startIdx = i
+				byteOffset += len(rawLine) + 1
+				continue
+			}
+			// First non-empty line is not '---', so no frontmatter
+			return LifecycleMetadata{}, false, false, data, nil
 		}
+
+		// Inside frontmatter: looking for closing ---
 		if trimmed == "---" {
-			foundOpening = true
+			endIdx = i
+			byteOffset += len(rawLine) + 1
 			break
 		}
-		// First non-empty line is not '---', so no frontmatter
+		byteOffset += len(rawLine) + 1
+	}
+
+	if startIdx == -1 {
 		return LifecycleMetadata{}, false, false, data, nil
 	}
 
-	if !foundOpening {
-		return LifecycleMetadata{}, false, false, data, nil
+	if endIdx == -1 {
+		return LifecycleMetadata{}, true, false, data, fmt.Errorf("line %d: unclosed '---' frontmatter delimiter", len(lines))
 	}
 
 	hasFrontmatter = true
-	var frontmatterLines []string
-	foundClosing := false
-
-	for scanner.Scan() {
-		lineNo++
-		line := scanner.Text()
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "---" {
-			foundClosing = true
-			break
-		}
-		frontmatterLines = append(frontmatterLines, line)
+	if byteOffset <= len(data) {
+		body = data[byteOffset:]
+	} else {
+		body = nil
 	}
 
-	if !foundClosing {
-		return LifecycleMetadata{}, true, false, data, fmt.Errorf("line %d: unclosed '---' frontmatter delimiter", lineNo)
-	}
-
-	// Capture remaining body
-	var bodyBuf bytes.Buffer
-	for scanner.Scan() {
-		bodyBuf.WriteString(scanner.Text())
-		bodyBuf.WriteByte('\n')
-	}
-	body = bodyBuf.Bytes()
-
-	// Parse key-value pairs
+	// Parse key-value pairs between startIdx and endIdx
 	rawMap := make(map[string]string)
-	for _, rawLine := range frontmatterLines {
-		trimmed := strings.TrimSpace(rawLine)
+	for i := startIdx + 1; i < endIdx; i++ {
+		lineStr := string(bytes.TrimRight(lines[i], "\r"))
+		trimmed := strings.TrimSpace(lineStr)
 		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
 			continue
 		}
 		parts := strings.SplitN(trimmed, ":", 2)
 		if len(parts) == 2 {
 			k := strings.ToLower(strings.TrimSpace(parts[0]))
-			v := strings.TrimSpace(parts[1])
-			// Strip inline comments if preceded by whitespace
-			if idx := strings.Index(v, "#"); idx != -1 {
-				if idx > 0 && (v[idx-1] == ' ' || v[idx-1] == '\t') {
-					v = strings.TrimSpace(v[:idx])
-				}
-			}
-			v = strings.Trim(v, `"'`)
+			v := parseFrontmatterValue(parts[1])
 			rawMap[k] = v
 		}
 	}
@@ -124,7 +117,28 @@ func ParseFrontmatter(data []byte) (meta LifecycleMetadata, hasFrontmatter bool,
 		isLifecycle = true
 	}
 
-	return meta, true, isLifecycle, body, nil
+	return meta, hasFrontmatter, isLifecycle, body, nil
+}
+
+func parseFrontmatterValue(v string) string {
+	v = strings.TrimSpace(v)
+	if len(v) == 0 {
+		return ""
+	}
+	quote := v[0]
+	if quote == '"' || quote == '\'' {
+		endQuote := strings.IndexByte(v[1:], quote)
+		if endQuote != -1 {
+			return v[1 : 1+endQuote]
+		}
+		return strings.Trim(v, `"'`)
+	}
+	if idx := strings.Index(v, "#"); idx != -1 {
+		if idx > 0 && (v[idx-1] == ' ' || v[idx-1] == '\t') {
+			v = strings.TrimSpace(v[:idx])
+		}
+	}
+	return strings.Trim(v, `"'`)
 }
 
 // ValidateLifecycle checks a LifecycleMetadata struct for consistency against SDD standards.
@@ -140,8 +154,7 @@ func ValidateLifecycle(meta LifecycleMetadata, docPath string, fileExists func(s
 			Message: "missing required 'status' field (expected active, draft, completed, superseded, or deprecated)",
 		})
 	} else {
-		normStatus := strings.ToLower(meta.Status)
-		if !validStatus[normStatus] {
+		if !isValidStatus(meta.Status) {
 			errs = append(errs, LifecycleValidationError{
 				Rule:    "lifecycle-status",
 				Field:   "status",

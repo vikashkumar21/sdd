@@ -51,12 +51,12 @@ func TestNewCreatesFolderFromProjectTemplates(t *testing.T) {
 		t.Fatalf("unexpected result: %+v", res)
 	}
 	req := read(t, root, "tasks/features/T-001-define-scope/requirements.md")
-	if !strings.HasPrefix(req, "# Requirements — T-001 Define mission and scope (docs only)") {
-		t.Errorf("title not taken from the roadmap row: %q", strings.SplitN(req, "\n", 2)[0])
+	if !strings.Contains(req, "# Requirements — T-001 Define mission and scope (docs only)") {
+		t.Errorf("title not taken from the roadmap row: %q", req)
 	}
 	rev := read(t, root, "tasks/features/T-001-define-scope/review.md")
-	if !strings.HasPrefix(rev, "# Code Review — T-001 Define mission and scope (docs only)") {
-		t.Errorf("review title not taken from roadmap row: %q", strings.SplitN(rev, "\n", 2)[0])
+	if !strings.Contains(rev, "# Code Review — T-001 Define mission and scope (docs only)") {
+		t.Errorf("review title not taken from roadmap row: %q", rev)
 	}
 	if strings.Contains(req, "T-xxx") || strings.Contains(read(t, root, "tasks/features/T-001-define-scope/plan.md"), "T-xxx") || strings.Contains(rev, "T-xxx") {
 		t.Error("T-xxx tokens were not replaced")

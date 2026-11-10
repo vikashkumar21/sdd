@@ -1587,4 +1587,25 @@ description: A test skill
 			t.Errorf("unexpected lifecycle finding on skill frontmatter: %+v", f)
 		}
 	}
+
+	// 8. Path traversal attempt in superseded_by is safely rejected
+	put(t, root, "MISSION.md", `---
+status: superseded
+superseded_by: ../../../../../../etc/passwd
+---
+# MISSION — demo
+`)
+	r8 := run(t, root)
+	foundTraversalSuper := false
+	for _, f := range r8.Findings {
+		if f.Rule == "lifecycle-superseded" {
+			foundTraversalSuper = true
+			if f.Severity != Warn {
+				t.Errorf("expected lifecycle-superseded to be WARN, got %v", f.Severity)
+			}
+		}
+	}
+	if !foundTraversalSuper {
+		t.Errorf("expected lifecycle-superseded warning on path traversal attempt, got: %+v", r8.Findings)
+	}
 }

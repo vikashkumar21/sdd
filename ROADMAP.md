@@ -125,7 +125,7 @@ Status: living document · Last updated: 2026-10-26
 | T-034 | Unified tasks/ directory hierarchy and sdd upgrade auto-migration | M | T-033 | Reorganize typology folders under tasks/, sdd upgrade auto-migration, update CLI and sdd check | D-030 | Done |
 | T-035 | Pre-GATE 1 Plan Review Subagent and 3-Subagent Parallel Review Triad | M | T-034 | Phase A plan review subagent, 3 parallel review lenses in Phase C.2, contract and CLI updates | D-031 | Done |
 | T-036 | Binding Human Feedback Rule F-001 (Resolve all review findings) | S | T-035 | Binding rule F-001 in SKILLS.md §8, contract enforcement, and sdd check rules | D-032 | Done |
-| T-037 | Document lifecycle YAML frontmatter metadata and .ragignore generation | M | T-034 | YAML frontmatter (status, task_id, superseded_by) and .ragignore for deterministic RAG filtering | D-033 | Implementing |
+| T-037 | Document lifecycle YAML frontmatter metadata and .ragignore generation | M | T-034 | YAML frontmatter (status, task_id, superseded_by) and .ragignore for deterministic RAG filtering | D-033 | Awaiting review |
 | T-038 | Native sdd self-update CLI binary updater | S | T-034 | In-place self-update command fetching and replacing latest release binary from GitHub | none | Not started |
 
 ## 5. Unknown-technology protocol (spikes)
