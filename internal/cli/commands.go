@@ -251,6 +251,11 @@ func agentFor(name string) (display, file string) {
 
 func runPrompt(args []string, env IO) int {
 	for i, a := range args {
+		if a == "plan-review" {
+			planReviewArgs := append([]string{}, args[:i]...)
+			planReviewArgs = append(planReviewArgs, args[i+1:]...)
+			return runPromptPlanReview(planReviewArgs, env)
+		}
 		if a == "review" {
 			reviewArgs := append([]string{}, args[:i]...)
 			reviewArgs = append(reviewArgs, args[i+1:]...)

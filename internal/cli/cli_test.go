@@ -1384,6 +1384,9 @@ func TestPromptReviewLens(t *testing.T) {
 	if !strings.Contains(rSpec.out, "Spec Auditor Lens") || !strings.Contains(rSpec.out, "Traceability:") {
 		t.Errorf("unexpected output for lens spec:\n%s", rSpec.out)
 	}
+	if !strings.Contains(rSpec.out, "Parallel Review Triad Protocol") {
+		t.Errorf("expected Parallel Review Triad Protocol in single-lens prompt:\n%s", rSpec.out)
+	}
 
 	// 2. Security lens
 	rSec := exec(t, "", false, "", "prompt", "review", "T-001", "--dir", root, "--lens", "security")
@@ -1444,5 +1447,92 @@ func TestPromptReviewLens(t *testing.T) {
 	}
 	if len(ctx.LensFocus) == 0 {
 		t.Errorf("expected non-empty LensFocus in json output")
+	}
+}
+
+func TestPromptPlanReview(t *testing.T) {
+	root := t.TempDir()
+
+	featDir := filepath.Join(root, "tasks", "features", "T-010-plan-test")
+	if err := os.MkdirAll(featDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	put(t, featDir, "requirements.md", "# Requirements — T-010\n\n## 1. Goal\nTest goal\n")
+	put(t, featDir, "plan.md", "# Plan — T-010\n\n## 5. Files to create or modify\n\n| Path | Action | Reason |\n|---|---|---|\n| internal/worker/worker.go | create | core logic |\n")
+	put(t, featDir, "validation.md", "# Validation — T-010\n\nTraceability matrix\n")
+
+	put(t, root, "TECH_STACK.md", "# TECH_STACK\n\n## 6. Decision register\n\n| ID | Decision | Status | Date | Outcome |\n|---|---|---|---|---|\n| D-007 | Standard library only | Approved | 2026-10-26 | Use stdlib only |\n")
+	put(t, root, "SKILLS.md", "# SKILLS\n\n## 8. Human feedback rules\n\n### Register\n\n| ID | Date | Rule | Applies to | Source | Verified by | Status |\n|---|---|---|---|---|---|---|\n| F-001 | 2026-11-05 | No panics in production | Go code | review | make test | Active |\n")
+
+	// 1. Successful plan review prompt
+	r := exec(t, "", false, "", "prompt", "plan-review", "T-010", "--dir", root)
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for prompt plan-review, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+	if !strings.Contains(r.out, "# Handover: Independent Pre-GATE 1 Plan Review for T-010") {
+		t.Errorf("missing header in plan review prompt: %s", r.out)
+	}
+	if !strings.Contains(r.out, "Plan Review Rubric") {
+		t.Errorf("missing rubric in plan review prompt: %s", r.out)
+	}
+	if !strings.Contains(r.out, "internal/worker/worker.go") {
+		t.Errorf("missing planned file in prompt: %s", r.out)
+	}
+	if !strings.Contains(r.out, "D-007: Standard library only") {
+		t.Errorf("missing decision in prompt: %s", r.out)
+	}
+	if !strings.Contains(r.out, "F-001") || !strings.Contains(r.out, "No panics in production") {
+		t.Errorf("missing feedback rule in prompt: %s", r.out)
+	}
+
+	// 2. Unknown task ID failure
+	r = exec(t, "", false, "", "prompt", "plan-review", "T-999", "--dir", root)
+	if r.code != 1 {
+		t.Fatalf("expected exit 1 for unknown task, got %d", r.code)
+	}
+	if !strings.Contains(r.err, "not found across") {
+		t.Errorf("expected not found error, got: %s", r.err)
+	}
+
+	// 3. Missing task argument failure
+	r = exec(t, "", false, "", "prompt", "plan-review", "--dir", root)
+	if r.code != 2 {
+		t.Fatalf("expected exit 2 for missing task argument, got %d", r.code)
+	}
+}
+
+func TestPromptPlanReviewJSON(t *testing.T) {
+	root := t.TempDir()
+
+	featDir := filepath.Join(root, "tasks", "features", "T-010-plan-test")
+	if err := os.MkdirAll(featDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	put(t, featDir, "requirements.md", "# Requirements — T-010\n")
+	put(t, featDir, "plan.md", "# Plan — T-010\n\n## 5. Files to create or modify\n\n| Path | Action | Reason |\n|---|---|---|\n| internal/pkg/pkg.go | create | logic |\n")
+	put(t, featDir, "validation.md", "# Validation — T-010\n")
+
+	r := exec(t, "", false, "", "prompt", "plan-review", "T-010", "--dir", root, "--json")
+	if r.code != 0 {
+		t.Fatalf("expected exit 0 for prompt plan-review --json, got %d: %s (err: %s)", r.code, r.out, r.err)
+	}
+
+	var ctx PlanReviewPromptContext
+	if err := json.Unmarshal([]byte(r.out), &ctx); err != nil {
+		t.Fatalf("failed to parse json output: %v", err)
+	}
+	if ctx.TaskID != "T-010" {
+		t.Errorf("expected TaskID T-010, got %q", ctx.TaskID)
+	}
+	if ctx.Typology != "features" {
+		t.Errorf("expected Typology features, got %q", ctx.Typology)
+	}
+	if len(ctx.PlannedFiles) != 1 || ctx.PlannedFiles[0] != "internal/pkg/pkg.go" {
+		t.Errorf("unexpected PlannedFiles: %v", ctx.PlannedFiles)
+	}
+	if len(ctx.Rubric) == 0 {
+		t.Errorf("expected non-empty Rubric in json output")
 	}
 }

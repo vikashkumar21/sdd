@@ -118,4 +118,23 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 			c.add(Warn, reviewPath, 0, "review", "task is Done in ROADMAP.md but review.md status is %q", reviewStatus)
 		}
 	}
+
+	// 5. Verify multi-lens review triad structure in Approved reviews
+	if (normTaskStatus == "awaiting review" || normTaskStatus == "done") && reviewStatus == "approved" {
+		if strings.Contains(content, "Multi-Lens Ensemble Review") || strings.Contains(content, "Review Triad") {
+			hasSpec := strings.Contains(content, "Spec Auditor")
+			hasSec := strings.Contains(content, "AppSec Specialist") || strings.Contains(content, "Security")
+			hasPat := strings.Contains(content, "Pattern & Quality Auditor") || strings.Contains(content, "Pattern Auditor")
+
+			if !hasSpec {
+				c.add(Warn, reviewPath, 0, "review-triad", "review.md is missing Spec Auditor lens section")
+			}
+			if !hasSec {
+				c.add(Warn, reviewPath, 0, "review-triad", "review.md is missing AppSec Specialist lens section")
+			}
+			if !hasPat {
+				c.add(Warn, reviewPath, 0, "review-triad", "review.md is missing Pattern & Quality Auditor lens section")
+			}
+		}
+	}
 }

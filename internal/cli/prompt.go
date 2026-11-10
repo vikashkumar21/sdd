@@ -33,6 +33,185 @@ type ReviewPromptContext struct {
 	Prompt        string   `json:"prompt"`
 }
 
+// PlanReviewPromptContext represents the structured context bundle for pre-GATE 1 plan reviews.
+type PlanReviewPromptContext struct {
+	TaskID        string   `json:"taskId"`
+	TaskDir       string   `json:"taskDir"`
+	Typology      string   `json:"typology"`
+	Requirements  string   `json:"requirements,omitempty"`
+	Plan          string   `json:"plan,omitempty"`
+	Validation    string   `json:"validation,omitempty"`
+	PlannedFiles  []string `json:"plannedFiles"`
+	FeedbackRules string   `json:"feedbackRules"`
+	Decisions     []string `json:"decisions"`
+	Rubric        []string `json:"rubric"`
+	Prompt        string   `json:"prompt"`
+}
+
+func runPromptPlanReview(args []string, env IO) int {
+	fs := newFlagSet("prompt plan-review", env)
+	dir := fs.String("dir", ".", "project root")
+	jsonFlag := fs.Bool("json", false, "output machine-readable plan review context bundle as JSON")
+
+	pos, err := parseInterspersed(fs, args)
+	if err != nil {
+		return parseExit(err)
+	}
+
+	if len(pos) != 1 {
+		fprintln(env.Err, "usage: sdd prompt plan-review <T-xxx> [--dir <project>] [--json]")
+		return 2
+	}
+
+	rawTaskID := strings.ToUpper(strings.TrimSpace(pos[0]))
+	if !taskIDPattern.MatchString(rawTaskID) {
+		fprintf(env.Err, "sdd prompt plan-review: invalid task ID format %q (expected format like T-001)\n", pos[0])
+		return 1
+	}
+
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		fprintf(env.Err, "sdd prompt plan-review: %v\n", err)
+		return 1
+	}
+
+	taskDirRel, typology, err := findTaskDirectory(root, rawTaskID)
+	if err != nil {
+		fprintf(env.Err, "sdd prompt plan-review: %v\n", err)
+		return 1
+	}
+
+	taskDirAbs := filepath.Join(root, filepath.FromSlash(taskDirRel))
+
+	requirements := readTaskDoc(taskDirAbs, "requirements.md")
+	plan := readTaskDoc(taskDirAbs, "plan.md")
+	if plan == "" {
+		plan = readTaskDoc(taskDirAbs, "patch.md")
+	}
+	validation := readTaskDoc(taskDirAbs, "validation.md")
+
+	plannedFiles := deconflict.ExtractPlanFiles(plan)
+	feedbackRules := extractActiveFeedbackRules(root)
+	decisions := extractApprovedDecisions(root)
+
+	rubric := getPlanReviewRubric()
+	promptText := buildPlanReviewPrompt(rawTaskID, taskDirRel, typology, plannedFiles, feedbackRules, decisions, rubric)
+
+	ctx := PlanReviewPromptContext{
+		TaskID:        rawTaskID,
+		TaskDir:       taskDirRel,
+		Typology:      typology,
+		Requirements:  requirements,
+		Plan:          plan,
+		Validation:    validation,
+		PlannedFiles:  plannedFiles,
+		FeedbackRules: feedbackRules,
+		Decisions:     decisions,
+		Rubric:        rubric,
+		Prompt:        promptText,
+	}
+
+	if *jsonFlag {
+		enc := json.NewEncoder(env.Out)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(ctx); err != nil {
+			fprintf(env.Err, "sdd prompt plan-review: json encode: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+
+	fprint(env.Out, promptText)
+	return 0
+}
+
+func getPlanReviewRubric() []string {
+	return []string{
+		"Spec Completeness: atomic R-xxx requirements with clear verification methods; explicit non-goals; empty 'Open questions' section.",
+		"Plan Soundness: steps small enough to review in one sitting; each step names exact files and proving check.",
+		"Boundary Precision: Section 5 files list is exhaustive; zero unapproved file modifications or dependencies (D-007).",
+		"Risk & Rollback: failure modes, concurrency constraints, and clean rollback paths identified.",
+		"Testability: validation matrix maps every requirement to concrete test commands and expected outcomes.",
+	}
+}
+
+func extractApprovedDecisions(root string) []string {
+	content, err := os.ReadFile(filepath.Join(root, "TECH_STACK.md"))
+	if err != nil {
+		return nil
+	}
+	var decisions []string
+	scanner := bufio.NewScanner(bytes.NewReader(content))
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "| D-") && strings.Contains(line, "Approved") {
+			parts := strings.Split(line, "|")
+			if len(parts) >= 3 {
+				id := strings.TrimSpace(parts[1])
+				title := strings.TrimSpace(parts[2])
+				decisions = append(decisions, fmt.Sprintf("%s: %s", id, title))
+			}
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return nil
+	}
+	return decisions
+}
+
+func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []string, feedbackRules string, decisions, rubric []string) string {
+	var sb strings.Builder
+
+	fmt.Fprintf(&sb, "# Handover: Independent Pre-GATE 1 Plan Review for %s\n\n", taskID)
+	fmt.Fprintf(&sb, "You are acting as an **Independent Plan Reviewer** for task `%s` (%s).\n", taskID, typology)
+	sb.WriteString("Your mandate is to impartially audit the Phase A specification and implementation plan **before** GATE 1 presentation to the human.\n")
+	sb.WriteString("**You are strictly independent; the author agent cannot review or approve its own plan.**\n\n")
+
+	sb.WriteString("## SDD Anthem & Principles\n")
+	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
+
+	sb.WriteString("## Plan Review Rubric\n")
+	for _, item := range rubric {
+		fmt.Fprintf(&sb, "- [ ] %s\n", item)
+	}
+	sb.WriteString("\n")
+
+	sb.WriteString("## Task Details\n")
+	fmt.Fprintf(&sb, "- **Task ID:** %s\n", taskID)
+	fmt.Fprintf(&sb, "- **Task Directory:** %s\n", taskDir)
+	fmt.Fprintf(&sb, "- **Typology:** %s\n", typology)
+	sb.WriteString("- **Planned Files to Touch:**\n")
+	if len(plannedFiles) == 0 {
+		sb.WriteString("  - (none resolved from plan)\n")
+	} else {
+		for _, f := range plannedFiles {
+			fmt.Fprintf(&sb, "  - `%s`\n", f)
+		}
+	}
+	sb.WriteString("\n")
+
+	if len(decisions) > 0 {
+		sb.WriteString("## Approved Architectural Decisions (TECH_STACK.md)\n")
+		for _, d := range decisions {
+			fmt.Fprintf(&sb, "- %s\n", d)
+		}
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("## Active Feedback Rules (SKILLS.md §8)\n")
+	sb.WriteString(feedbackRules)
+	sb.WriteString("\n\n")
+
+	sb.WriteString("## Plan Review Instructions\n")
+	fmt.Fprintf(&sb, "1. Read `%s/requirements.md`, `%s/plan.md`, and `%s/validation.md`.\n", taskDir, taskDir, taskDir)
+	sb.WriteString("2. Audit against the **Plan Review Rubric** above.\n")
+	sb.WriteString("3. Report any 🔴 Blocker (missing step, boundary hole, untestable assertion, unapproved dependency) or 🟡 Warning.\n")
+	sb.WriteString("4. Verify that the `Open questions` section in `requirements.md` is empty.\n")
+	sb.WriteString("5. Provide an explicit sign-off recommendation: `[Approved / Changes Requested]` with actionable remediation notes.\n")
+
+	return sb.String()
+}
+
 func runPromptReview(args []string, env IO) int {
 	fs := newFlagSet("prompt review", env)
 	dir := fs.String("dir", ".", "project root")
@@ -129,6 +308,7 @@ func getLensFocusItems(lens string) []string {
 		"Traceability: every requirement (R-xxx) maps to verified code and concrete test evidence in validation.md.",
 		"Plan boundaries: touch ONLY files listed in plan.md Section 5 (zero scope creep).",
 		"Negative and failure cases are explicitly tested and verified.",
+		"Standard library purity: zero unapproved third-party dependencies (D-007).",
 	}
 	secItems := []string{
 		"Input validation & bound sizes on all external inputs; fail safe on ambiguity.",
@@ -138,10 +318,10 @@ func getLensFocusItems(lens string) []string {
 	}
 	patItems := []string{
 		"Architectural decision conformance: strictly respect approved decisions in TECH_STACK.md (D-xxx).",
-		"Standard library purity: zero unapproved third-party dependencies (D-007).",
 		"Determinism: inject clocks, random sources, and ID generators; no map iteration order dependency.",
 		"Code idioms: follow Effective Go, Go Code Review Comments, context.Context first, %w error wrapping.",
 		"Continuous learning: verify compliance with active feedback rules in SKILLS.md §8 (F-xxx).",
+		"Concurrency safety: verify goroutine lifecycles, race detector compliance, and no data races.",
 	}
 
 	switch lens {
@@ -376,6 +556,13 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 	sb.WriteString("## Active Feedback Rules (SKILLS.md §8)\n")
 	sb.WriteString(feedbackRules)
 	sb.WriteString("\n\n")
+
+	if lens != "all" {
+		sb.WriteString("## Parallel Review Triad Protocol\n")
+		fmt.Fprintf(&sb, "You are one of three parallel subagents in the **3-Subagent Parallel Review Triad** (Spec Auditor, AppSec Specialist, Pattern Auditor).\n")
+		fmt.Fprintf(&sb, "Your evaluation focus is EXCLUSIVELY the %s. Record your findings under the `%s` section in `%s/review.md`.\n", lensTitle, lensTitle, taskDir)
+		sb.WriteString("If multiple subagents report findings, the primary agent will remediate all findings together in a single batched fix commit (consuming 1 loop in the 3-loop circuit breaker).\n\n")
+	}
 
 	sb.WriteString("## Review Instructions\n")
 	fmt.Fprintf(&sb, "1. Inspect the git diff and changed files against `%s/requirements.md` and `%s/plan.md`.\n", taskDir, taskDir)

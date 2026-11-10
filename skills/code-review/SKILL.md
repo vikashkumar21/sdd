@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Deterministic code review rubric, progressive context ingestion, 3-tier risk grading (Blocker, Warning, Minor), and multi-lens ensemble review standards (Spec Auditor, AppSec Specialist, Pattern Auditor) for AI coding agents.
+description: Deterministic code review rubric, progressive context ingestion, 3-tier risk grading (Blocker, Warning, Minor), and 3-subagent parallel review triad standards (Spec Auditor, AppSec Specialist, Pattern Auditor) for AI coding agents.
 ---
 
 # SDD Code Review Standard
@@ -13,13 +13,14 @@ Activate this skill whenever:
 - Verifying code against approved specifications before Phase D / GATE 2 commit.
 - Inspecting code diffs for spec alignment, architectural drift, security hazards, or unhandled errors.
 
-## The Ensemble Review Triad (Specialized Lenses)
-Every review applies the multi-lens Review Triad to ensure comprehensive coverage:
+## The 3-Subagent Parallel Review Triad
+Every code review in Phase C.2 deploys three independent subagents in parallel, each auditing through exactly one specialized lens:
 
 1. **🔎 Spec Auditor Lens (Scope & Correctness):**
    - **Traceability:** Every requirement (`R-xxx`) in `requirements.md` maps to concrete implementation and test evidence in `validation.md`.
    - **Boundary Enforcement:** Touch ONLY files listed in `plan.md` Section 5. Zero unapproved file modifications or scope creep.
    - **Negative Coverage:** Negative, boundary, and failure cases are explicitly tested and verified.
+   - **Standard Library Purity:** Zero unapproved third-party dependencies (`D-007`).
 
 2. **🛡️ AppSec Specialist Lens (Security & Safety):**
    - **Threat Surface & Input Validation:** Bound sizes on all external inputs; parse strictly; treat untrusted input as hostile.
@@ -30,10 +31,15 @@ Every review applies the multi-lens Review Triad to ensure comprehensive coverag
 
 3. **📐 Pattern & Quality Auditor Lens (Architecture & Standards):**
    - **Decision Conformance:** Respects all approved decisions in `TECH_STACK.md` (`D-xxx`).
-   - **Standard Library Purity:** Zero unapproved third-party dependencies (`D-007`).
    - **Determinism:** Inject clocks, random sources, and ID generators; avoid map iteration order dependencies.
    - **Code Quality:** Idiomatic Go (*Effective Go*, *Go Code Review Comments*); `context.Context` first for blocking/IO; `%w` error wrapping; clean linting (`make lint`).
+   - **Concurrency Safety:** Verify goroutine lifecycles, race detector compliance, and zero data races.
    - **Continuous Learning:** Active feedback rules in `SKILLS.md` §8 (`F-xxx`) complied with; recurring patterns captured.
+
+## Batch Remediation & Conflict Resolution
+- **Single Remediator:** Review subagents are strictly read-only auditors; only the primary worker agent modifies code.
+- **Batched Remediation:** When multiple lenses report changes, the primary agent consolidates all findings into a single fix pass, consuming 1 loop in the 3-loop circuit breaker.
+- **Conflict Resolution:** Security, safety, and determinism take precedence over convenience. If recommendations fundamentally conflict, the agent halts and issues `DECISION NEEDED: D-xxx` to the human.
 
 ## 3-Tier Risk & Finding Rubric
 
@@ -44,8 +50,8 @@ Every review applies the multi-lens Review Triad to ensure comprehensive coverag
 | 🟢 **Minor** | Style, naming refinement, or non-critical micro-optimization. | Informational suggestion; non-blocking. |
 
 ## 3-Loop Circuit Breaker
-- Maximum 3 review-fix iterations (1 initial audit + up to 2 fix attempts) between author agent and reviewer subagent.
+- Maximum 3 review-fix iterations (1 initial audit + up to 2 fix attempts) between worker agent and reviewer triad.
 - If Blockers persist after attempt 3, halt immediately, mark the task `Blocked`, and escalate to the human.
 
 ## Review Output Format
-Record all findings in `features/T-xxx-<slug>/review.md` (or typology equivalent) following the standard template. If any 🔴 Blocker remains, the review outcome is "Changes requested" and the task CANNOT proceed to GATE 2.
+Record all findings in `tasks/<typology>/T-xxx-<slug>/review.md` following the standard template. If any 🔴 Blocker remains across any of the three lenses, the review outcome is "Changes requested" and the task CANNOT proceed to GATE 2.

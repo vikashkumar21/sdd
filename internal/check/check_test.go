@@ -1026,6 +1026,34 @@ Reviewer: Antigravity (self-audit)
 	if !foundSelfWarn {
 		t.Errorf("expected warning for self-approved reviewer: %+v", repSelf.Findings)
 	}
+
+	// 5. Approved review with Multi-Lens Ensemble Review missing a lens triggers review-triad warning
+	missingLensReview := `# Code Review — T-001
+Status: Approved
+Reviewer: Independent Subagent Reviewer
+
+## 1. Multi-Lens Ensemble Review
+### 🔎 Spec Auditor Lens
+- [x] verified
+
+## 2. Risk & Findings Register
+`
+	put(t, root, "features/T-001-scope/review.md", missingLensReview)
+
+	repMissingLens, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	foundTriadWarn := false
+	for _, f := range repMissingLens.Findings {
+		if f.Rule == "review-triad" && strings.Contains(f.Message, "missing AppSec Specialist") {
+			foundTriadWarn = true
+			break
+		}
+	}
+	if !foundTriadWarn {
+		t.Errorf("expected warning for missing review lens in ensemble review: %+v", repMissingLens.Findings)
+	}
 }
 
 func TestContextBudgetGuard(t *testing.T) {

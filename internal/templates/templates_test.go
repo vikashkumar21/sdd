@@ -8,8 +8,8 @@ import (
 )
 
 func TestVersion(t *testing.T) {
-	if Version != "1.4.0" {
-		t.Errorf("Version = %q, want 1.4.0", Version)
+	if Version != "1.5.0" {
+		t.Errorf("Version = %q, want 1.5.0", Version)
 	}
 }
 
