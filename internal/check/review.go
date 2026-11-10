@@ -67,26 +67,53 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 			}
 		}
 
-		// 2. Check for unresolved 🔴 Blocker findings
-		if strings.Contains(line, "🔴") || strings.Contains(strings.ToLower(line), "blocker") {
-			// Check if this is a table row in the findings register
-			if strings.HasPrefix(trimmed, "|") && !strings.Contains(trimmed, "Severity") && !strings.Contains(trimmed, "---") {
-				parts := strings.Split(trimmed, "|")
-				// Format: | ID | Category | Severity | Finding | Suggested Action | Status |
-				if len(parts) >= 6 {
-					severity := strings.TrimSpace(parts[3])
-					finding := strings.TrimSpace(parts[4])
-					statusCol := ""
-					if len(parts) >= 7 {
-						statusCol = strings.ToLower(strings.TrimSpace(parts[6]))
+		// 2. Check for unresolved findings (Blockers, Warnings, Minors per Rule F-001)
+		if strings.HasPrefix(trimmed, "|") && !strings.Contains(trimmed, "---") {
+			parts := splitTableRow(trimmed)
+			// Format: | ID | Category | Severity | Finding | Suggested Action | Status |
+			if len(parts) >= 7 {
+				id := strings.TrimSpace(parts[1])
+				severity := strings.TrimSpace(parts[3])
+				finding := strings.TrimSpace(parts[4])
+				statusCol := strings.ToLower(strings.TrimSpace(parts[6]))
+
+				// Skip placeholder, header, empty, or non-finding rows
+				isPlaceholderRow := strings.EqualFold(id, "(none)") ||
+					(id == "" && severity == "" && finding == "") ||
+					strings.EqualFold(severity, "severity") || strings.Contains(severity, "---")
+
+				if !isPlaceholderRow && (severity != "" || finding != "") {
+					isBlocker := strings.Contains(severity, "🔴") || strings.Contains(strings.ToLower(severity), "blocker")
+					isWarning := strings.Contains(severity, "🟡") || strings.Contains(strings.ToLower(severity), "warning")
+					isMinor := strings.Contains(severity, "🟢") || strings.Contains(strings.ToLower(severity), "minor")
+
+					// A finding is resolved if marked resolved, justified, waived, accepted, closed, etc.
+					isResolved := statusCol == "resolved" ||
+						statusCol == "justified" ||
+						statusCol == "waived" ||
+						statusCol == "accepted" ||
+						statusCol == "acceptable" ||
+						statusCol == "closed" ||
+						strings.HasPrefix(statusCol, "resolved") ||
+						strings.HasPrefix(statusCol, "closed") ||
+						strings.HasPrefix(statusCol, "accept") ||
+						strings.HasPrefix(statusCol, "justif") ||
+						strings.HasPrefix(statusCol, "waive")
+
+					// Template placeholders or open/pending/empty statuses are unresolved
+					isPlaceholderFinding := strings.Contains(finding, "<critical defect") ||
+						(strings.HasPrefix(finding, "<") && strings.HasSuffix(finding, ">"))
+					if isPlaceholderFinding || strings.Contains(statusCol, "<") || strings.Contains(statusCol, "open") || strings.Contains(statusCol, "pending") || statusCol == "" {
+						isResolved = false
 					}
 
-					isBlocker := strings.Contains(severity, "🔴") || strings.Contains(strings.ToLower(severity), "blocker")
-					isUnresolved := statusCol == "open" || statusCol == "pending" || statusCol == "" || strings.Contains(finding, "<critical defect")
-
-					if isBlocker && isUnresolved {
-						if normTaskStatus == "awaiting review" || normTaskStatus == "done" {
+					if !isResolved && (normTaskStatus == "awaiting review" || normTaskStatus == "done") {
+						if isBlocker {
 							c.add(Error, reviewPath, lineNum, "review", "task is %s but review.md contains unresolved 🔴 Blocker finding: %s", roadmap.Normalize(taskStatus), finding)
+						} else if isWarning || isMinor {
+							c.add(Warn, reviewPath, lineNum, "review-findings", "task is %s but review.md contains unresolved %s finding: %s (Rule F-001 mandates resolving all findings or explicit justification)", roadmap.Normalize(taskStatus), severity, finding)
+						} else {
+							c.add(Warn, reviewPath, lineNum, "review-findings", "task is %s but review.md contains unresolved finding: %s (Rule F-001 mandates resolving all findings or explicit justification)", roadmap.Normalize(taskStatus), finding)
 						}
 					}
 				}
@@ -137,4 +164,57 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 			}
 		}
 	}
+}
+
+// splitTableRow splits a table row into cells, properly ignoring escaped pipes
+// and pipes occurring inside inline code spans (`...`).
+func splitTableRow(line string) []string {
+	var cells []string
+	var current strings.Builder
+	inCode := false
+	codeDelimLen := 0
+	escaped := false
+
+	runes := []rune(line)
+	n := len(runes)
+
+	for i := 0; i < n; i++ {
+		r := runes[i]
+		if escaped {
+			escaped = false
+			current.WriteRune(r)
+			continue
+		}
+		if r == '\\' {
+			escaped = true
+			current.WriteRune(r)
+			continue
+		}
+		if r == '`' {
+			backticks := 1
+			for i+1 < n && runes[i+1] == '`' {
+				backticks++
+				i++
+			}
+			for b := 0; b < backticks; b++ {
+				current.WriteRune('`')
+			}
+			if !inCode {
+				inCode = true
+				codeDelimLen = backticks
+			} else if backticks == codeDelimLen {
+				inCode = false
+				codeDelimLen = 0
+			}
+			continue
+		}
+		if !inCode && r == '|' {
+			cells = append(cells, current.String())
+			current.Reset()
+			continue
+		}
+		current.WriteRune(r)
+	}
+	cells = append(cells, current.String())
+	return cells
 }

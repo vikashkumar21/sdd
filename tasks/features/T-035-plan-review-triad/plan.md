@@ -2,7 +2,7 @@
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
-Status: Draft (2026-11-10)
+Status: Approved (2026-11-10)
 
 ## 1. Approach summary
 Implement the `sdd prompt plan-review <T-xxx>` CLI command (with `--json` export) for pre-GATE 1 plan review handover prompt generation, enhance `sdd prompt review <T-xxx> --lens <lens>` for specialized single-lens parallel reviewer dispatch, synchronize agent contracts (`AGENTS.md`, `CLAUDE.md`, `GEMINI.md`, `contract.md.tmpl`) to codify both the Pre-GATE 1 Plan Review Subagent in Phase A and the 3-Subagent Parallel Review Triad in Phase C.2, bump `templates.Version` to `1.5.0` per Hard Rule 16, and update canonical agent skills.

@@ -1054,6 +1054,103 @@ Reviewer: Independent Subagent Reviewer
 	if !foundTriadWarn {
 		t.Errorf("expected warning for missing review lens in ensemble review: %+v", repMissingLens.Findings)
 	}
+
+	// 6. Review with unresolved Warning and Minor triggers review-findings warning (Rule F-001)
+	unresolvedWarningsReview := `# Code Review — T-001
+Status: Approved
+Reviewer: Independent Subagent Reviewer
+
+## 1. Multi-Lens Ensemble Review
+### 🔎 Spec Auditor Lens
+- [x] pass
+### 🛡️ AppSec Specialist Lens
+- [x] pass
+### 📐 Pattern & Quality Auditor Lens
+- [x] pass
+
+## 2. Risk & Findings Register
+| ID | Category | Severity | Finding | Suggested Action | Status |
+|---|---|---|---|---|---|
+| W-001 | Observability | 🟡 Warning | Missing logging in edge branch | Add log | Open |
+| M-001 | Style | 🟢 Minor | Variable name could be more descriptive | Rename variable | Pending |
+`
+	put(t, root, "features/T-001-scope/review.md", unresolvedWarningsReview)
+
+	repUnresolved, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	warnCount := 0
+	for _, f := range repUnresolved.Findings {
+		if f.Rule == "review-findings" && strings.Contains(f.Message, "Rule F-001") {
+			warnCount++
+		}
+	}
+	if warnCount != 2 {
+		t.Errorf("expected 2 review-findings warnings for unresolved warning and minor, got %d (findings: %+v)", warnCount, repUnresolved.Findings)
+	}
+
+	// 7. Review with resolved and justified Warning/Minor passes cleanly
+	resolvedReview := `# Code Review — T-001
+Status: Approved
+Reviewer: Independent Subagent Reviewer
+
+## 1. Multi-Lens Ensemble Review
+### 🔎 Spec Auditor Lens
+- [x] pass
+### 🛡️ AppSec Specialist Lens
+- [x] pass
+### 📐 Pattern & Quality Auditor Lens
+- [x] pass
+
+## 2. Risk & Findings Register
+| ID | Category | Severity | Finding | Suggested Action | Status |
+|---|---|---|---|---|---|
+| W-001 | Observability | 🟡 Warning | Missing logging in edge branch | Add log | Resolved |
+| M-001 | Style | 🟢 Minor | Variable name could be more descriptive | Rename variable | Justified |
+`
+	put(t, root, "features/T-001-scope/review.md", resolvedReview)
+
+	repResolved, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range repResolved.Findings {
+		if f.Rule == "review-findings" {
+			t.Errorf("unexpected review-findings finding for resolved/justified review: %+v", f)
+		}
+	}
+
+	// 8. Review with code syntax containing '<', descriptive 'Justified per D-032', and finding row mentioning Severity
+	advancedResolvedReview := `# Code Review — T-001
+Status: Approved
+Reviewer: Independent Subagent Reviewer
+
+## 1. Multi-Lens Ensemble Review
+### 🔎 Spec Auditor Lens
+- [x] pass
+### 🛡️ AppSec Specialist Lens
+- [x] pass
+### 📐 Pattern & Quality Auditor Lens
+- [x] pass
+
+## 2. Risk & Findings Register
+| ID | Category | Severity | Finding | Suggested Action | Status |
+|---|---|---|---|---|---|
+| W-001 | Bound Checks | 🟡 Warning | Check len(x) < 5 boundary condition | Add bound check | Justified per D-032 |
+| M-001 | Severity Logic | 🟢 Minor | Severity parsing edge cases | Refine parsing | Waived by human |
+`
+	put(t, root, "features/T-001-scope/review.md", advancedResolvedReview)
+
+	repAdv, err := Run(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range repAdv.Findings {
+		if f.Rule == "review-findings" {
+			t.Errorf("unexpected review-findings finding for advanced resolved/justified review: %+v", f)
+		}
+	}
 }
 
 func TestContextBudgetGuard(t *testing.T) {

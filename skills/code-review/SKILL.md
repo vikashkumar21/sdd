@@ -46,12 +46,17 @@ Every code review in Phase C.2 deploys three independent subagents in parallel, 
 | Severity | Definition | Action Required |
 |---|---|---|
 | 🔴 **Blocker** | Spec violation, security hazard, test gap, plan deviation, unapproved dependency. | MUST be resolved before GATE 2 commit. |
-| 🟡 **Warning** | Sub-optimal pattern, edge case risk, missing doc or comment. | Developer attention suggested; address or explicitly accept. |
-| 🟢 **Minor** | Style, naming refinement, or non-critical micro-optimization. | Informational suggestion; non-blocking. |
+| 🟡 **Warning** | Sub-optimal pattern, edge case risk, missing doc or comment. | MUST be resolved or explicitly justified before GATE 2 (Rule F-001). |
+| 🟢 **Minor** | Style, naming refinement, or non-critical micro-optimization. | MUST be resolved or explicitly justified before GATE 2 (Rule F-001). |
+
+## Rule F-001 Finding Resolution Mandate
+- Worker agents MUST resolve all findings (🔴 Blockers, 🟡 Warnings, and 🟢 Minors) reported during review before presenting to the human at GATE 2.
+- Any finding not remediated must have an explicit written justification with human approval recorded in `review.md`.
+- `review.md` can only achieve `Approved` sign-off when 0 Blockers, 0 unresolved Warnings, and 0 unresolved Minors remain.
 
 ## 3-Loop Circuit Breaker
 - Maximum 3 review-fix iterations (1 initial audit + up to 2 fix attempts) between worker agent and reviewer triad.
 - If Blockers persist after attempt 3, halt immediately, mark the task `Blocked`, and escalate to the human.
 
 ## Review Output Format
-Record all findings in `tasks/<typology>/T-xxx-<slug>/review.md` following the standard template. If any 🔴 Blocker remains across any of the three lenses, the review outcome is "Changes requested" and the task CANNOT proceed to GATE 2.
+Record all findings in `tasks/<typology>/T-xxx-<slug>/review.md` following the standard template. If any 🔴 Blocker remains, or if any 🟡 Warning or 🟢 Minor remains unresolved without explicit justification, the task CANNOT proceed to GATE 2.

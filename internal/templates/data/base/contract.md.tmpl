@@ -45,12 +45,12 @@ Start every session by stating: the active task (or "none"), the files you read,
 - **Batch Remediation Protocol:** When multiple subagents report changes, the primary worker agent batches all remediations into a single fix pass. Review subagents are strictly read-only auditors; only the primary worker agent modifies code.
 - **Conflict Resolution:** Safety, security, and determinism take precedence over convenience. If review recommendations fundamentally conflict, the agent halts and issues a `DECISION NEEDED: D-xxx` to the human.
 - **The primary agent is strictly forbidden from self-approving its own work in `review.md`.**
-- Review findings follow 3-tier severity: 🔴 Blocker, 🟡 Warning, 🟢 Minor. Only when 0 Blockers remain across all three lenses may Phase D proceed.
+- Review findings follow 3-tier severity: 🔴 Blocker, 🟡 Warning, 🟢 Minor. Per Rule F-001, the primary worker agent must resolve all findings (Blockers, Warnings, Minors) before Phase D close; any retained finding must be explicitly justified with human approval in `review.md`. Only when 0 Blockers and 0 unresolved findings remain across all three lenses may Phase D proceed.
 - **3-Loop Circuit Breaker:** At most 3 review-fix iterations (1 initial audit + up to 2 fix attempts) between worker and reviewer triad. If Blockers persist after 3 iterations, the agent MUST halt, mark the task `Blocked`, and escalate to the human.
 
 ### GATE 2 — review and commit (the human commits)
 
-- The agent presents: what changed (file list and summary), validation evidence, subagent review sign-off (0 Blockers), deviations from the plan (should be none), and a suggested commit message.
+- The agent presents: what changed (file list and summary), validation evidence, subagent review sign-off (0 Blockers and all findings resolved per F-001), deviations from the plan (should be none), and a suggested commit message.
 - The **human** reviews the diff and runs the commit. Afterwards the human replies `COMMITTED T-xxx`; only then does the agent set the task to `Done` in `ROADMAP.md`.
 - The agent never runs `git add`, `commit`, `push`, `tag`, `reset`, `rebase`, `stash`, `checkout --`, or any other command that writes git state. Read-only git (`status`, `diff`, `log`, `show`) is allowed.
 
@@ -86,7 +86,7 @@ The human's reply is recorded in the Decision register (status `Approved`, date,
 9. **Do not invent facts.** If unsure of an API, version, or behaviour, say so and verify (docs, tests, a spike) before depending on it. Record verified facts with source and date in the verified-facts log in `TECH_STACK.md`.
 10. **Truth over optimism.** Report failures, skipped checks, and deviations plainly. Never mark a requirement verified without evidence.
 11. **Stay inside the project root** and inside the approved plan's file list.
-12. **Capture general human feedback.** When the human gives feedback that applies beyond the current task, record it as a rule in `SKILLS.md` (section "Human feedback rules"; ask the human if "general or task-specific" is unclear), apply it to the current work and sweep existing code, and comply with every active rule in all later tasks. Each plan lists the rules that apply; each validation records compliance.
+12. **Capture general human feedback.** When the human gives feedback that applies beyond the current task, record it as a rule in `SKILLS.md` (section "Human feedback rules"; ask the human if "general or task-specific" is unclear), apply it to the current work and sweep existing code, and comply with every active rule in all later tasks. Rule F-001 mandates resolving all review findings before GATE 2. Each plan lists the rules that apply; each validation records compliance.
 13. **Two-tier agent hierarchy.** Worker agents operate strictly inside their isolated git worktree/branch. Autonomous commits are permitted on the task branch; workers are forbidden from writing to or merging into `main`. The Task Coordinator orchestrates deconfliction, provisions worktrees, and qualifies merges.
 14. **Independent review required before gates.** An agent cannot approve its own work. An independent plan review subagent audits Phase A before GATE 1. Three independent subagent reviewers (Spec Auditor, AppSec Specialist, Pattern Auditor) must certify `review.md` with 0 Blockers before Phase D close. Both are bounded by a 3-loop circuit breaker: max 3 review-fix iterations before escalating to the human.
 {{range $i, $r := .ExtraRules}}{{add $i 15}}. {{$r}}
@@ -130,7 +130,7 @@ Keep it short and checkable. No marketing language.
 - [ ] Negative and failure cases are tested, not only the happy path
 - [ ] Running the relevant tests twice gives identical results (determinism)
 - [ ] No files changed outside the approved plan; no new unapproved dependencies
-- [ ] Independent subagent audit completed in review.md with 0 Blockers
+- [ ] Independent subagent audit completed in review.md with 0 Blockers; all findings (Blockers, Warnings, Minors) resolved or explicitly justified per Rule F-001
 - [ ] Living docs updated per §6
 - [ ] Complies with every active rule in `SKILLS.md` "Human feedback rules" (compliance recorded in `validation.md`)
 - [ ] Suggested commit message provided

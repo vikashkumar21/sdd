@@ -48,6 +48,7 @@ Activate this skill whenever:
   - When multiple subagents report changes, the primary worker agent consolidates all remediations into a single fix pass.
   - Review subagents are strictly read-only auditors; only the primary worker agent modifies code.
   - Resolving a batch of findings across multiple lenses consumes exactly 1 iteration in the 3-loop circuit breaker.
+  - Per Rule F-001, the remediation pass must address all findings (🔴 Blockers, 🟡 Warnings, and 🟢 Minors); any retained finding requires explicit justification.
 - **Conflict Resolution:** Safety, security, and determinism take precedence over convenience. If review recommendations fundamentally conflict, the agent halts and issues `DECISION NEEDED: D-xxx` to the human.
 - **3-Loop Circuit Breaker:**
   - Maximum 3 iterations (1 initial review + up to 2 fix attempts).
@@ -56,7 +57,7 @@ Activate this skill whenever:
 ## Pre-Merge Qualification Workflow
 Before any merge into `main`:
 1. Check task status: must be `Awaiting review`.
-2. Check independent review sign-off: `review.md` must have status `Approved` with 0 Blockers.
+2. Check independent review sign-off: `review.md` must have status `Approved` with 0 Blockers, and all findings (Blockers, Warnings, Minors) resolved or justified per Rule F-001.
 3. Simulate git merge in an isolated throwaway worktree: `sdd task merge --simulate <T-xxx>`.
 4. Run full blast-radius regression test suite on the simulated merge commit.
 5. Present merge qualification summary to the human for approval.

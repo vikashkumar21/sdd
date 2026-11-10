@@ -497,6 +497,10 @@ func extractActiveFeedbackRules(root string) string {
 		}
 	}
 
+	if err := scanner.Err(); err != nil {
+		return "(none active)"
+	}
+
 	if len(ruleLines) == 0 {
 		return "(none active)"
 	}
@@ -569,6 +573,7 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 	fmt.Fprintf(&sb, "2. Verify each point listed under **Lens Focus & Verification Questions**.\n")
 	fmt.Fprintf(&sb, "3. Record all findings and sign-off in `%s/review.md`.\n", taskDir)
 	sb.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")
+	sb.WriteString("   - Per Rule F-001, all findings (🔴 Blockers, 🟡 Warnings, 🟢 Minors) must be cataloged clearly; the worker agent is required to resolve all findings or provide explicit justification before GATE 2.\n")
 	sb.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution (including your lens name).\n")
 
 	return sb.String()

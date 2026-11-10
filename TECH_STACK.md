@@ -164,6 +164,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-05 | Ensemble code review standards (Spec Auditor, AppSec Specialist, Pattern & Quality Auditor), sdd prompt review --lens (spec/security/pattern/all), and Review Triad templates verified | Run in internal/skill, internal/cli, internal/check tests (T-033) | M9 |
 | 2026-11-10 | Unified tasks/ directory hierarchy (tasks/features/, tasks/bugfixes/, tasks/hotfixes/, tasks/spikes/), sdd upgrade automated legacy folder migration, manifest path mapping, and template version 1.4.0 verified | Run in internal/upgrade, internal/feature, internal/cli, internal/check tests (T-034) | M10 |
 | 2026-11-10 | Pre-GATE 1 plan review protocol (sdd prompt plan-review, --json export), 3-subagent parallel review triad (sdd prompt review --lens), batch remediation protocol, and template version 1.5.0 verified | Run in internal/cli, internal/check, and templates tests (T-035) | M10 |
+| 2026-11-10 | Binding Human Feedback Rule F-001 (all review findings resolved before GATE 2), mechanical sdd check verification of Blockers/Warnings/Minors, and template version 1.6.0 verified | Run in internal/check, internal/cli, and templates tests (T-036) | M10 |
 
 ## 8. Dependency register
 

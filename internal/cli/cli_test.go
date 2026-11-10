@@ -1384,6 +1384,9 @@ func TestPromptReviewLens(t *testing.T) {
 	if !strings.Contains(rSpec.out, "Spec Auditor Lens") || !strings.Contains(rSpec.out, "Traceability:") {
 		t.Errorf("unexpected output for lens spec:\n%s", rSpec.out)
 	}
+	if !strings.Contains(rSpec.out, "Per Rule F-001, all findings") {
+		t.Errorf("missing Rule F-001 instruction in lens spec output:\n%s", rSpec.out)
+	}
 	if !strings.Contains(rSpec.out, "Parallel Review Triad Protocol") {
 		t.Errorf("expected Parallel Review Triad Protocol in single-lens prompt:\n%s", rSpec.out)
 	}
