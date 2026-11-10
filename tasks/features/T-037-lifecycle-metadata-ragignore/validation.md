@@ -59,4 +59,4 @@ Record exact commands and the outcome of each.
 
 ## 8. Sign-off
 Suggested commit message: `feat(rag): add document lifecycle frontmatter and .ragignore generation (T-037)`
-Reviewed by: ______   Date: ______   Reply received: pending
+Reviewed by: Vikash (human)   Date: 2026-11-10   Reply received: `COMMITTED T-037`
