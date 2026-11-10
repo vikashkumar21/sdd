@@ -47,21 +47,21 @@ func TestNewCreatesFolderFromProjectTemplates(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Dir != "features/T-001-define-scope" || len(res.Files) != 4 || !res.StatusUpdated {
+	if res.Dir != "tasks/features/T-001-define-scope" || len(res.Files) != 4 || !res.StatusUpdated {
 		t.Fatalf("unexpected result: %+v", res)
 	}
-	req := read(t, root, "features/T-001-define-scope/requirements.md")
+	req := read(t, root, "tasks/features/T-001-define-scope/requirements.md")
 	if !strings.HasPrefix(req, "# Requirements — T-001 Define mission and scope (docs only)") {
 		t.Errorf("title not taken from the roadmap row: %q", strings.SplitN(req, "\n", 2)[0])
 	}
-	rev := read(t, root, "features/T-001-define-scope/review.md")
+	rev := read(t, root, "tasks/features/T-001-define-scope/review.md")
 	if !strings.HasPrefix(rev, "# Code Review — T-001 Define mission and scope (docs only)") {
 		t.Errorf("review title not taken from roadmap row: %q", strings.SplitN(rev, "\n", 2)[0])
 	}
-	if strings.Contains(req, "T-xxx") || strings.Contains(read(t, root, "features/T-001-define-scope/plan.md"), "T-xxx") || strings.Contains(rev, "T-xxx") {
+	if strings.Contains(req, "T-xxx") || strings.Contains(read(t, root, "tasks/features/T-001-define-scope/plan.md"), "T-xxx") || strings.Contains(rev, "T-xxx") {
 		t.Error("T-xxx tokens were not replaced")
 	}
-	if !strings.Contains(read(t, root, "features/T-001-define-scope/plan.md"), "`APPROVED T-001`") {
+	if !strings.Contains(read(t, root, "tasks/features/T-001-define-scope/plan.md"), "`APPROVED T-001`") {
 		t.Error("approval phrase should name the real task")
 	}
 	for _, task := range roadmap.Parse(read(t, root, "ROADMAP.md")) {
@@ -76,7 +76,7 @@ func TestExplicitTitleWins(t *testing.T) {
 	if _, err := New(root, "T-001", "scope", "My custom title"); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(read(t, root, "features/T-001-scope/validation.md"), "# Validation — T-001 My custom title") {
+	if !strings.Contains(read(t, root, "tasks/features/T-001-scope/validation.md"), "# Validation — T-001 My custom title") {
 		t.Error("explicit title not used")
 	}
 }
@@ -97,7 +97,7 @@ func TestNewRefusesBadInput(t *testing.T) {
 			}
 		})
 	}
-	if entries, _ := os.ReadDir(filepath.Join(root, "features")); len(entries) != 1 {
+	if entries, _ := os.ReadDir(filepath.Join(root, "tasks", "features")); len(entries) != 1 {
 		t.Errorf("failed attempts must not create folders, found %d entries", len(entries))
 	}
 }
@@ -134,13 +134,13 @@ func TestStatusOnlyChangesFromNotStarted(t *testing.T) {
 
 func TestMissingTemplatesIsAnError(t *testing.T) {
 	root := kit(t)
-	if err := os.Remove(filepath.Join(root, "features", "_templates", "plan.md")); err != nil {
+	if err := os.Remove(filepath.Join(root, "tasks", "features", "_templates", "plan.md")); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := New(root, "T-001", "scope", ""); err == nil {
 		t.Fatal("expected an error")
 	}
-	if _, err := os.Stat(filepath.Join(root, "features", "T-001-scope")); err == nil {
+	if _, err := os.Stat(filepath.Join(root, "tasks", "features", "T-001-scope")); err == nil {
 		t.Error("nothing may be created when a template is missing")
 	}
 }
@@ -180,11 +180,11 @@ func TestNewFromJira(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if res.Dir != "features/T-001-oauth-refresh" {
+	if res.Dir != "tasks/features/T-001-oauth-refresh" {
 		t.Errorf("unexpected dir: %q", res.Dir)
 	}
 
-	req := read(t, root, "features/T-001-oauth-refresh/requirements.md")
+	req := read(t, root, "tasks/features/T-001-oauth-refresh/requirements.md")
 
 	// 1. Goal replaced with Jira summary
 	if !strings.Contains(req, "## 1. Goal\nImplement OAuth2 token refresh endpoint") {
@@ -282,7 +282,7 @@ func TestNewFromDocPDF(t *testing.T) {
 		t.Fatal("expected StagedContext to be set")
 	}
 
-	req := read(t, root, "features/T-001-arch-design/requirements.md")
+	req := read(t, root, "tasks/features/T-001-arch-design/requirements.md")
 	if !strings.Contains(req, "- Reference document: `"+res.StagedContext+"` (Format: pdf, Source: architecture.pdf)") {
 		t.Errorf("expected reference line in requirements.md:\n%s", req)
 	}
@@ -313,7 +313,7 @@ func TestNewFromDocInvalidPDF(t *testing.T) {
 func TestNewWithLegacy3TemplatesOnly(t *testing.T) {
 	root := kit(t)
 	// Remove review.md template to simulate legacy kit
-	reviewTpl := filepath.Join(root, "features", "_templates", "review.md")
+	reviewTpl := filepath.Join(root, "tasks", "features", "_templates", "review.md")
 	if err := os.Remove(reviewTpl); err != nil {
 		t.Fatal(err)
 	}
@@ -335,10 +335,10 @@ func TestNewAllTypologies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWithOptions(bugfix) failed: %v", err)
 	}
-	if resBug.Dir != "bugfixes/T-001-fix-null-pointer" {
+	if resBug.Dir != "tasks/bugfixes/T-001-fix-null-pointer" {
 		t.Errorf("expected bugfixes dir, got %s", resBug.Dir)
 	}
-	repro := read(t, root, "bugfixes/T-001-fix-null-pointer/reproduction.md")
+	repro := read(t, root, "tasks/bugfixes/T-001-fix-null-pointer/reproduction.md")
 	if !strings.Contains(repro, "Mandatory Step 0: Minimal Failing Test Case") {
 		t.Errorf("expected reproduction.md to have Step 0 failing test section: %s", repro)
 	}
@@ -351,7 +351,7 @@ func TestNewAllTypologies(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error when task already exists in bugfixes, got nil")
 	}
-	if !strings.Contains(err.Error(), "already has a bugfixes folder") {
+	if !strings.Contains(err.Error(), "already has a tasks/bugfixes folder") && !strings.Contains(err.Error(), "already has a bugfixes folder") {
 		t.Errorf("unexpected error: %v", err)
 	}
 
@@ -371,13 +371,13 @@ func TestNewAllTypologies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWithOptions(hotfix) failed: %v", err)
 	}
-	if resHot.Dir != "hotfixes/T-002-emergency-patch" {
+	if resHot.Dir != "tasks/hotfixes/T-002-emergency-patch" {
 		t.Errorf("expected hotfixes dir, got %s", resHot.Dir)
 	}
 	if len(resHot.Files) != 4 {
 		t.Errorf("expected 4 files for hotfix, got %d: %+v", len(resHot.Files), resHot.Files)
 	}
-	incident := read(t, root, "hotfixes/T-002-emergency-patch/incident.md")
+	incident := read(t, root, "tasks/hotfixes/T-002-emergency-patch/incident.md")
 	if !strings.Contains(incident, "Incident Overview") {
 		t.Errorf("expected incident.md content, got: %s", incident)
 	}
@@ -387,13 +387,13 @@ func TestNewAllTypologies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewWithOptions(spike) failed: %v", err)
 	}
-	if resSpike.Dir != "spikes/T-003-investigate-mcp" {
+	if resSpike.Dir != "tasks/spikes/T-003-investigate-mcp" {
 		t.Errorf("expected spikes dir, got %s", resSpike.Dir)
 	}
 	if len(resSpike.Files) != 3 {
 		t.Errorf("expected 3 files for spike, got %d: %+v", len(resSpike.Files), resSpike.Files)
 	}
-	hyp := read(t, root, "spikes/T-003-investigate-mcp/hypotheses.md")
+	hyp := read(t, root, "tasks/spikes/T-003-investigate-mcp/hypotheses.md")
 	if !strings.Contains(hyp, "Disposable Prototype Boundary") {
 		t.Errorf("expected hypotheses.md to have Disposable Prototype Boundary: %s", hyp)
 	}

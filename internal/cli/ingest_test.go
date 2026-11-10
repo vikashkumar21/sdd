@@ -226,7 +226,7 @@ Provide secure self-service password reset via signed email link.
 		t.Errorf("expected output to mention staged context: %s", out.String())
 	}
 
-	reqBytes, err := os.ReadFile(filepath.Join(root, "features", "T-001-pwd-reset", "requirements.md"))
+	reqBytes, err := os.ReadFile(filepath.Join(root, "tasks", "features", "T-001-pwd-reset", "requirements.md"))
 	if err != nil {
 		t.Fatalf("failed reading requirements.md: %v", err)
 	}
@@ -335,7 +335,7 @@ func TestCLIFeatureNewFromDoc(t *testing.T) {
 		t.Errorf("expected output to mention staged context: %s", out.String())
 	}
 
-	reqBytes, err := os.ReadFile(filepath.Join(root, "features", "T-001-oauth-service", "requirements.md"))
+	reqBytes, err := os.ReadFile(filepath.Join(root, "tasks", "features", "T-001-oauth-service", "requirements.md"))
 	if err != nil {
 		t.Fatalf("reading requirements.md: %v", err)
 	}

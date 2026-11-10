@@ -60,10 +60,10 @@ commands:
   task list                  list active task worktrees (--json for structured output)
   task deconflict [tasks...] analyze plan file collisions and schedule parallel batches
   task merge <T-xxx>         qualify pre-merge matrix and merge task into target branch
-  feature new <T-xxx> <slug> create features/T-xxx-<slug>/ from project templates
-  bugfix new <T-xxx> <slug>  create bugfixes/T-xxx-<slug>/ with reproduction test template
-  hotfix new <T-xxx> <slug>  create hotfixes/T-xxx-<slug>/ with incident patch template
-  spike new <T-xxx> <slug>   create spikes/T-xxx-<slug>/ with hypotheses template
+  feature new <T-xxx> <slug> create tasks/features/T-xxx-<slug>/ from project templates
+  bugfix new <T-xxx> <slug>  create tasks/bugfixes/T-xxx-<slug>/ with reproduction test template
+  hotfix new <T-xxx> <slug>  create tasks/hotfixes/T-xxx-<slug>/ with incident patch template
+  spike new <T-xxx> <slug>   create tasks/spikes/T-xxx-<slug>/ with hypotheses template
   skill new <name>           scaffold a new agentskills.io skill (skills/<name>/SKILL.md)
   skill list                 list available skills in the project (--json for structured output)
   skill export               export the SDD protocol as a native agent skill

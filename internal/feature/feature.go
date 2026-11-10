@@ -60,8 +60,22 @@ func ParseTypology(s string) (Typology, error) {
 	}
 }
 
-// Directory returns the top-level directory for this typology.
+// Directory returns the canonical directory for this typology under the unified tasks/ hierarchy.
 func (t Typology) Directory() string {
+	switch t {
+	case TypologyBugfix:
+		return "tasks/bugfixes"
+	case TypologyHotfix:
+		return "tasks/hotfixes"
+	case TypologySpike:
+		return "tasks/spikes"
+	default:
+		return "tasks/features"
+	}
+}
+
+// LegacyDirectory returns the root-level directory for this typology used prior to v1.4.0.
+func (t Typology) LegacyDirectory() string {
 	switch t {
 	case TypologyBugfix:
 		return "bugfixes"
@@ -72,6 +86,26 @@ func (t Typology) Directory() string {
 	default:
 		return "features"
 	}
+}
+
+// DirectoryIn returns the typology directory to use in the given root project.
+// If tasks/ or tasks/<typology> exists, or if neither exists, it returns tasks/<typology>.
+// If legacy root <typology> exists and tasks/ does not exist, it returns the legacy root path.
+func (t Typology) DirectoryIn(root string) string {
+	canonical := t.Directory()
+	legacy := t.LegacyDirectory()
+	if root == "" {
+		return canonical
+	}
+	tasksDir := filepath.Join(root, "tasks")
+	if info, err := os.Stat(tasksDir); err == nil && info.IsDir() {
+		return canonical
+	}
+	legacyDir := filepath.Join(root, legacy)
+	if info, err := os.Stat(legacyDir); err == nil && info.IsDir() {
+		return legacy
+	}
+	return canonical
 }
 
 // RequiredTemplates returns the mandatory template names for this typology.
@@ -179,10 +213,13 @@ func NewWithOptions(root, id, slug string, opts Options) (Result, error) {
 		return Result{}, errors.New("title must be a single line")
 	}
 
-	// Check if this task already has a folder in ANY typology directory
-	allDirs := []string{"features", "bugfixes", "hotfixes", "spikes"}
+	// Check if this task already has a folder in ANY typology directory (tasks/ or legacy root)
+	allDirs := []string{
+		"tasks/features", "tasks/bugfixes", "tasks/hotfixes", "tasks/spikes",
+		"features", "bugfixes", "hotfixes", "spikes",
+	}
 	for _, d := range allDirs {
-		if f, err := rootHandle.Open(d); err == nil {
+		if f, err := rootHandle.Open(filepath.FromSlash(d)); err == nil {
 			entries, readErr := f.ReadDir(-1)
 			_ = f.Close()
 			if readErr == nil {
@@ -229,7 +266,7 @@ func NewWithOptions(root, id, slug string, opts Options) (Result, error) {
 		docFormat = entry.Format
 	}
 
-	topDir := typ.Directory()
+	topDir := typ.DirectoryIn(root)
 	tmplDir := topDir + "/_templates"
 	reqTemplates := typ.RequiredTemplates()
 	optTemplates := typ.OptionalTemplates()

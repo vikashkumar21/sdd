@@ -4,7 +4,7 @@
 
 - agent contracts: `CLAUDE.md`, `GEMINI.md`, `AGENTS.md` (identical rules)
 - living documents: `MISSION.md`, `TECH_STACK.md`, `ROADMAP.md`, `SKILLS.md`
-- per-task templates for all work typologies in `features/_templates/`, `bugfixes/_templates/`, `hotfixes/_templates/`, `spikes/_templates/`
+- per-task templates for all work typologies in `tasks/features/_templates/`, `tasks/bugfixes/_templates/`, `tasks/hotfixes/_templates/`, `tasks/spikes/_templates/`
 - a `.sdd/manifest.json` recording what was generated
 
 The workflow it installs: the agent drafts requirements and a plan, **the human approves before any code**, the agent implements and verifies, and **the human reviews and commits**. The anthem: *always be deterministic, and take human approval or decisions to accomplish that determinism.*
@@ -66,11 +66,11 @@ sdd check --fix --yes    # apply repairs without confirmation (backs up to .sdd/
 sdd status               # summarise roadmap milestones, active tasks, and pending gates
 sdd status --json        # machine-readable JSON summary for agent orchestration and CI
 
-sdd task new --type feature T-003 upgrade-command # unified task scaffolding across all 4 typologies
-sdd feature new T-003 upgrade-command         # creates features/T-003-upgrade-command/ from your templates
-sdd bugfix new T-003 upgrade-command          # creates bugfixes/T-003-upgrade-command/ (reproduction & RCA)
-sdd hotfix new T-003 upgrade-command          # creates hotfixes/T-003-upgrade-command/ (incident & patch)
-sdd spike new T-003 upgrade-command           # creates spikes/T-003-upgrade-command/ (hypotheses & findings)
+sdd task new --type feature T-003 upgrade-command # unified task scaffolding across all 4 typologies under tasks/
+sdd feature new T-003 upgrade-command         # creates tasks/features/T-003-upgrade-command/ from your templates
+sdd bugfix new T-003 upgrade-command          # creates tasks/bugfixes/T-003-upgrade-command/ (reproduction & RCA)
+sdd hotfix new T-003 upgrade-command          # creates tasks/hotfixes/T-003-upgrade-command/ (incident & patch)
+sdd spike new T-003 upgrade-command           # creates tasks/spikes/T-003-upgrade-command/ (hypotheses & findings)
 sdd task start T-003                          # provision isolated git worktree in .sdd/worktrees/T-003-...
 sdd task list                                 # list active task worktrees (--json supported)
 sdd task clean T-003                          # safely teardown worktree (creates backup if dirty)
@@ -144,7 +144,7 @@ sdd uninstall --yes                       # uninstall without interactive confir
 
 ## What `sdd check` verifies
 
-Required files exist · agent contracts are identical across agent files (managed block, or everything after the title line for older kits) · every `D-xxx` and `T-xxx` reference resolves · tables and code fences are intact · task statuses are valid and agree with task folders across all typologies (`features/`, `bugfixes/`, `hotfixes/`, `spikes/`) · worktree branch naming standards · static plan target collisions across concurrent in-flight tasks (`task-overlap`) · 64KB specification context budget guard · bugfix reproduction step verified · approval records and validation results are filled once a task is past those gates · `SKILLS.md` has the "Human feedback rules" section · unresolved `TODO(human)` placeholders are counted.
+Required files exist · agent contracts are identical across agent files (managed block, or everything after the title line for older kits) · every `D-xxx` and `T-xxx` reference resolves · tables and code fences are intact · task statuses are valid and agree with task folders across all typologies (`tasks/features/`, `tasks/bugfixes/`, `tasks/hotfixes/`, `tasks/spikes/`) · worktree branch naming standards · static plan target collisions across concurrent in-flight tasks (`task-overlap`) · 64KB specification context budget guard · bugfix reproduction step verified · approval records and validation results are filled once a task is past those gates · `SKILLS.md` has the "Human feedback rules" section · unresolved `TODO(human)` placeholders are counted.
 
 Finding waivers registered in `.sdd/suppressions.json` are downgraded to informational notes so `--strict` does not exit with failure. In `sdd check --fix`, suppressed repairs are highlighted with `[SUPPRESSED]` badges and can be kept waived or repaired (which clears the waiver). You can also interactively record waivers during `sdd check --fix` by answering `s`. If an issue is resolved, stale waivers are reported in `sdd check` and can be interactively pruned in `sdd check --fix`.
 

@@ -82,7 +82,7 @@ internal/detect/      read-only project scan (languages, mode, suggested command
 internal/scaffold/    answers, plan, apply, manifest
 internal/templates/   embedded templates (data/), override directory, language packs
 internal/check/       consistency rules (testdata/dbguard-kit is a real hand-made kit used as a regression fixture)
-internal/feature/     creation of features/T-xxx-<slug>/
+internal/feature/     creation of tasks/<typology>/T-xxx-<slug>/
 internal/roadmap/     parsing and editing of task rows
 internal/block/       managed contract block markers
 internal/fsutil/      atomic file writes
@@ -133,6 +133,10 @@ internal/version/     build version (set with -ldflags)
 | D-027 | Work typology and specialized lifecycle artifacts (Features, Bugfixes, Hotfixes, Spikes) | **Approved** 2026-11-05 | n/a | Option A: Top-level directories (features/, bugfixes/, hotfixes/, spikes/), unified sequential IDs (T-xxx) with Type attribute, failing reproduction test prerequisite for bugs, release-tag branching and post-mortems for hotfixes, non-merging disposable code for spikes, and dedicated CLI subcommands |
 | D-028 | Git worktree concurrency and workspace isolation | **Approved** 2026-11-05 | n/a | Option A: Physical workspace isolation via Git Worktrees in .sdd/worktrees/T-xxx-<slug>/, standardized branch naming (feature/, bugfix/, hotfix/, spike/), fail-safe cleanup with backup, and sdd status tracking |
 | D-029 | Two-tier git governance and Task Coordinator orchestration | **Approved** 2026-11-05 | n/a | Option A: Worker agents permitted autonomous commits strictly within their isolated task worktree/branch; workers forbidden from touching main. Task Coordinator checks plan.md file overlaps, qualifies merges (0 review blockers, tests passing), simulates merge/rebase, and presents GATE 2 to human expecting "APPROVED MERGE T-xxx". Export canonical skills/task-coordinator/SKILL.md with ensemble review standards (Spec Auditor + AppSec Specialist) |
+| D-030 | Unified `tasks/` directory structure and `sdd upgrade` migration | **Approved** 2026-11-10 | n/a | Option A: Unify typology directories under tasks/ (tasks/features/, tasks/bugfixes/, tasks/hotfixes/, tasks/spikes/); sdd upgrade automatically migrates root folders in existing projects and updates manifest |
+| D-031 | Pre-GATE 1 Plan Review Subagent and 3-Subagent Parallel Review Triad | **Approved** 2026-11-10 | n/a | Option A: Add Plan Reviewer subagent in Phase A before GATE 1; spawn 3 parallel subagent reviewers (Spec Auditor, AppSec Specialist, Pattern Auditor) in Phase C.2 |
+| D-032 | Human Feedback Rule F-001 (Resolve all review findings: Blockers, Warnings, and Minors) | **Approved** 2026-11-10 | n/a | Option A: Enact binding Rule F-001 in SKILLS.md §8 and contracts: worker agents must resolve all Blockers, Warnings, and Minors before GATE 2; any retained item must be explicitly justified |
+| D-033 | Lifecycle YAML frontmatter metadata and `.ragignore` for RAG filtering | **Approved** 2026-11-10 | n/a | Option A: Standard YAML frontmatter (status: active/draft/completed/superseded/deprecated, task_id, superseded_by, last_reviewed) and .ragignore generation for deterministic vector/RAG indexing |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 
@@ -158,6 +162,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-05 | Code review specification (review.md, 3-tier risk grading, zero unresolved blockers check) and sdd status roadmap/gate aggregator verified | Run in internal/status, internal/check, and cli tests (M7) | M9 |
 | 2026-11-05 | Two-tier agent hierarchy, Phase C.2 independent subagent audit, 3-loop circuit breaker, canonical skills/task-coordinator/SKILL.md, sdd prompt review, and template version 1.3.0 verified | Run in internal/skill, internal/cli, internal/check tests (T-032) | M9 |
 | 2026-11-05 | Ensemble code review standards (Spec Auditor, AppSec Specialist, Pattern & Quality Auditor), sdd prompt review --lens (spec/security/pattern/all), and Review Triad templates verified | Run in internal/skill, internal/cli, internal/check tests (T-033) | M9 |
+| 2026-11-10 | Unified tasks/ directory hierarchy (tasks/features/, tasks/bugfixes/, tasks/hotfixes/, tasks/spikes/), sdd upgrade automated legacy folder migration, manifest path mapping, and template version 1.4.0 verified | Run in internal/upgrade, internal/feature, internal/cli, internal/check tests (T-034) | M10 |
 
 ## 8. Dependency register
 

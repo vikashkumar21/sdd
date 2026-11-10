@@ -17,7 +17,7 @@ import (
 
 // Version identifies the embedded template set. Bump it whenever any template
 // changes so that generated projects record which templates they came from.
-const Version = "1.3.0"
+const Version = "1.4.0"
 
 //go:embed all:data
 var embedded embed.FS
@@ -87,6 +87,15 @@ func (o overlay) Open(name string) (fs.File, error) {
 func (s *Set) Raw(name string) (string, error) {
 	data, err := fs.ReadFile(s.fsys, name)
 	if err != nil {
+		if strings.HasPrefix(name, "tasks/") {
+			if d, e := fs.ReadFile(s.fsys, strings.TrimPrefix(name, "tasks/")); e == nil {
+				return string(d), nil
+			}
+		} else {
+			if d, e := fs.ReadFile(s.fsys, "tasks/"+name); e == nil {
+				return string(d), nil
+			}
+		}
 		return "", fmt.Errorf("templates: read %s: %w", name, err)
 	}
 	return string(data), nil

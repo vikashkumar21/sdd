@@ -114,10 +114,6 @@ var (
 
 var coreDocs = []string{"MISSION.md", "TECH_STACK.md", "ROADMAP.md", "SKILLS.md"}
 
-var templateFiles = []string{
-	"features/_templates/requirements.md", "features/_templates/plan.md", "features/_templates/validation.md",
-}
-
 // Run checks the project at root. It only reads.
 func Run(root string) (Report, error) {
 	info, err := os.Stat(root)
@@ -292,8 +288,21 @@ func (c *checker) checkContextManifest() {
 }
 
 func (c *checker) requireFiles(agents []string) {
-	required := append(append(append([]string{}, agents...), coreDocs...), templateFiles...)
+	required := append(append([]string{}, agents...), coreDocs...)
 	for _, rel := range required {
+		if _, ok := c.load(rel); !ok {
+			c.add(Error, rel, 0, "required-file", "required file is missing (run `sdd init`, or restore it)")
+		}
+	}
+	// Verify task feature templates: check tasks/features/_templates/ first, fallback to features/_templates/
+	baseDir := "tasks/features/_templates"
+	if _, ok := c.load("tasks/features/_templates/plan.md"); !ok {
+		if _, legacyOk := c.load("features/_templates/plan.md"); legacyOk {
+			baseDir = "features/_templates"
+		}
+	}
+	for _, f := range []string{"requirements.md", "plan.md", "validation.md"} {
+		rel := baseDir + "/" + f
 		if _, ok := c.load(rel); !ok {
 			c.add(Error, rel, 0, "required-file", "required file is missing (run `sdd init`, or restore it)")
 		}
@@ -328,24 +337,33 @@ func (c *checker) markdownFiles() []string {
 			}
 		}
 	}
-	featuresDir := filepath.Join(c.root, "features")
-	_ = filepath.WalkDir(featuresDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
+	scanDirs := []string{
+		filepath.Join("tasks", "features"),
+		filepath.Join("tasks", "bugfixes"),
+		filepath.Join("tasks", "hotfixes"),
+		filepath.Join("tasks", "spikes"),
+		"features", "bugfixes", "hotfixes", "spikes",
+	}
+	for _, dName := range scanDirs {
+		dirPath := filepath.Join(c.root, dName)
+		_ = filepath.WalkDir(dirPath, func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			rel, rerr := filepath.Rel(c.root, path)
+			if rerr != nil {
+				return nil
+			}
+			rel = filepath.ToSlash(rel)
+			if d.IsDir() && strings.HasSuffix(rel, "/_templates") {
+				return filepath.SkipDir
+			}
+			if !d.IsDir() && strings.HasSuffix(rel, ".md") {
+				out = append(out, rel)
+			}
 			return nil
-		}
-		rel, rerr := filepath.Rel(c.root, path)
-		if rerr != nil {
-			return nil
-		}
-		rel = filepath.ToSlash(rel)
-		if d.IsDir() && rel == "features/_templates" {
-			return filepath.SkipDir
-		}
-		if !d.IsDir() && strings.HasSuffix(rel, ".md") {
-			out = append(out, rel)
-		}
-		return nil
-	})
+		})
+	}
 	sort.Strings(out)
 	return out
 }
@@ -533,7 +551,15 @@ func (c *checker) checkFeatures(tasks []roadmap.Task) {
 		}
 	}
 	folders := map[string]string{} // task ID -> folder rel path
-	typologies := []string{"features", "bugfixes", "hotfixes", "spikes"}
+	typologies := []struct {
+		dirs []string
+		name string
+	}{
+		{[]string{filepath.Join("tasks", "features"), "features"}, "features"},
+		{[]string{filepath.Join("tasks", "bugfixes"), "bugfixes"}, "bugfixes"},
+		{[]string{filepath.Join("tasks", "hotfixes"), "hotfixes"}, "hotfixes"},
+		{[]string{filepath.Join("tasks", "spikes"), "spikes"}, "spikes"},
+	}
 	typologyRequiredFiles := map[string][]string{
 		"features": {"requirements.md", "plan.md", "validation.md"},
 		"bugfixes": {"reproduction.md", "rca.md", "plan.md", "validation.md"},
@@ -541,57 +567,61 @@ func (c *checker) checkFeatures(tasks []roadmap.Task) {
 		"spikes":   {"hypotheses.md", "findings.md", "plan.md"},
 	}
 
-	for _, topDir := range typologies {
-		entries, _ := os.ReadDir(filepath.Join(c.root, topDir))
-		for _, e := range entries {
-			if !e.IsDir() || e.Name() == "_templates" {
-				continue
-			}
-			rel := topDir + "/" + e.Name()
-			m := featureDirRe.FindStringSubmatch(e.Name())
-			if m == nil {
-				c.add(Error, rel, 0, "feature-folder", "%s folder name must look like T-001-short-slug (lower-case, hyphens)", topDir)
-				continue
-			}
-			id := m[1]
-			if prev, dup := folders[id]; dup {
-				c.add(Error, rel, 0, "feature-folder", "%s already has a task folder (%s)", id, prev)
-			}
-			folders[id] = rel
-			if len(tasks) > 0 {
-				if _, ok := status[id]; !ok {
-					c.add(Error, rel, 0, "feature-folder", "%s has no task row in ROADMAP.md", id)
+	for _, topo := range typologies {
+		for _, topDir := range topo.dirs {
+			entries, _ := os.ReadDir(filepath.Join(c.root, topDir))
+			for _, e := range entries {
+				if !e.IsDir() || e.Name() == "_templates" {
+					continue
 				}
-			}
-			required := typologyRequiredFiles[topDir]
-			for _, f := range required {
-				content, ok := c.load(rel + "/" + f)
-				if !ok {
-					c.add(Error, rel+"/"+f, 0, "feature-folder", "%s folder is missing %s", topDir, f)
-				} else {
-					// 64KB context budget guard
-					if len(content) > 65536 {
-						c.add(Warn, rel+"/"+f, 0, "context-budget", "%s is %d KB (exceeds recommended 64KB context budget; consider splitting into smaller tasks or moving background data to .sdd/context/)", f, len(content)/1024)
+				rel := filepath.ToSlash(filepath.Join(topDir, e.Name()))
+				m := featureDirRe.FindStringSubmatch(e.Name())
+				if m == nil {
+					c.add(Error, rel, 0, "feature-folder", "%s folder name must look like T-001-short-slug (lower-case, hyphens)", topo.name)
+					continue
+				}
+				id := m[1]
+				if prev, dup := folders[id]; dup {
+					if prev != rel {
+						c.add(Error, rel, 0, "feature-folder", "%s already has a task folder (%s)", id, prev)
 					}
 				}
-			}
-			// Check context budget for optional templates if present
-			if revContent, ok := c.load(rel + "/review.md"); ok {
-				if len(revContent) > 65536 {
-					c.add(Warn, rel+"/review.md", 0, "context-budget", "review.md is %d KB (exceeds recommended 64KB context budget; consider archiving findings)", len(revContent)/1024)
-				}
-			}
-			// Bugfix Step 0 check
-			if topDir == "bugfixes" && (status[id] == "awaiting review" || status[id] == "done") {
-				if repro, ok := c.load(rel + "/reproduction.md"); ok {
-					if strings.Contains(repro, "<paste real failure output") || strings.Contains(repro, "[ ] Yes") {
-						c.add(Error, rel+"/reproduction.md", 0, "bugfix-reproduction", "task is %s but reproduction.md has not verified a minimal failing test case (Step 0)", status[id])
+				folders[id] = rel
+				if len(tasks) > 0 {
+					if _, ok := status[id]; !ok {
+						c.add(Error, rel, 0, "feature-folder", "%s has no task row in ROADMAP.md", id)
 					}
 				}
-			}
-			c.checkGateDiscipline(rel, status[id])
-			if topDir == "features" || topDir == "bugfixes" {
-				c.checkReviewDocument(rel, status[id])
+				required := typologyRequiredFiles[topo.name]
+				for _, f := range required {
+					content, ok := c.load(rel + "/" + f)
+					if !ok {
+						c.add(Error, rel+"/"+f, 0, "feature-folder", "%s folder is missing %s", topo.name, f)
+					} else {
+						// 64KB context budget guard
+						if len(content) > 65536 {
+							c.add(Warn, rel+"/"+f, 0, "context-budget", "%s is %d KB (exceeds recommended 64KB context budget; consider splitting into smaller tasks or moving background data to .sdd/context/)", f, len(content)/1024)
+						}
+					}
+				}
+				// Check context budget for optional templates if present
+				if revContent, ok := c.load(rel + "/review.md"); ok {
+					if len(revContent) > 65536 {
+						c.add(Warn, rel+"/review.md", 0, "context-budget", "review.md is %d KB (exceeds recommended 64KB context budget; consider archiving findings)", len(revContent)/1024)
+					}
+				}
+				// Bugfix Step 0 check
+				if topo.name == "bugfixes" && (status[id] == "awaiting review" || status[id] == "done") {
+					if repro, ok := c.load(rel + "/reproduction.md"); ok {
+						if strings.Contains(repro, "<paste real failure output") || strings.Contains(repro, "[ ] Yes") {
+							c.add(Error, rel+"/reproduction.md", 0, "bugfix-reproduction", "task is %s but reproduction.md has not verified a minimal failing test case (Step 0)", status[id])
+						}
+					}
+				}
+				c.checkGateDiscipline(rel, status[id])
+				if topo.name == "features" || topo.name == "bugfixes" {
+					c.checkReviewDocument(rel, status[id])
+				}
 			}
 		}
 	}

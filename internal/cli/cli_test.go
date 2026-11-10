@@ -94,7 +94,7 @@ func TestInitYesGreenfieldThenCheckPasses(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("init failed: %+v", r)
 	}
-	for _, f := range []string{"CLAUDE.md", "GEMINI.md", "AGENTS.md", "MISSION.md", ".sdd/manifest.json", "features/_templates/plan.md"} {
+	for _, f := range []string{"CLAUDE.md", "GEMINI.md", "AGENTS.md", "MISSION.md", ".sdd/manifest.json", "tasks/features/_templates/plan.md"} {
 		if !exists(root, f) {
 			t.Errorf("missing %s", f)
 		}
@@ -241,10 +241,10 @@ func TestFeatureNewAndPromptWorkflow(t *testing.T) {
 
 	// flags may follow the positional arguments
 	r := exec(t, "", false, "", "feature", "new", "T-001", "scope", "--dir", root, "--title", "Define the scope")
-	if r.code != 0 || !strings.Contains(r.out, "features/T-001-scope") || !strings.Contains(r.out, "Specifying") {
+	if r.code != 0 || !strings.Contains(r.out, "tasks/features/T-001-scope") || !strings.Contains(r.out, "Specifying") {
 		t.Fatalf("feature new: %+v", r)
 	}
-	if !strings.Contains(read(t, root, "features/T-001-scope/plan.md"), "# Plan — T-001 Define the scope") {
+	if !strings.Contains(read(t, root, "tasks/features/T-001-scope/plan.md"), "# Plan — T-001 Define the scope") {
 		t.Error("title flag not applied")
 	}
 	if r := exec(t, "", false, "", "feature", "new", "T-001", "again", "--dir", root); r.code != 1 {
@@ -885,8 +885,8 @@ func TestTaskScaffolding(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("expected exit 0 for bugfix new, got %d: %s (err: %s)", r.code, r.out, r.err)
 	}
-	if !exists(dir, "bugfixes/T-002-parser-bug/reproduction.md") {
-		t.Errorf("expected reproduction.md to exist in bugfixes/T-002-parser-bug")
+	if !exists(dir, "tasks/bugfixes/T-002-parser-bug/reproduction.md") {
+		t.Errorf("expected reproduction.md to exist in tasks/bugfixes/T-002-parser-bug")
 	}
 
 	// 2. sdd hotfix new
@@ -894,8 +894,8 @@ func TestTaskScaffolding(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("expected exit 0 for hotfix new, got %d: %s (err: %s)", r.code, r.out, r.err)
 	}
-	if !exists(dir, "hotfixes/T-003-prod-fix/incident.md") {
-		t.Errorf("expected incident.md to exist in hotfixes/T-003-prod-fix")
+	if !exists(dir, "tasks/hotfixes/T-003-prod-fix/incident.md") {
+		t.Errorf("expected incident.md to exist in tasks/hotfixes/T-003-prod-fix")
 	}
 
 	// 3. sdd spike new
@@ -903,8 +903,8 @@ func TestTaskScaffolding(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("expected exit 0 for spike new, got %d: %s (err: %s)", r.code, r.out, r.err)
 	}
-	if !exists(dir, "spikes/T-004-eval-tool/hypotheses.md") {
-		t.Errorf("expected hypotheses.md to exist in spikes/T-004-eval-tool")
+	if !exists(dir, "tasks/spikes/T-004-eval-tool/hypotheses.md") {
+		t.Errorf("expected hypotheses.md to exist in tasks/spikes/T-004-eval-tool")
 	}
 
 	// 4. sdd task new --type feature
@@ -912,8 +912,8 @@ func TestTaskScaffolding(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("expected exit 0 for task new --type feature, got %d: %s (err: %s)", r.code, r.out, r.err)
 	}
-	if !exists(dir, "features/T-001-my-feature/requirements.md") {
-		t.Errorf("expected requirements.md to exist in features/T-001-my-feature")
+	if !exists(dir, "tasks/features/T-001-my-feature/requirements.md") {
+		t.Errorf("expected requirements.md to exist in tasks/features/T-001-my-feature")
 	}
 
 	// 5. sdd task new with unknown typology

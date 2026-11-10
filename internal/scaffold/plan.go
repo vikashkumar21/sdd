@@ -138,11 +138,11 @@ func BuildPlan(root string, a Answers, det detect.Result, set *templates.Set, no
 	typologyOrder := []string{"features", "bugfixes", "hotfixes", "spikes"}
 	for _, topDir := range typologyOrder {
 		for _, name := range typologyTemplates[topDir] {
-			content, err := set.Raw(topDir + "/" + name)
+			content, err := set.Raw("tasks/" + topDir + "/" + name)
 			if err != nil {
 				return Plan{}, err
 			}
-			op, err := wholeOp(root, topDir+"/_templates/"+name, content, false, force)
+			op, err := wholeOp(root, "tasks/"+topDir+"/_templates/"+name, content, false, force)
 			if err != nil {
 				return Plan{}, err
 			}

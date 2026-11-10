@@ -5,7 +5,7 @@
     "version": "0.1.0"
   },
   "templates": {
-    "version": "1.0.0"
+    "version": "1.4.0"
   },
   "generated": "2026-10-26",
   "answers": {
@@ -79,19 +79,19 @@
       "state": "existing"
     },
     {
-      "path": "features/_templates/requirements.md",
+      "path": "tasks/features/_templates/requirements.md",
       "kind": "file",
       "state": "created",
       "sha256": "fdca3003938a0da3aae3be9b13b17df81f2b6dde4f33808feba590fc399b23cd"
     },
     {
-      "path": "features/_templates/plan.md",
+      "path": "tasks/features/_templates/plan.md",
       "kind": "file",
       "state": "created",
       "sha256": "fa2e1cf0c720b5cc9f9983e72761da6ef6891c5b90359428b026a5b50580c5eb"
     },
     {
-      "path": "features/_templates/validation.md",
+      "path": "tasks/features/_templates/validation.md",
       "kind": "file",
       "state": "created",
       "sha256": "f658580deb7575664d38ac419dc8948caeeb1e3fd7d8bd696e087022cc9995f5"

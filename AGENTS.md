@@ -1,6 +1,6 @@
 # AGENTS.md — sdd agent contract (all agents)
 
-<!-- sdd:begin contract templates=1.3.0 -->
+<!-- sdd:begin contract templates=1.4.0 -->
 > **ANTHEM: ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**
 
 This is the operating contract for AI agents working on `sdd`. The rules are identical in every agent file (CLAUDE.md, GEMINI.md, AGENTS.md); only the title line differs. If you change a rule in one file, mirror it in the others in the same change set (§9). `sdd check` verifies that they match.
@@ -14,7 +14,7 @@ This is the operating contract for AI agents working on `sdd`. The rules are ide
 3. `ROADMAP.md` — milestones, tasks (T-xxx), statuses, parking lot
 4. `SKILLS.md` — standards, playbooks, and the Human feedback rules (F-xxx)
 5. `README.md` — current public-facing state
-6. If a task is active: `features/T-xxx-<slug>/requirements.md`, `plan.md`, `validation.md`
+6. If a task is active: `tasks/features/T-xxx-<slug>/requirements.md`, `plan.md`, `validation.md`
 
 Start every session by stating: the active task (or "none"), the files you read, and its current status in `ROADMAP.md`. If two files contradict each other, STOP and report the conflict. Do not pick a winner.
 
@@ -22,13 +22,13 @@ Start every session by stating: the active task (or "none"), the files you read,
 
 | Phase | What the agent does | Output | Gate |
 |---|---|---|---|
-| A. Specify | Create `features/T-xxx-<kebab-slug>/` from `features/_templates/` (`sdd feature new T-xxx <slug>` does this mechanically). Draft `requirements.md`, `plan.md`, `validation.md`, `review.md`. **No code. No changes outside this folder.** | Four drafted docs | **GATE 1** |
+| A. Specify | Create `tasks/features/T-xxx-<kebab-slug>/` from `tasks/features/_templates/` (`sdd feature new T-xxx <slug>` does this mechanically). Draft `requirements.md`, `plan.md`, `validation.md`, `review.md`. **No code. No changes outside this folder.** | Four drafted docs | **GATE 1** |
 | B. Implement | Execute `plan.md` step by step. Touch only files listed in the plan. | Code and tests | none |
 | C.1 Verify | Run every check in `validation.md`; record the real commands and real results. | Filled `validation.md` | none |
 | C.2 Independent Audit | Spawn an independent subagent reviewer (via harness subagent tool or `sdd prompt review`). Subagent audits diff against spec, security, and standards. **Primary agent is strictly forbidden from self-approving review.md.** Max 3 review-fix iterations. | Approved `review.md` (0 Blockers) | none |
 | D. Close | Update the living docs listed in the plan (§6). Set the ROADMAP status to `Awaiting review`. Prepare a diff summary and a suggested commit message. | Doc updates and summary | **GATE 2** |
 
-`T-000` (the bootstrap scaffolding) is the only task exempt from the `features/` document quartet. Every other task follows the table above.
+`T-000` (the bootstrap scaffolding) is the only task exempt from the `tasks/` document quartet. Every other task follows the table above.
 
 ### GATE 1 — approve requirements and plan (before any code)
 
@@ -73,7 +73,7 @@ The human's reply is recorded in the Decision register (status `Approved`, date,
 
 ## 4. Hard rules
 
-1. **No code before GATE 1** for the task. Only `features/T-xxx-*/` docs may be written during Phase A.
+1. **No code before GATE 1** for the task. Only `tasks/features/T-xxx-*/` docs may be written during Phase A.
 2. **Never commit or push.** Suggest; the human commits.
 3. **One task at a time. No scope creep.** Anything discovered but out of scope goes to the `ROADMAP.md` Parking lot, not into the code.
 4. **Fail safe.** When input, state, or intent is unknown or ambiguous, choose the most restrictive outcome or stop and ask. Never default to the permissive path.

@@ -363,7 +363,7 @@ func TestUpgradeForce(t *testing.T) {
 
 func TestUpgradeCreatesMissingReviewTemplate(t *testing.T) {
 	root := generateKit(t)
-	reviewPath := filepath.Join(root, "features", "_templates", "review.md")
+	reviewPath := filepath.Join(root, "tasks", "features", "_templates", "review.md")
 	_ = os.Remove(reviewPath)
 
 	plan, err := BuildPlan(root, Options{Now: fixedNow})
@@ -373,7 +373,7 @@ func TestUpgradeCreatesMissingReviewTemplate(t *testing.T) {
 
 	var reviewItem *Item
 	for i := range plan.Items {
-		if plan.Items[i].Path == "features/_templates/review.md" {
+		if plan.Items[i].Path == "tasks/features/_templates/review.md" {
 			reviewItem = &plan.Items[i]
 			break
 		}
@@ -403,9 +403,9 @@ func TestUpgradeTypologies(t *testing.T) {
 	root := generateKit(t)
 
 	// Remove bugfixes, hotfixes, spikes templates to simulate an older kit
-	_ = os.RemoveAll(filepath.Join(root, "bugfixes"))
-	_ = os.RemoveAll(filepath.Join(root, "hotfixes"))
-	_ = os.RemoveAll(filepath.Join(root, "spikes"))
+	_ = os.RemoveAll(filepath.Join(root, "tasks", "bugfixes"))
+	_ = os.RemoveAll(filepath.Join(root, "tasks", "hotfixes"))
+	_ = os.RemoveAll(filepath.Join(root, "tasks", "spikes"))
 
 	plan, err := BuildPlan(root, Options{Now: fixedNow})
 	if err != nil {
@@ -420,18 +420,18 @@ func TestUpgradeTypologies(t *testing.T) {
 	}
 
 	expectedTemplates := []string{
-		"bugfixes/_templates/reproduction.md",
-		"bugfixes/_templates/rca.md",
-		"bugfixes/_templates/plan.md",
-		"bugfixes/_templates/validation.md",
-		"bugfixes/_templates/review.md",
-		"hotfixes/_templates/incident.md",
-		"hotfixes/_templates/patch.md",
-		"hotfixes/_templates/validation.md",
-		"hotfixes/_templates/post_mortem.md",
-		"spikes/_templates/hypotheses.md",
-		"spikes/_templates/findings.md",
-		"spikes/_templates/plan.md",
+		"tasks/bugfixes/_templates/reproduction.md",
+		"tasks/bugfixes/_templates/rca.md",
+		"tasks/bugfixes/_templates/plan.md",
+		"tasks/bugfixes/_templates/validation.md",
+		"tasks/bugfixes/_templates/review.md",
+		"tasks/hotfixes/_templates/incident.md",
+		"tasks/hotfixes/_templates/patch.md",
+		"tasks/hotfixes/_templates/validation.md",
+		"tasks/hotfixes/_templates/post_mortem.md",
+		"tasks/spikes/_templates/hypotheses.md",
+		"tasks/spikes/_templates/findings.md",
+		"tasks/spikes/_templates/plan.md",
 	}
 
 	for _, tmpl := range expectedTemplates {
@@ -454,5 +454,194 @@ func TestUpgradeTypologies(t *testing.T) {
 
 	if len(rep.Created) < len(expectedTemplates) {
 		t.Errorf("expected at least %d created templates, got %d", len(expectedTemplates), len(rep.Created))
+	}
+}
+
+func TestUpgradeLegacyFolderMigration(t *testing.T) {
+	root := generateKit(t)
+
+	// Transform kit to legacy layout: move tasks/features to features, etc.
+	for _, topo := range []string{"features", "bugfixes", "hotfixes", "spikes"} {
+		src := filepath.Join(root, "tasks", topo)
+		dst := filepath.Join(root, topo)
+		if err := os.Rename(src, dst); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = os.Remove(filepath.Join(root, "tasks"))
+
+	// Create a dummy task in legacy features/
+	taskDir := filepath.Join(root, "features", "T-001-legacy-task")
+	if err := os.MkdirAll(taskDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	taskReq := filepath.Join(taskDir, "requirements.md")
+	if err := os.WriteFile(taskReq, []byte("# Requirements"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Update manifest to match legacy paths
+	manifestPath := filepath.Join(root, ".sdd", "manifest.json")
+	mBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	updatedManifest := strings.ReplaceAll(string(mBytes), "tasks/features/", "features/")
+	updatedManifest = strings.ReplaceAll(updatedManifest, "tasks/bugfixes/", "bugfixes/")
+	updatedManifest = strings.ReplaceAll(updatedManifest, "tasks/hotfixes/", "hotfixes/")
+	updatedManifest = strings.ReplaceAll(updatedManifest, "tasks/spikes/", "spikes/")
+	if err := os.WriteFile(manifestPath, []byte(updatedManifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatalf("BuildPlan failed: %v", err)
+	}
+
+	if plan.UpToDate {
+		t.Errorf("expected plan not to be up-to-date due to legacy folders")
+	}
+
+	if len(plan.Migrations) != 4 {
+		t.Fatalf("expected 4 folder migrations, got %d: %+v", len(plan.Migrations), plan.Migrations)
+	}
+
+	rep, err := Apply(plan, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	if len(rep.Migrated) != 4 {
+		t.Errorf("expected 4 migrated folders in report, got %d: %+v", len(rep.Migrated), rep.Migrated)
+	}
+
+	// Verify legacy folders no longer exist at root
+	for _, topo := range []string{"features", "bugfixes", "hotfixes", "spikes"} {
+		if _, err := os.Stat(filepath.Join(root, topo)); !os.IsNotExist(err) {
+			t.Errorf("expected legacy folder %s to be moved, but it still exists", topo)
+		}
+	}
+
+	// Verify canonical folders exist under tasks/
+	for _, topo := range []string{"features", "bugfixes", "hotfixes", "spikes"} {
+		if info, err := os.Stat(filepath.Join(root, "tasks", topo)); err != nil || !info.IsDir() {
+			t.Errorf("expected tasks/%s to exist", topo)
+		}
+	}
+
+	// Verify task folder moved
+	migratedTaskReq := filepath.Join(root, "tasks", "features", "T-001-legacy-task", "requirements.md")
+	if _, err := os.Stat(migratedTaskReq); err != nil {
+		t.Errorf("expected migrated task requirements.md to exist: %v", err)
+	}
+
+	// Verify manifest paths updated
+	man, ok, err := scaffold.ReadManifest(root)
+	if err != nil || !ok {
+		t.Fatalf("failed to read updated manifest: %v", err)
+	}
+	for _, f := range man.Files {
+		if strings.HasPrefix(f.Path, "features/") || strings.HasPrefix(f.Path, "bugfixes/") {
+			t.Errorf("found unmigrated manifest path: %s", f.Path)
+		}
+	}
+}
+
+func TestUpgradeDryRunMigration(t *testing.T) {
+	root := generateKit(t)
+
+	// Move tasks/features to root features
+	src := filepath.Join(root, "tasks", "features")
+	dst := filepath.Join(root, "features")
+	if err := os.Rename(src, dst); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.Remove(filepath.Join(root, "tasks"))
+
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatalf("BuildPlan failed: %v", err)
+	}
+
+	hasFeatureMigration := false
+	for _, mig := range plan.Migrations {
+		if mig.From == "features" && mig.To == "tasks/features" {
+			hasFeatureMigration = true
+			break
+		}
+	}
+	if !hasFeatureMigration {
+		t.Errorf("expected migration from features to tasks/features in plan")
+	}
+
+	// In a dry run, Apply is never called. Verify root features still exists.
+	if _, err := os.Stat(filepath.Join(root, "features")); err != nil {
+		t.Errorf("features directory should still exist in dry-run mode: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(root, "tasks", "features")); !os.IsNotExist(err) {
+		t.Errorf("tasks/features directory should not exist in dry-run mode")
+	}
+}
+
+func TestUpgradeMigrationIsDeterministic(t *testing.T) {
+	createLegacyKit := func() string {
+		root := generateKit(t)
+		for _, topo := range []string{"features", "bugfixes", "hotfixes", "spikes"} {
+			src := filepath.Join(root, "tasks", topo)
+			dst := filepath.Join(root, topo)
+			if err := os.Rename(src, dst); err != nil {
+				t.Fatal(err)
+			}
+		}
+		_ = os.Remove(filepath.Join(root, "tasks"))
+
+		manifestPath := filepath.Join(root, ".sdd", "manifest.json")
+		mBytes, err := os.ReadFile(manifestPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		updatedManifest := strings.ReplaceAll(string(mBytes), "tasks/features/", "features/")
+		updatedManifest = strings.ReplaceAll(updatedManifest, "tasks/bugfixes/", "bugfixes/")
+		updatedManifest = strings.ReplaceAll(updatedManifest, "tasks/hotfixes/", "hotfixes/")
+		updatedManifest = strings.ReplaceAll(updatedManifest, "tasks/spikes/", "spikes/")
+		if err := os.WriteFile(manifestPath, []byte(updatedManifest), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return root
+	}
+
+	root1 := createLegacyKit()
+	root2 := createLegacyKit()
+
+	plan1, err := BuildPlan(root1, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Apply(plan1, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	plan2, err := BuildPlan(root2, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Apply(plan2, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	m1, err := os.ReadFile(filepath.Join(root1, ".sdd", "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m2, err := os.ReadFile(filepath.Join(root2, ".sdd", "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(m1) != string(m2) {
+		t.Errorf("manifests after upgrade are not identical across runs:\n--- run 1 ---\n%s\n--- run 2 ---\n%s", string(m1), string(m2))
 	}
 }

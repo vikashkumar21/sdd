@@ -180,7 +180,7 @@ Review audits are conducted through three specialized lenses:
 ### 3. Review Protocol & Circuit Breaker
 - **Independent Auditor Required:** The primary author agent is strictly forbidden from self-approving its own `review.md`. An independent subagent reviewer must certify `review.md` with 0 Blockers before Phase D close.
 - **3-Loop Circuit Breaker:** At most 3 review-fix iterations (1 initial audit + up to 2 fix attempts) between author and reviewer. If Blockers persist after 3 iterations, the agent MUST halt, mark the task `Blocked`, and escalate to the human.
-- **Review Artifact (`review.md`):** Review findings are recorded in `features/T-xxx-<slug>/review.md` (or typology equivalent). If any unresolved 🔴 Blocker remains, `sdd check` flags an error and the task CANNOT proceed to GATE 2 commit.
+- **Review Artifact (`review.md`):** Review findings are recorded in `tasks/features/T-xxx-<slug>/review.md` (or typology equivalent under `tasks/`). If any unresolved 🔴 Blocker remains, `sdd check` flags an error and the task CANNOT proceed to GATE 2 commit.
 
 
 

@@ -289,13 +289,13 @@ func buildTaskInfo(root string, t roadmap.Task, normStatus, kind string, feature
 	if folder != "" {
 		slashFolder := filepath.ToSlash(folder)
 		switch {
-		case strings.HasPrefix(slashFolder, "features/"):
+		case strings.HasPrefix(slashFolder, "tasks/features/") || strings.HasPrefix(slashFolder, "features/"):
 			typology = "feature"
-		case strings.HasPrefix(slashFolder, "bugfixes/"):
+		case strings.HasPrefix(slashFolder, "tasks/bugfixes/") || strings.HasPrefix(slashFolder, "bugfixes/"):
 			typology = "bugfix"
-		case strings.HasPrefix(slashFolder, "hotfixes/"):
+		case strings.HasPrefix(slashFolder, "tasks/hotfixes/") || strings.HasPrefix(slashFolder, "hotfixes/"):
 			typology = "hotfix"
-		case strings.HasPrefix(slashFolder, "spikes/"):
+		case strings.HasPrefix(slashFolder, "tasks/spikes/") || strings.HasPrefix(slashFolder, "spikes/"):
 			typology = "spike"
 		}
 	}
@@ -427,7 +427,13 @@ func parseMilestoneTitles(content string) map[string]string {
 
 func discoverFeatureFolders(root string) map[string]string {
 	folders := make(map[string]string)
-	typologies := []string{"features", "bugfixes", "hotfixes", "spikes"}
+	typologies := []string{
+		filepath.Join("tasks", "features"),
+		filepath.Join("tasks", "bugfixes"),
+		filepath.Join("tasks", "hotfixes"),
+		filepath.Join("tasks", "spikes"),
+		"features", "bugfixes", "hotfixes", "spikes",
+	}
 	for _, topDir := range typologies {
 		dir := filepath.Join(root, topDir)
 		entries, err := os.ReadDir(dir)
@@ -445,7 +451,9 @@ func discoverFeatureFolders(root string) map[string]string {
 			parts := strings.SplitN(name, "-", 3)
 			if len(parts) >= 2 && strings.HasPrefix(name, "T-") {
 				taskID := parts[0] + "-" + parts[1]
-				folders[taskID] = filepath.Join(topDir, name)
+				if _, already := folders[taskID]; !already {
+					folders[taskID] = filepath.ToSlash(filepath.Join(topDir, name))
+				}
 			}
 		}
 	}

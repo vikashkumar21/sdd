@@ -53,12 +53,19 @@ type Item struct {
 	NewHash         string
 }
 
+// FolderMigration describes a legacy root folder to be moved to tasks/.
+type FolderMigration struct {
+	From string // e.g. "features"
+	To   string // e.g. "tasks/features"
+}
+
 // Plan represents the full set of planned upgrade operations.
 type Plan struct {
 	Root              string
 	OldTemplatesVer   string
 	NewTemplatesVer   string
 	TemplatesOverride string
+	Migrations        []FolderMigration
 	Items             []Item
 	Manifest          scaffold.Manifest
 	UpToDate          bool
@@ -66,6 +73,7 @@ type Plan struct {
 
 // Report summarizes the executed upgrade.
 type Report struct {
+	Migrated  []string
 	Updated   []string
 	Proposals []string
 	Created   []string
@@ -376,17 +384,41 @@ func BuildPlan(root string, opts Options) (*Plan, error) {
 	}
 	typologyOrder := []string{"features", "bugfixes", "hotfixes", "spikes"}
 
+	var migrations []FolderMigration
+	for _, topDir := range typologyOrder {
+		legacyPath := filepath.Join(root, topDir)
+		canonicalPath := filepath.Join(root, "tasks", topDir)
+		if info, err := os.Stat(legacyPath); err == nil && info.IsDir() {
+			if _, err2 := os.Stat(canonicalPath); errors.Is(err2, fs.ErrNotExist) {
+				migrations = append(migrations, FolderMigration{
+					From: topDir,
+					To:   "tasks/" + topDir,
+				})
+			}
+		}
+	}
+	plan.Migrations = migrations
+
 	for _, topDir := range typologyOrder {
 		for _, name := range typologyTemplates[topDir] {
-			tmplPath := topDir + "/_templates/" + name
-			rawTmpl, err := set.Raw(topDir + "/" + name)
+			tmplPath := "tasks/" + topDir + "/_templates/" + name
+			legacyTmplPath := topDir + "/_templates/" + name
+
+			rawTmpl, err := set.Raw("tasks/" + topDir + "/" + name)
 			if err != nil {
 				return nil, fmt.Errorf("upgrade: read template %s/%s: %w", topDir, name, err)
 			}
 			newHash := sum(rawTmpl)
+
 			entry, hasEntry := manifestFiles[tmplPath]
+			if !hasEntry {
+				entry, hasEntry = manifestFiles[legacyTmplPath]
+			}
 
 			rawBytes, readErr := rootHandle.ReadFile(filepath.FromSlash(tmplPath))
+			if errors.Is(readErr, fs.ErrNotExist) {
+				rawBytes, readErr = rootHandle.ReadFile(filepath.FromSlash(legacyTmplPath))
+			}
 			if errors.Is(readErr, fs.ErrNotExist) {
 				plan.Items = append(plan.Items, Item{
 					Path:            tmplPath,
@@ -459,7 +491,7 @@ func BuildPlan(root string, opts Options) (*Plan, error) {
 	}
 
 	// Check if everything is unchanged
-	allUnchanged := true
+	allUnchanged := len(plan.Migrations) == 0
 	for _, it := range plan.Items {
 		if it.Action != ActionUnchanged {
 			allUnchanged = false
@@ -507,6 +539,29 @@ func Apply(plan *Plan, now time.Time) (*Report, error) {
 	manifestMap := map[string]*scaffold.FileEntry{}
 	for i := range plan.Manifest.Files {
 		manifestMap[plan.Manifest.Files[i].Path] = &plan.Manifest.Files[i]
+	}
+
+	if len(plan.Migrations) > 0 {
+		_ = os.MkdirAll(filepath.Join(plan.Root, "tasks"), 0o755)
+		for _, mig := range plan.Migrations {
+			fromPath := filepath.Join(plan.Root, filepath.FromSlash(mig.From))
+			toPath := filepath.Join(plan.Root, filepath.FromSlash(mig.To))
+			if err := os.Rename(fromPath, toPath); err != nil {
+				return nil, fmt.Errorf("upgrade: migrate %s to %s: %w", mig.From, mig.To, err)
+			}
+			rep.Migrated = append(rep.Migrated, fmt.Sprintf("%s -> %s", mig.From, mig.To))
+		}
+		for i := range plan.Manifest.Files {
+			for _, mig := range plan.Migrations {
+				if strings.HasPrefix(plan.Manifest.Files[i].Path, mig.From+"/") {
+					plan.Manifest.Files[i].Path = mig.To + "/" + strings.TrimPrefix(plan.Manifest.Files[i].Path, mig.From+"/")
+				}
+			}
+		}
+		manifestMap = map[string]*scaffold.FileEntry{}
+		for i := range plan.Manifest.Files {
+			manifestMap[plan.Manifest.Files[i].Path] = &plan.Manifest.Files[i]
+		}
 	}
 
 	for _, item := range plan.Items {

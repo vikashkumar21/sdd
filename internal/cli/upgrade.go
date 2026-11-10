@@ -65,6 +65,9 @@ func runUpgrade(args []string, env IO) int {
 	}
 
 	fprintf(env.Out, "Upgrade plan for %s (templates %s -> %s):\n", root, plan.OldTemplatesVer, plan.NewTemplatesVer)
+	for _, mig := range plan.Migrations {
+		fprintf(env.Out, "  %-10s %s -> %s\n", "migrate", mig.From, mig.To)
+	}
 	for _, it := range plan.Items {
 		switch it.Action {
 		case upgrade.ActionUnchanged:
@@ -107,6 +110,9 @@ func runUpgrade(args []string, env IO) int {
 	}
 
 	fprintln(env.Out, "\nUpgrade applied successfully:")
+	if len(rep.Migrated) > 0 {
+		fprintf(env.Out, "  Migrated:  %s\n", strings.Join(rep.Migrated, ", "))
+	}
 	if len(rep.Updated) > 0 {
 		fprintf(env.Out, "  Updated:   %s\n", strings.Join(rep.Updated, ", "))
 	}

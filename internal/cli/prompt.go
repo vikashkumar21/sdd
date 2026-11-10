@@ -161,11 +161,23 @@ func getLensFocusItems(lens string) []string {
 }
 
 func findTaskDirectory(root, taskID string) (relDir, typology string, err error) {
-	typologies := []string{"features", "bugfixes", "hotfixes", "spikes"}
+	typologies := []struct {
+		dir  string
+		name string
+	}{
+		{filepath.Join("tasks", "features"), "features"},
+		{filepath.Join("tasks", "bugfixes"), "bugfixes"},
+		{filepath.Join("tasks", "hotfixes"), "hotfixes"},
+		{filepath.Join("tasks", "spikes"), "spikes"},
+		{"features", "features"},
+		{"bugfixes", "bugfixes"},
+		{"hotfixes", "hotfixes"},
+		{"spikes", "spikes"},
+	}
 	prefix := taskID + "-"
 
 	for _, topo := range typologies {
-		base := filepath.Join(root, topo)
+		base := filepath.Join(root, topo.dir)
 		entries, err := os.ReadDir(base)
 		if err != nil {
 			continue
@@ -175,12 +187,12 @@ func findTaskDirectory(root, taskID string) (relDir, typology string, err error)
 				continue
 			}
 			if e.Name() == taskID || strings.HasPrefix(e.Name(), prefix) {
-				return filepath.ToSlash(filepath.Join(topo, e.Name())), topo, nil
+				return filepath.ToSlash(filepath.Join(topo.dir, e.Name())), topo.name, nil
 			}
 		}
 	}
 
-	return "", "", fmt.Errorf("task %s folder not found across features/, bugfixes/, hotfixes/, or spikes/", taskID)
+	return "", "", fmt.Errorf("task %s folder not found across tasks/ (or legacy features/, bugfixes/, hotfixes/, spikes/)", taskID)
 }
 
 func readTaskDoc(taskDir, filename string) string {

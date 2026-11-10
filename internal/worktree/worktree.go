@@ -120,32 +120,34 @@ var taskDirRe = regexp.MustCompile(`^(T-\d{3})-(.+)$`)
 func FindTask(root, taskID string) (*TaskLocation, error) {
 	normID := strings.ToUpper(strings.TrimSpace(taskID))
 	typologies := []struct {
-		dir  string
+		dirs []string
 		name string
 	}{
-		{"features", "feature"},
-		{"bugfixes", "bugfix"},
-		{"hotfixes", "hotfix"},
-		{"spikes", "spike"},
+		{[]string{filepath.Join("tasks", "features"), "features"}, "feature"},
+		{[]string{filepath.Join("tasks", "bugfixes"), "bugfixes"}, "bugfix"},
+		{[]string{filepath.Join("tasks", "hotfixes"), "hotfixes"}, "hotfix"},
+		{[]string{filepath.Join("tasks", "spikes"), "spikes"}, "spike"},
 	}
 
 	for _, t := range typologies {
-		entries, err := os.ReadDir(filepath.Join(root, t.dir))
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			if !e.IsDir() || strings.HasPrefix(e.Name(), "_") {
+		for _, dir := range t.dirs {
+			entries, err := os.ReadDir(filepath.Join(root, dir))
+			if err != nil {
 				continue
 			}
-			m := taskDirRe.FindStringSubmatch(e.Name())
-			if m != nil && strings.ToUpper(m[1]) == normID {
-				return &TaskLocation{
-					TaskID:   normID,
-					Typology: t.name,
-					Slug:     m[2],
-					Folder:   filepath.Join(t.dir, e.Name()),
-				}, nil
+			for _, e := range entries {
+				if !e.IsDir() || strings.HasPrefix(e.Name(), "_") {
+					continue
+				}
+				m := taskDirRe.FindStringSubmatch(e.Name())
+				if m != nil && strings.ToUpper(m[1]) == normID {
+					return &TaskLocation{
+						TaskID:   normID,
+						Typology: t.name,
+						Slug:     m[2],
+						Folder:   filepath.ToSlash(filepath.Join(dir, e.Name())),
+					}, nil
+				}
 			}
 		}
 	}

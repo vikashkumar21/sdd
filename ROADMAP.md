@@ -118,6 +118,16 @@ Status: living document · Last updated: 2026-10-26
 | T-032 | Autonomous multi-agent hierarchy and Task Coordinator skill | M | T-031 | Two-level hierarchy specification, agent contract updates, and canonical skills/task-coordinator/SKILL.md | D-029 | Done |
 | T-033 | Ensemble code review standards and AppSec Specialist rubric | M | T-032 | Multi-lens review standard in skills/code-review/SKILL.md (Spec Auditor, AppSec Specialist, Pattern Auditor) and end-to-end integration | D-026, D-029 | Done |
 
+### M9 — Multi-Agent Workspace Ergonomics and Review Ensemble
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-034 | Unified tasks/ directory hierarchy and sdd upgrade auto-migration | M | T-033 | Reorganize typology folders under tasks/, sdd upgrade auto-migration, update CLI and sdd check | D-030 | Awaiting review |
+| T-035 | Pre-GATE 1 Plan Review Subagent and 3-Subagent Parallel Review Triad | M | T-034 | Phase A plan review subagent, 3 parallel review lenses in Phase C.2, contract and CLI updates | D-031 | Not started |
+| T-036 | Binding Human Feedback Rule F-001 (Resolve all review findings) | S | T-035 | Binding rule F-001 in SKILLS.md §8, contract enforcement, and sdd check rules | D-032 | Not started |
+| T-037 | Document lifecycle YAML frontmatter metadata and .ragignore generation | M | T-034 | YAML frontmatter (status, task_id, superseded_by) and .ragignore for deterministic RAG filtering | D-033 | Not started |
+| T-038 | Native sdd self-update CLI binary updater | S | T-034 | In-place self-update command fetching and replacing latest release binary from GitHub | none | Not started |
+
 ## 5. Unknown-technology protocol (spikes)
 
 Unfamiliar technology derails projects. To prevent that:
@@ -135,20 +145,22 @@ Unfamiliar technology derails projects. To prevent that:
 
 ## 7. Parking lot (do not start without a new approved task)
 
-- Milestone 9: Remote CI & PR Orchestration (GitHub Actions workflow, PR packaging, and remote CI auto-repair loop)
+- Milestone 10: Remote CI & PR Orchestration (GitHub Actions workflow, PR packaging, and remote CI auto-repair loop)
 - Language packs for Rust, Kotlin, C#
 - Optional shell completion
 - Enhance table markdown parser to treat backslashes inside inline code spans as non-escaping backticks
 
 ## 8. Next action
 
-1. M0 through M8 are complete (all 34 planned tasks delivered and verified).
-2. Review parking lot and discuss next milestones with human.
+1. M0 through M8 are complete (34 tasks delivered).
+2. Milestone 9 scheduled: Multi-Agent Workspace Ergonomics and Review Ensemble (T-034 to T-038).
+3. Next task: T-034 Unified tasks/ directory hierarchy and sdd upgrade auto-migration.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-10 | Milestone 9 added: Multi-Agent Workspace Ergonomics and Review Ensemble (T-034 to T-038; D-030, D-031, D-032, D-033) |
 | 2026-11-05 | T-033: Ensemble code review standards and AppSec Specialist rubric done (Milestone 8 complete) |
 | 2026-11-05 | T-032: Autonomous multi-agent hierarchy and Task Coordinator skill done |
 | 2026-11-05 | T-031: Task Coordinator pre-merge qualification, simulation, and sdd task merge done |

@@ -73,8 +73,8 @@ func TestGreenfieldCreatesTheWholeKit(t *testing.T) {
 	rep := apply(t, plan(t, root, answers(), false))
 	want := []string{
 		"CLAUDE.md", "GEMINI.md", "AGENTS.md", "MISSION.md", "TECH_STACK.md", "ROADMAP.md", "SKILLS.md",
-		"README.md", "features/_templates/requirements.md", "features/_templates/plan.md",
-		"features/_templates/validation.md", "features/_templates/review.md", ".sdd/manifest.json",
+		"README.md", "tasks/features/_templates/requirements.md", "tasks/features/_templates/plan.md",
+		"tasks/features/_templates/validation.md", "tasks/features/_templates/review.md", ".sdd/manifest.json",
 	}
 	for _, rel := range want {
 		if _, err := os.Stat(filepath.Join(root, filepath.FromSlash(rel))); err != nil {
