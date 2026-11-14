@@ -76,6 +76,11 @@ sdd spike new T-003 upgrade-command           # creates tasks/spikes/T-003-upgra
 sdd task start T-003                          # provision isolated git worktree in .sdd/worktrees/T-003-...
 sdd task list                                 # list active task worktrees (--json supported)
 sdd task clean T-003                          # safely teardown worktree (creates backup if dirty)
+sdd task clean T-003 --purge-state            # clean worktree and completely purge .sdd/state/T-003
+sdd task state show T-003 --json              # read state snapshot, events journal, and worktree status
+sdd task state save T-003 --state '<json>'    # atomically save task state snapshot (--stdin, --json supported)
+sdd task state append-event T-003 --event '<json>' # append lifecycle event to .sdd/state/T-003/events.jsonl
+sdd task state purge T-003 --force            # remove task state store from .sdd/state/T-003 (--json supported)
 sdd task deconflict                           # analyze plan file collisions across in-flight tasks
 sdd task deconflict T-003 T-004               # analyze collisions between specific tasks (--json, --all)
 sdd task merge T-003 --dry-run                # qualify pre-merge matrix, blast radius, flake guard, and simulate merge

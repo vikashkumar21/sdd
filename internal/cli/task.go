@@ -12,6 +12,7 @@ import (
 	"github.com/vikashkumar21/sdd/internal/deconflict"
 	"github.com/vikashkumar21/sdd/internal/feature"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
+	"github.com/vikashkumar21/sdd/internal/state"
 	"github.com/vikashkumar21/sdd/internal/worktree"
 )
 
@@ -29,7 +30,7 @@ func runSpike(args []string, env IO) int {
 
 func runTask(args []string, env IO) int {
 	if len(args) == 0 {
-		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees\n  deconflict [tasks...]  analyze plan file collisions and schedule parallel batches\n  merge <T-xxx>          qualify pre-merge matrix and merge task into target branch")
+		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees\n  deconflict [tasks...]  analyze plan file collisions and schedule parallel batches\n  merge <T-xxx>          qualify pre-merge matrix and merge task into target branch\n  state <command>        manage deterministic task state and events (show|save|append-event|purge)")
 		return 2
 	}
 	switch args[0] {
@@ -45,8 +46,10 @@ func runTask(args []string, env IO) int {
 		return runTaskDeconflict(args[1:], env)
 	case "merge":
 		return runTaskMerge(args[1:], env)
+	case "state":
+		return runTaskState(args[1:], env)
 	default:
-		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new|start|clean|list|deconflict|merge> [flags]\n", args[0])
+		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new|start|clean|list|deconflict|merge|state> [flags]\n", args[0])
 		return 2
 	}
 }
@@ -101,13 +104,14 @@ func runTaskClean(args []string, env IO) int {
 	dir := fs.String("dir", ".", "project root")
 	force := fs.Bool("force", false, "remove even if uncommitted changes exist (backs up to .sdd/backup/)")
 	deleteBranch := fs.Bool("delete-branch", false, "also delete the local task git branch")
+	purgeState := fs.Bool("purge-state", false, "completely purge task state directory (.sdd/state/<task-id>)")
 
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return parseExit(err)
 	}
 	if len(pos) != 1 {
-		fprintln(env.Err, "usage: sdd task clean <T-xxx> [--force] [--delete-branch] [--dir <project>]")
+		fprintln(env.Err, "usage: sdd task clean <T-xxx> [--force] [--delete-branch] [--purge-state] [--dir <project>]")
 		return 2
 	}
 
@@ -129,6 +133,16 @@ func runTaskClean(args []string, env IO) int {
 	}
 
 	fprintf(env.Out, "Cleaned worktree for %s.\n", strings.ToUpper(pos[0]))
+
+	if *purgeState {
+		purgeRes, err := state.Purge(root, pos[0])
+		if err != nil {
+			fprintf(env.Err, "sdd task clean: purge state: %v\n", err)
+			return 1
+		}
+		fprintf(env.Out, "Purged state directory for %s (%s).\n", purgeRes.TaskID, purgeRes.Path)
+	}
+
 	return 0
 }
 

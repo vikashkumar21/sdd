@@ -36,6 +36,8 @@ Status: living document · Last updated: 2026-10-26
 | M6 | Universal Distribution and Ergonomics | T-024 – T-025 | 8 | Cross-platform self-installation, double-click setup, install command, and 1-line curl/powershell scripts |
 | M7 | Agent Code Review Standards and Ergonomics | T-026 – T-027 | 10 | review.md 4th task doc, official code-review skill, sdd check verification, and sdd status |
 | M8 | Autonomous Multi-Agent Git Workflows and Work Typology | T-028 – T-033 | 18 | Work typology templates, git worktree isolation, static plan deconfliction, task coordinator merge engine, and ensemble review standards |
+| M9 | Multi-Agent Workspace Ergonomics and Review Ensemble | T-034 – T-038 | 15 | Unified tasks folder hierarchy, plan review, rule F-001, document lifecycle frontmatter, and native self-update |
+| M10 | Autonomous Agent IPC and State Persistence | T-039 | 5 | Deterministic task state persistence, event journaling, worktree cross-check, and task clean integration |
 
 ## 4. Tasks
 
@@ -128,6 +130,12 @@ Status: living document · Last updated: 2026-10-26
 | T-037 | Document lifecycle YAML frontmatter metadata and .ragignore generation | M | T-034 | YAML frontmatter (status, task_id, superseded_by) and .ragignore for deterministic RAG filtering | D-033 | Done |
 | T-038 | Native sdd self-update CLI binary updater | S | T-034 | In-place self-update command fetching and replacing latest release binary from GitHub | D-034 | Done |
 
+### M10 — Autonomous Agent IPC and State Persistence
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-039 | Deterministic task state persistence and event journaling (sdd task state) | M | T-034 | Subcommands under sdd task state (show, save, append-event, purge) with POSIX atomic writes, append-only JSONL events, worktree cross-check, and sdd task clean integration | D-035 | Awaiting review |
+
 ## 5. Unknown-technology protocol (spikes)
 
 Unfamiliar technology derails projects. To prevent that:
@@ -149,12 +157,13 @@ Unfamiliar technology derails projects. To prevent that:
 - Language packs for Rust, Kotlin, C#
 - Optional shell completion
 - Enhance table markdown parser to treat backslashes inside inline code spans as non-escaping backticks
+- Enhance deconflict.ExtractPlanFiles to match table header row specifically rather than matching "path" or "action" across any column in data rows
 
 ## 8. Next action
 
-1. M0 through M8 are complete (34 tasks delivered).
-2. Milestone 9 complete: Multi-Agent Workspace Ergonomics and Review Ensemble (T-034 to T-038 delivered).
-3. Next milestone: Milestone 10: Remote CI & PR Orchestration.
+1. M0 through M9 are complete (39 tasks delivered).
+2. Active milestone: Milestone 10: Autonomous Agent IPC and State Persistence (T-039).
+3. Active task: T-039 (Deterministic task state persistence and event journaling).
 
 ## 9. Change log
 

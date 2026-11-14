@@ -138,6 +138,7 @@ internal/version/     build version (set with -ldflags)
 | D-032 | Human Feedback Rule F-001 (Resolve all review findings: Blockers, Warnings, and Minors) | **Approved** 2026-11-10 | n/a | Option A: Enact binding Rule F-001 in SKILLS.md §8 and contracts: worker agents must resolve all Blockers, Warnings, and Minors before GATE 2; any retained item must be explicitly justified |
 | D-033 | Lifecycle YAML frontmatter metadata and `.ragignore` for RAG filtering | **Approved** 2026-11-10 | n/a | Option A: Standard YAML frontmatter (status: active/draft/completed/superseded/deprecated, task_id, superseded_by, last_reviewed) and .ragignore generation for deterministic vector/RAG indexing |
 | D-034 | Native binary self-update architecture and verification | **Approved** 2026-11-10 | n/a | Option A: In-place self-update via sdd self-update with GitHub Releases API, SHA256 checksum verification, atomic swap, and rollback |
+| D-035 | Task state persistence, event journaling, and IPC architecture (`sdd task state`) | **Approved** 2026-11-14 | n/a | Option A: Native stdlib state store in `.sdd/state/<TASK_ID>/`, atomic `state.json` snapshot via temp file & rename, append-only `events.jsonl` with 1MB buffered scanner, task ID regex validation, worktree cross-check, and `--json` output |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 
@@ -168,6 +169,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-10 | Binding Human Feedback Rule F-001 (all review findings resolved before GATE 2), mechanical sdd check verification of Blockers/Warnings/Minors, and template version 1.6.0 verified | Run in internal/check, internal/cli, and templates tests (T-036) | M10 |
 | 2026-11-10 | Document lifecycle YAML frontmatter metadata (status, task_id, last_reviewed, superseded_by), .ragignore generation (sdd init/upgrade), mechanical validation (ragignore-missing, lifecycle-status, lifecycle-date, lifecycle-superseded), and template version 1.7.0 verified | Run in internal/doc, internal/scaffold, internal/upgrade, internal/check, and templates tests (T-037) | M10 |
 | 2026-11-10 | Native binary self-update (sdd self-update), GitHub Releases API, SHA256 integrity verification, symlink-aware atomic binary replacement, and 100% offline mock tests verified | Run in internal/update, internal/cli tests (T-038) | M10 |
+| 2026-11-14 | Deterministic task state store (.sdd/state/<TASK_ID>/), atomic state.json snapshot via temp file & rename, append-only events.jsonl with 1MB buffered scanner, task ID regex validation, worktree cross-check, and sdd task state CLI subcommands verified | Run in internal/state, internal/cli tests (T-039) | M10 |
 
 ## 8. Dependency register
 
