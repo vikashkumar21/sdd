@@ -37,7 +37,7 @@ Status: living document · Last updated: 2026-10-26
 | M7 | Agent Code Review Standards and Ergonomics | T-026 – T-027 | 10 | review.md 4th task doc, official code-review skill, sdd check verification, and sdd status |
 | M8 | Autonomous Multi-Agent Git Workflows and Work Typology | T-028 – T-033 | 18 | Work typology templates, git worktree isolation, static plan deconfliction, task coordinator merge engine, and ensemble review standards |
 | M9 | Multi-Agent Workspace Ergonomics and Review Ensemble | T-034 – T-038 | 15 | Unified tasks folder hierarchy, plan review, rule F-001, document lifecycle frontmatter, and native self-update |
-| M10 | Autonomous Agent IPC and State Persistence | T-039 | 5 | Deterministic task state persistence, event journaling, worktree cross-check, and task clean integration |
+| M10 | Autonomous Multi-Agent Architecture, Roles, and State Persistence | T-039 – T-041 | 15 | Task state persistence, event journaling, role-based agentskills.io skills, and phase mapping |
 
 ## 4. Tasks
 
@@ -130,11 +130,13 @@ Status: living document · Last updated: 2026-10-26
 | T-037 | Document lifecycle YAML frontmatter metadata and .ragignore generation | M | T-034 | YAML frontmatter (status, task_id, superseded_by) and .ragignore for deterministic RAG filtering | D-033 | Done |
 | T-038 | Native sdd self-update CLI binary updater | S | T-034 | In-place self-update command fetching and replacing latest release binary from GitHub | D-034 | Done |
 
-### M10 — Autonomous Agent IPC and State Persistence
+### M10 — Autonomous Multi-Agent Architecture, Roles, and State Persistence
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
-| T-039 | Deterministic task state persistence and event journaling (sdd task state) | M | T-034 | Subcommands under sdd task state (show, save, append-event, purge) with POSIX atomic writes, append-only JSONL events, worktree cross-check, and sdd task clean integration | D-035 | Awaiting review |
+| T-039 | Deterministic task state persistence and event journaling (sdd task state) | M | T-034 | Subcommands under sdd task state (show, save, append-event, purge) with POSIX atomic writes, append-only JSONL events, worktree cross-check, and sdd task clean integration | D-035 | Done |
+| T-040 | Role-based agent skills: core governance, planning, and review triad | M | T-033, T-035, T-039 | Canonical governance skills (coordinator, architect, plan-reviewer, spec-auditor, appsec-specialist, pattern-auditor), .sdd/roles.json phase mapping, sdd check validation, and turnkey CLI prompt integration | D-036 | Awaiting review |
+| T-041 | Role-based agent skills: implementer, QA, and DevOps operations | M | T-040 | Execution and operational skills (implementer, qa, devops), conditional plan activation, and roles manifest extension | none yet | Not started |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -162,13 +164,14 @@ Unfamiliar technology derails projects. To prevent that:
 ## 8. Next action
 
 1. M0 through M9 are complete (39 tasks delivered).
-2. Active milestone: Milestone 10: Autonomous Agent IPC and State Persistence (T-039).
-3. Active task: T-039 (Deterministic task state persistence and event journaling).
+2. Active milestone: Milestone 10: Autonomous Multi-Agent Architecture, Roles, and State Persistence.
+3. Active task: T-040 (Role-based agent skills: core governance, planning, and review triad).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-14 | T-039: Deterministic task state persistence and event journaling (sdd task state) done |
 | 2026-11-10 | T-038: Native sdd self-update CLI binary updater done (Milestone 9 complete) |
 | 2026-11-10 | T-037: Document lifecycle YAML frontmatter metadata and .ragignore generation done |
 | 2026-11-10 | T-036: Binding Human Feedback Rule F-001 (Resolve all review findings) done |

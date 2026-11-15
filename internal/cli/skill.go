@@ -2,10 +2,16 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/vikashkumar21/sdd/internal/fsutil"
+	"github.com/vikashkumar21/sdd/internal/role"
 	"github.com/vikashkumar21/sdd/internal/skill"
 )
 
@@ -169,6 +175,8 @@ func runSkillExport(args []string, env IO) int {
 	dir := fs.String("dir", ".", "project root")
 	target := fs.String("target", "", "custom destination directory for exported skill")
 	skillName := fs.String("skill", "all", "canonical skill to export: sdd-protocol, code-review, task-coordinator, or all")
+	rolesFlag := fs.Bool("roles", false, "export all canonical governance role skills (coordinator, architect, plan-reviewer, spec-auditor, appsec-specialist, pattern-auditor)")
+	roleFlag := fs.String("role", "", "export a specific canonical governance role skill by name")
 	global := fs.Bool("global", false, "export to user's global agent skill directory")
 	force := fs.Bool("force", false, "overwrite existing skill (backs up previous version to .sdd/backup/)")
 
@@ -196,10 +204,30 @@ func runSkillExport(args []string, env IO) int {
 		Clock:       env.Now,
 	}
 
-	results, err := skill.ExportSkills(*skillName, opts)
-	if err != nil {
-		fprintf(env.Err, "sdd skill export: %v\n", err)
-		return 1
+	var results []skill.ExportResult
+	if *roleFlag != "" {
+		res, err := exportRoleSkill(*roleFlag, opts)
+		if err != nil {
+			fprintf(env.Err, "sdd skill export: %v\n", err)
+			return 1
+		}
+		results = []skill.ExportResult{res}
+	} else if *rolesFlag {
+		for _, name := range role.CanonicalRoleNames() {
+			res, err := exportRoleSkill(name, opts)
+			if err != nil {
+				fprintf(env.Err, "sdd skill export: %v\n", err)
+				return 1
+			}
+			results = append(results, res)
+		}
+	} else {
+		var err error
+		results, err = skill.ExportSkills(*skillName, opts)
+		if err != nil {
+			fprintf(env.Err, "sdd skill export: %v\n", err)
+			return 1
+		}
 	}
 
 	for _, res := range results {
@@ -209,4 +237,93 @@ func runSkillExport(args []string, env IO) int {
 		}
 	}
 	return 0
+}
+
+func exportRoleSkill(roleName string, opts skill.ExportOptions) (skill.ExportResult, error) {
+	canonical := false
+	for _, c := range role.CanonicalRoleNames() {
+		if c == roleName {
+			canonical = true
+			break
+		}
+	}
+	if !canonical {
+		return skill.ExportResult{}, fmt.Errorf("unknown canonical role %q (available roles: %s)", roleName, strings.Join(role.CanonicalRoleNames(), ", "))
+	}
+
+	content, err := role.ResolveSkill(opts.ProjectRoot, roleName, nil)
+	if err != nil {
+		return skill.ExportResult{}, fmt.Errorf("resolve role skill %s: %w", roleName, err)
+	}
+
+	var targetBase string
+	if opts.Global {
+		home := ""
+		if opts.Home != nil {
+			home = opts.Home()
+		} else {
+			home, _ = os.UserHomeDir()
+		}
+		if strings.TrimSpace(home) == "" {
+			return skill.ExportResult{}, errors.New("cannot export globally: home directory not determined")
+		}
+		geminiDir := filepath.Join(home, ".gemini", "antigravity")
+		claudeDir := filepath.Join(home, ".claude")
+		if stat, err := os.Stat(geminiDir); err == nil && stat.IsDir() {
+			targetBase = filepath.Join(geminiDir, "skills")
+		} else if stat, err := os.Stat(claudeDir); err == nil && stat.IsDir() {
+			targetBase = filepath.Join(claudeDir, "skills")
+		} else {
+			targetBase = filepath.Join(home, ".sdd", "skills")
+		}
+	} else if opts.TargetDir != "" {
+		targetBase = opts.TargetDir
+		if !filepath.IsAbs(targetBase) && opts.ProjectRoot != "" {
+			targetBase = filepath.Join(opts.ProjectRoot, targetBase)
+		}
+	} else {
+		if opts.ProjectRoot == "" {
+			return skill.ExportResult{}, errors.New("project root required when target directory is not specified")
+		}
+		targetBase = filepath.Join(opts.ProjectRoot, "skills")
+	}
+
+	destDir := filepath.Join(targetBase, roleName)
+	destFile := filepath.Join(destDir, "SKILL.md")
+
+	var backupDir string
+	if _, err := os.Stat(destFile); err == nil {
+		if !opts.Force {
+			return skill.ExportResult{}, fmt.Errorf("skill %q already exists at %s (use --force to overwrite)", roleName, filepath.ToSlash(destFile))
+		}
+		now := time.Now().UTC()
+		if opts.Clock != nil {
+			now = opts.Clock().UTC()
+		}
+		relBackup := filepath.Join(".sdd", "backup", fmt.Sprintf("backup-%s", now.Format("20060102-150405")))
+		backupDir = filepath.Join(opts.ProjectRoot, relBackup)
+		if err := os.MkdirAll(backupDir, 0755); err != nil {
+			return skill.ExportResult{}, fmt.Errorf("create backup directory: %w", err)
+		}
+		data, _ := os.ReadFile(destFile)
+		_ = os.WriteFile(filepath.Join(backupDir, fmt.Sprintf("%s-SKILL.md", roleName)), data, 0644)
+	}
+
+	parsed, err := skill.Parse([]byte(content))
+	if err != nil {
+		return skill.ExportResult{}, fmt.Errorf("role skill frontmatter invalid: %w", err)
+	}
+	if vErrs := skill.Validate(parsed, destDir); len(vErrs) > 0 {
+		return skill.ExportResult{}, fmt.Errorf("role skill validation failed: %s", vErrs[0].Message)
+	}
+
+	if err := fsutil.WriteAtomic(destFile, []byte(content), 0644); err != nil {
+		return skill.ExportResult{}, fmt.Errorf("write skill file: %w", err)
+	}
+
+	return skill.ExportResult{
+		Name:      roleName,
+		Path:      filepath.ToSlash(destFile),
+		BackupDir: backupDir,
+	}, nil
 }

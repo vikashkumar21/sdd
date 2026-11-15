@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/vikashkumar21/sdd/internal/deconflict"
+	"github.com/vikashkumar21/sdd/internal/role"
 )
 
 var taskIDPattern = regexp.MustCompile(`^[A-Za-z]+-\d+$`)
@@ -24,6 +25,7 @@ type ReviewPromptContext struct {
 	Typology      string   `json:"typology"`
 	Lens          string   `json:"lens"`
 	LensFocus     []string `json:"lensFocus,omitempty"`
+	RoleSkill     string   `json:"roleSkill,omitempty"`
 	Requirements  string   `json:"requirements,omitempty"`
 	Plan          string   `json:"plan,omitempty"`
 	Validation    string   `json:"validation,omitempty"`
@@ -38,6 +40,7 @@ type PlanReviewPromptContext struct {
 	TaskID        string   `json:"taskId"`
 	TaskDir       string   `json:"taskDir"`
 	Typology      string   `json:"typology"`
+	RoleSkill     string   `json:"roleSkill,omitempty"`
 	Requirements  string   `json:"requirements,omitempty"`
 	Plan          string   `json:"plan,omitempty"`
 	Validation    string   `json:"validation,omitempty"`
@@ -94,13 +97,16 @@ func runPromptPlanReview(args []string, env IO) int {
 	feedbackRules := extractActiveFeedbackRules(root)
 	decisions := extractApprovedDecisions(root)
 
+	roleSkill, _ := role.ResolveSkill(root, "plan-reviewer", nil)
+
 	rubric := getPlanReviewRubric()
-	promptText := buildPlanReviewPrompt(rawTaskID, taskDirRel, typology, plannedFiles, feedbackRules, decisions, rubric)
+	promptText := buildPlanReviewPrompt(rawTaskID, taskDirRel, typology, plannedFiles, feedbackRules, decisions, rubric, roleSkill)
 
 	ctx := PlanReviewPromptContext{
 		TaskID:        rawTaskID,
 		TaskDir:       taskDirRel,
 		Typology:      typology,
+		RoleSkill:     roleSkill,
 		Requirements:  requirements,
 		Plan:          plan,
 		Validation:    validation,
@@ -159,7 +165,7 @@ func extractApprovedDecisions(root string) []string {
 	return decisions
 }
 
-func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []string, feedbackRules string, decisions, rubric []string) string {
+func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []string, feedbackRules string, decisions, rubric []string, roleSkill string) string {
 	var sb strings.Builder
 
 	fmt.Fprintf(&sb, "# Handover: Independent Pre-GATE 1 Plan Review for %s\n\n", taskID)
@@ -175,6 +181,12 @@ func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []stri
 		fmt.Fprintf(&sb, "- [ ] %s\n", item)
 	}
 	sb.WriteString("\n")
+
+	if strings.TrimSpace(roleSkill) != "" {
+		sb.WriteString("## Canonical Role Skill: Plan Reviewer (plan-reviewer)\n")
+		sb.WriteString(strings.TrimSpace(roleSkill))
+		sb.WriteString("\n\n")
+	}
 
 	sb.WriteString("## Task Details\n")
 	fmt.Fprintf(&sb, "- **Task ID:** %s\n", taskID)
@@ -271,8 +283,33 @@ func runPromptReview(args []string, env IO) int {
 	changedFiles := resolveChangedFiles(root, plan)
 	feedbackRules := extractActiveFeedbackRules(root)
 
+	var roleSkill string
+	switch normLens {
+	case "spec":
+		roleSkill, _ = role.ResolveSkill(root, "spec-auditor", nil)
+	case "security":
+		roleSkill, _ = role.ResolveSkill(root, "appsec-specialist", nil)
+	case "pattern":
+		roleSkill, _ = role.ResolveSkill(root, "pattern-auditor", nil)
+	case "all":
+		s1, _ := role.ResolveSkill(root, "spec-auditor", nil)
+		s2, _ := role.ResolveSkill(root, "appsec-specialist", nil)
+		s3, _ := role.ResolveSkill(root, "pattern-auditor", nil)
+		var parts []string
+		if s1 != "" {
+			parts = append(parts, s1)
+		}
+		if s2 != "" {
+			parts = append(parts, s2)
+		}
+		if s3 != "" {
+			parts = append(parts, s3)
+		}
+		roleSkill = strings.Join(parts, "\n\n---\n\n")
+	}
+
 	lensFocus := getLensFocusItems(normLens)
-	promptText := buildReviewPromptWithLens(rawTaskID, taskDirRel, normLens, changedFiles, feedbackRules, lensFocus)
+	promptText := buildReviewPromptWithLens(rawTaskID, taskDirRel, normLens, changedFiles, feedbackRules, lensFocus, roleSkill)
 
 	ctx := ReviewPromptContext{
 		TaskID:        rawTaskID,
@@ -280,6 +317,7 @@ func runPromptReview(args []string, env IO) int {
 		Typology:      typology,
 		Lens:          normLens,
 		LensFocus:     lensFocus,
+		RoleSkill:     roleSkill,
 		Requirements:  requirements,
 		Plan:          plan,
 		Validation:    validation,
@@ -507,7 +545,7 @@ func extractActiveFeedbackRules(root string) string {
 	return strings.Join(ruleLines, "\n")
 }
 
-func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, feedbackRules string, focusItems []string) string {
+func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, feedbackRules string, focusItems []string, roleSkill string) string {
 	var sb strings.Builder
 
 	lensTitle := "Ensemble Review Triad"
@@ -536,6 +574,12 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 	sb.WriteString("- 🔴 **Blocker (Developer Attention Needed):** Spec violation (`requirements.md` not met), plan drift (files touched outside `plan.md`), security hazard (secrets/unvalidated inputs), test gaps, unapproved dependency. MUST BE RESOLVED before commit.\n")
 	sb.WriteString("- 🟡 **Warning (Attention Suggested):** Sub-optimal pattern, edge case risk, missing doc or comment.\n")
 	sb.WriteString("- 🟢 **Minor (Safe / Informational):** Style, minor naming or non-critical improvement.\n\n")
+
+	if strings.TrimSpace(roleSkill) != "" {
+		sb.WriteString("## Canonical Role Skill Instructions\n")
+		sb.WriteString(strings.TrimSpace(roleSkill))
+		sb.WriteString("\n\n")
+	}
 
 	sb.WriteString("## Lens Focus & Verification Questions\n")
 	for _, item := range focusItems {

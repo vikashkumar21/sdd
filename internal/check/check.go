@@ -231,6 +231,7 @@ func (c *checker) run() {
 	c.checkContextManifest()
 	c.checkPermissions()
 	c.checkAgentSkills()
+	c.checkRoles()
 	c.checkWorktrees(tasks)
 }
 

@@ -718,3 +718,52 @@ func TestUpgradeInstallsMissingRAGIgnore(t *testing.T) {
 		t.Errorf("expected .sdd/ in .ragignore content, got:\n%s", string(content))
 	}
 }
+
+func TestUpgradeInstallsMissingRolesJson(t *testing.T) {
+	root := generateKit(t)
+	rolesPath := filepath.Join(root, ".sdd", "roles.json")
+	_ = os.Remove(rolesPath)
+
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatalf("BuildPlan failed: %v", err)
+	}
+
+	var rolesItem *Item
+	for i := range plan.Items {
+		if plan.Items[i].Path == ".sdd/roles.json" {
+			rolesItem = &plan.Items[i]
+			break
+		}
+	}
+	if rolesItem == nil {
+		t.Fatal("expected .sdd/roles.json in plan items")
+	}
+	if rolesItem.Action != ActionCreate {
+		t.Fatalf("expected ActionCreate for missing .sdd/roles.json, got %v", rolesItem.Action)
+	}
+
+	rep, err := Apply(plan, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	found := false
+	for _, c := range rep.Created {
+		if c == ".sdd/roles.json" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected .sdd/roles.json in rep.Created, got: %+v", rep.Created)
+	}
+
+	content, err := os.ReadFile(rolesPath)
+	if err != nil {
+		t.Fatalf("missing .sdd/roles.json file on disk: %v", err)
+	}
+	if !strings.Contains(string(content), "coordinator") {
+		t.Errorf("expected coordinator in .sdd/roles.json content, got:\n%s", string(content))
+	}
+}

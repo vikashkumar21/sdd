@@ -3,6 +3,7 @@ package scaffold
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/vikashkumar21/sdd/internal/block"
 	"github.com/vikashkumar21/sdd/internal/detect"
+	"github.com/vikashkumar21/sdd/internal/role"
 	"github.com/vikashkumar21/sdd/internal/templates"
 	"github.com/vikashkumar21/sdd/internal/version"
 )
@@ -130,6 +132,18 @@ func BuildPlan(root string, a Answers, det detect.Result, set *templates.Set, no
 		}
 		p.Ops = append(p.Ops, op)
 	}
+
+	rolesCfg := role.DefaultRoleConfig()
+	rolesJSON, err := json.MarshalIndent(rolesCfg, "", "  ")
+	if err != nil {
+		return Plan{}, err
+	}
+	rolesJSON = append(rolesJSON, '\n')
+	rolesOp, err := wholeOp(root, ".sdd/roles.json", string(rolesJSON), false, force)
+	if err != nil {
+		return Plan{}, err
+	}
+	p.Ops = append(p.Ops, rolesOp)
 	typologyTemplates := map[string][]string{
 		"features": {"requirements.md", "plan.md", "validation.md", "review.md"},
 		"bugfixes": {"reproduction.md", "rca.md", "plan.md", "validation.md", "review.md"},

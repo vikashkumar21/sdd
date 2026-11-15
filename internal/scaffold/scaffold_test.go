@@ -367,3 +367,47 @@ func TestBrokenOverrideTemplateIsAnError(t *testing.T) {
 		t.Fatal("expected an error for a template referencing an unknown field")
 	}
 }
+
+func TestInitRolesJson(t *testing.T) {
+	root := t.TempDir()
+	det, _ := detect.Detect(root)
+	set, err := templates.New("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := BuildPlan(root, answers(), det, set, fixedNow, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var foundRoles bool
+	for _, op := range plan.Ops {
+		if op.Path == ".sdd/roles.json" {
+			foundRoles = true
+			if op.Kind != KindCreate {
+				t.Errorf("expected KindCreate for .sdd/roles.json, got %v", op.Kind)
+			}
+			if !strings.Contains(op.Content, "coordinator") {
+				t.Errorf(".sdd/roles.json content missing coordinator")
+			}
+		}
+	}
+	if !foundRoles {
+		t.Error("plan missing .sdd/roles.json operation")
+	}
+
+	report, err := Apply(plan, fixedNow, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(report.Entries) == 0 {
+		t.Fatal("expected entries in report")
+	}
+
+	data, err := os.ReadFile(filepath.Join(root, ".sdd", "roles.json"))
+	if err != nil {
+		t.Fatalf("failed to read created .sdd/roles.json: %v", err)
+	}
+	if !strings.Contains(string(data), `"schema": 1`) {
+		t.Errorf("expected schema 1 in created .sdd/roles.json, got:\n%s", string(data))
+	}
+}

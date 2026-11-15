@@ -18,6 +18,7 @@ import (
 	"github.com/vikashkumar21/sdd/internal/detect"
 	"github.com/vikashkumar21/sdd/internal/fsutil"
 	"github.com/vikashkumar21/sdd/internal/repair"
+	"github.com/vikashkumar21/sdd/internal/role"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 	"github.com/vikashkumar21/sdd/internal/templates"
 	"github.com/vikashkumar21/sdd/internal/version"
@@ -373,6 +374,36 @@ func BuildPlan(root string, opts Options) (*Plan, error) {
 					NewHash:         newHash,
 				})
 			}
+		}
+	}
+
+	// 2b. Process roles manifest (.sdd/roles.json)
+	rolesDefault := role.DefaultRoleConfig()
+	rolesJSON, rolesErr := json.MarshalIndent(rolesDefault, "", "  ")
+	if rolesErr == nil {
+		rolesJSON = append(rolesJSON, '\n')
+		rolesContent := string(rolesJSON)
+		rolesHash := sum(rolesContent)
+		rolesPath := ".sdd/roles.json"
+		rawRoles, readRolesErr := rootHandle.ReadFile(filepath.FromSlash(rolesPath))
+		if errors.Is(readRolesErr, fs.ErrNotExist) {
+			plan.Items = append(plan.Items, Item{
+				Path:            rolesPath,
+				Kind:            "file",
+				Action:          ActionCreate,
+				Reason:          "missing roles manifest seeded",
+				ProposedContent: rolesContent,
+				NewHash:         rolesHash,
+			})
+		} else if readRolesErr == nil {
+			plan.Items = append(plan.Items, Item{
+				Path:            rolesPath,
+				Kind:            "file",
+				Action:          ActionUnchanged,
+				Reason:          "roles manifest preserved",
+				OriginalContent: string(rawRoles),
+				NewHash:         sum(string(rawRoles)),
+			})
 		}
 	}
 

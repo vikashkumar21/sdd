@@ -139,6 +139,7 @@ internal/version/     build version (set with -ldflags)
 | D-033 | Lifecycle YAML frontmatter metadata and `.ragignore` for RAG filtering | **Approved** 2026-11-10 | n/a | Option A: Standard YAML frontmatter (status: active/draft/completed/superseded/deprecated, task_id, superseded_by, last_reviewed) and .ragignore generation for deterministic vector/RAG indexing |
 | D-034 | Native binary self-update architecture and verification | **Approved** 2026-11-10 | n/a | Option A: In-place self-update via sdd self-update with GitHub Releases API, SHA256 checksum verification, atomic swap, and rollback |
 | D-035 | Task state persistence, event journaling, and IPC architecture (`sdd task state`) | **Approved** 2026-11-14 | n/a | Option A: Native stdlib state store in `.sdd/state/<TASK_ID>/`, atomic `state.json` snapshot via temp file & rename, append-only `events.jsonl` with 1MB buffered scanner, task ID regex validation, worktree cross-check, and `--json` output |
+| D-036 | Role skill taxonomy, phase-to-role mapping (.sdd/roles.json), and two-tier storage architecture | **Approved** 2026-11-14 | n/a | Option A: Two-tier storage (.sdd/skills/ infrastructure baseline, skills/ project override), .sdd/roles.json phase mapping, agentskills.io compliance, and turnkey sdd prompt/export integration |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 
@@ -170,6 +171,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-10 | Document lifecycle YAML frontmatter metadata (status, task_id, last_reviewed, superseded_by), .ragignore generation (sdd init/upgrade), mechanical validation (ragignore-missing, lifecycle-status, lifecycle-date, lifecycle-superseded), and template version 1.7.0 verified | Run in internal/doc, internal/scaffold, internal/upgrade, internal/check, and templates tests (T-037) | M10 |
 | 2026-11-10 | Native binary self-update (sdd self-update), GitHub Releases API, SHA256 integrity verification, symlink-aware atomic binary replacement, and 100% offline mock tests verified | Run in internal/update, internal/cli tests (T-038) | M10 |
 | 2026-11-14 | Deterministic task state store (.sdd/state/<TASK_ID>/), atomic state.json snapshot via temp file & rename, append-only events.jsonl with 1MB buffered scanner, task ID regex validation, worktree cross-check, and sdd task state CLI subcommands verified | Run in internal/state, internal/cli tests (T-039) | M10 |
+| 2026-11-14 | Role-based governance skills (coordinator, architect, plan-reviewer, spec-auditor, appsec-specialist, pattern-auditor), .sdd/roles.json phase mapping, two-tier resolution, sdd check validation, and prompt/export integration verified | Run in internal/role, internal/check, internal/cli tests (T-040) | M10 |
 
 ## 8. Dependency register
 

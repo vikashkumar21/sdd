@@ -99,3 +99,34 @@ func TestOverrideErrors(t *testing.T) {
 		t.Error("override that is a file must be an error")
 	}
 }
+
+func TestEmbeddedRoleSkills(t *testing.T) {
+	set, err := New("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	roleSkills := []string{
+		"coordinator",
+		"architect",
+		"plan-reviewer",
+		"spec-auditor",
+		"appsec-specialist",
+		"pattern-auditor",
+	}
+
+	for _, name := range roleSkills {
+		tmplPath := "skills/" + name + "/SKILL.md"
+		content, err := set.Raw(tmplPath)
+		if err != nil {
+			t.Errorf("failed to read embedded role skill %s: %v", tmplPath, err)
+			continue
+		}
+		if !strings.HasPrefix(content, "---\nname: "+name+"\n") {
+			t.Errorf("embedded role skill %s missing expected frontmatter header", tmplPath)
+		}
+		if !strings.Contains(content, "ALWAYS BE DETERMINISTIC") {
+			t.Errorf("embedded role skill %s missing SDD anthem", tmplPath)
+		}
+	}
+}
