@@ -88,6 +88,8 @@ sdd task merge T-003                          # merge task branch into main afte
 sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements from Jira and stage into context
 sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
+sdd prompt discovery                        # generate turnkey brownfield exploration prompt (codebase-analyst role, --json)
+sdd prompt discovery T-003                  # generate discovery prompt linked to specific task requirements and plan
 sdd prompt plan-review T-003                  # generate turnkey pre-GATE 1 plan review prompt (--json supported)
 sdd prompt implement T-003                    # generate turnkey Phase B implementation prompt (implementer role, --json supported)
 sdd prompt implement T-003 --role qa          # generate implementation prompt enriched with QA automation skill

@@ -251,6 +251,11 @@ func agentFor(name string) (display, file string) {
 
 func runPrompt(args []string, env IO) int {
 	for i, a := range args {
+		if a == "discovery" {
+			discoveryArgs := append([]string{}, args[:i]...)
+			discoveryArgs = append(discoveryArgs, args[i+1:]...)
+			return runPromptDiscovery(discoveryArgs, env)
+		}
 		if a == "plan-review" {
 			planReviewArgs := append([]string{}, args[:i]...)
 			planReviewArgs = append(planReviewArgs, args[i+1:]...)
@@ -280,7 +285,7 @@ func runPrompt(args []string, env IO) int {
 		return parseExit(err)
 	}
 	if len(pos) != 1 {
-		fprintln(env.Err, "usage: sdd prompt <agent> [--task T-xxx] [--dir <project>]   (agent: claude, gemini, agents, or any name)")
+		fprintln(env.Err, "usage: sdd prompt <agent> [--task T-xxx] [--dir <project>]   (agent: claude, gemini, agents, or any name)\n   or: sdd prompt discovery [T-xxx] [--dir <project>] [--json]\n   or: sdd prompt plan-review <T-xxx> [--dir <project>] [--json]\n   or: sdd prompt implement <T-xxx> [--role <role>] [--dir <project>] [--json]\n   or: sdd prompt review <T-xxx> [--lens <lens>] [--dir <project>] [--json]")
 		return 2
 	}
 	fail := func(format string, a ...any) int {

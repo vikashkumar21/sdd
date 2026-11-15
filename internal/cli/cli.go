@@ -70,6 +70,7 @@ commands:
   skill list                 list available skills in the project (--json for structured output)
   skill export               export the SDD protocol as a native agent skill
   prompt <agent>             print a handover prompt for an agent (claude, gemini, agents, or any name)
+  prompt discovery [T-xxx]   generate a turnkey codebase discovery and forensic extraction prompt (--json)
   prompt plan-review <T-xxx> generate a pre-GATE 1 plan review prompt (--json for structured output)
   prompt implement <T-xxx>   generate a Phase B implementation prompt (--role implementer|qa|devops, --json)
   prompt review <T-xxx>      generate a turnkey subagent review prompt (--json for structured output)
