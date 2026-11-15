@@ -119,6 +119,25 @@ func TestSkillExport_InvalidRole(t *testing.T) {
 	}
 }
 
+func TestSkillExport_InvalidSkill(t *testing.T) {
+	tmp := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	code := runSkillExport([]string{"--dir", tmp, "--skill", "non-existent-skill"}, env)
+	if code != 1 {
+		t.Fatalf("expected exit code 1 for invalid skill, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "unknown canonical skill") {
+		t.Errorf("expected unknown canonical skill error, got: %s", stderr.String())
+	}
+}
+
 func TestPromptPlanReview_RoleSkill(t *testing.T) {
 	tmp := t.TempDir()
 	setupTestTask(t, tmp, "T-040")
@@ -513,5 +532,45 @@ func TestSkillExport_ImplementerOps(t *testing.T) {
 		if !strings.Contains(string(data), "name: "+name) {
 			t.Errorf("exported skill %s missing expected frontmatter", name)
 		}
+	}
+}
+
+func TestSkillExport_CoordinatorAliases(t *testing.T) {
+	tmp := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	// 1. Export role coordinator
+	code := runSkillExport([]string{"--dir", tmp, "--role", "coordinator"}, env)
+	if code != 0 {
+		t.Fatalf("export --role coordinator failed: %s", stderr.String())
+	}
+	p := filepath.Join(tmp, "skills", "coordinator", "SKILL.md")
+	data, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatalf("missing exported coordinator skill: %v", err)
+	}
+	if !strings.Contains(string(data), "name: coordinator") {
+		t.Errorf("expected coordinator frontmatter, got: %s", string(data)[:50])
+	}
+
+	// 2. Export canonical skill task-coordinator
+	stdout.Reset()
+	code = runSkillExport([]string{"--dir", tmp, "--skill", "task-coordinator"}, env)
+	if code != 0 {
+		t.Fatalf("export --skill task-coordinator failed: %s", stderr.String())
+	}
+	p2 := filepath.Join(tmp, "skills", "task-coordinator", "SKILL.md")
+	data2, err := os.ReadFile(p2)
+	if err != nil {
+		t.Fatalf("missing exported task-coordinator skill: %v", err)
+	}
+	if !strings.Contains(string(data2), "name: task-coordinator") {
+		t.Errorf("expected task-coordinator frontmatter, got: %s", string(data2)[:50])
 	}
 }

@@ -211,13 +211,24 @@ func (c *RoleConfig) RoleNames() []string {
 // 2. <root>/.sdd/skills/<name>/SKILL.md (infrastructure baseline)
 // 3. Embedded templates (skills/<name>/SKILL.md)
 //
+// If not found directly, it falls back to symmetrical aliasing (e.g. coordinator <-> task-coordinator)
+// with frontmatter name normalization matching the requested skill name.
+//
 // If set is nil, it automatically instantiates templates.New("").
 func ResolveSkill(root, skillName string, set *templates.Set) (string, error) {
-	if skillName == "" {
-		return "", errors.New("skill name cannot be empty")
+	if err := skill.ValidateName(skillName); err != nil {
+		return "", fmt.Errorf("invalid skill name %q: %w", skillName, err)
 	}
-	if !skill.NameRegex.MatchString(skillName) || strings.Contains(skillName, "..") || strings.ContainsAny(skillName, `/\:`) {
-		return "", fmt.Errorf("invalid skill name %q: must match agentskills.io format and contain no path separators", skillName)
+	if strings.Contains(skillName, "..") || strings.ContainsAny(skillName, `/\:`) {
+		return "", fmt.Errorf("invalid skill name %q: must contain no path separators", skillName)
+	}
+
+	var alias string
+	switch skillName {
+	case "coordinator":
+		alias = "task-coordinator"
+	case "task-coordinator":
+		alias = "coordinator"
 	}
 
 	// 1. Project override: <root>/skills/<name>/SKILL.md
@@ -226,11 +237,23 @@ func ResolveSkill(root, skillName string, set *templates.Set) (string, error) {
 		if data, err := os.ReadFile(projPath); err == nil {
 			return string(data), nil
 		}
+		if alias != "" {
+			aliasProjPath := filepath.Join(root, "skills", alias, "SKILL.md")
+			if data, err := os.ReadFile(aliasProjPath); err == nil {
+				return normalizeFrontmatterName(string(data), alias, skillName), nil
+			}
+		}
 
 		// 2. Infrastructure baseline: <root>/.sdd/skills/<name>/SKILL.md
 		infraPath := filepath.Join(root, ".sdd", "skills", skillName, "SKILL.md")
 		if data, err := os.ReadFile(infraPath); err == nil {
 			return string(data), nil
+		}
+		if alias != "" {
+			aliasInfraPath := filepath.Join(root, ".sdd", "skills", alias, "SKILL.md")
+			if data, err := os.ReadFile(aliasInfraPath); err == nil {
+				return normalizeFrontmatterName(string(data), alias, skillName), nil
+			}
 		}
 	}
 
@@ -249,5 +272,27 @@ func ResolveSkill(root, skillName string, set *templates.Set) (string, error) {
 		return content, nil
 	}
 
+	if alias != "" {
+		aliasTemplatePath := "skills/" + alias + "/SKILL.md"
+		aliasContent, err := set.Raw(aliasTemplatePath)
+		if err == nil && aliasContent != "" {
+			return normalizeFrontmatterName(aliasContent, alias, skillName), nil
+		}
+	}
+
 	return "", fmt.Errorf("role skill %q not found in project, .sdd, or embedded templates", skillName)
+}
+
+func normalizeFrontmatterName(content, fromName, toName string) string {
+	fromHeader := "---\nname: " + fromName + "\n"
+	toHeader := "---\nname: " + toName + "\n"
+	if strings.HasPrefix(content, fromHeader) {
+		return strings.Replace(content, fromHeader, toHeader, 1)
+	}
+	fromHeaderCRLF := "---\r\nname: " + fromName + "\r\n"
+	toHeaderCRLF := "---\r\nname: " + toName + "\r\n"
+	if strings.HasPrefix(content, fromHeaderCRLF) {
+		return strings.Replace(content, fromHeaderCRLF, toHeaderCRLF, 1)
+	}
+	return content
 }

@@ -3,6 +3,7 @@ package role_test
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/vikashkumar21/sdd/internal/role"
@@ -239,5 +240,70 @@ func TestResolveSkillTwoTier(t *testing.T) {
 		if _, err := role.ResolveSkill(tmp, bad, nil); err == nil {
 			t.Errorf("expected error resolving traversal/invalid skill %q, got nil", bad)
 		}
+	}
+}
+
+func TestResolveCoordinatorAlias(t *testing.T) {
+	tmp := t.TempDir()
+
+	// 1. Embedded resolution: both coordinator and task-coordinator resolve with correct frontmatter names
+	cContent, err := role.ResolveSkill(tmp, "coordinator", nil)
+	if err != nil {
+		t.Fatalf("failed to resolve embedded coordinator: %v", err)
+	}
+	if !strings.HasPrefix(cContent, "---\nname: coordinator\n") {
+		t.Errorf("expected coordinator frontmatter name, got:\n%s", cContent[:40])
+	}
+
+	tcContent, err := role.ResolveSkill(tmp, "task-coordinator", nil)
+	if err != nil {
+		t.Fatalf("failed to resolve embedded task-coordinator: %v", err)
+	}
+	if !strings.HasPrefix(tcContent, "---\nname: task-coordinator\n") {
+		t.Errorf("expected task-coordinator frontmatter name, got:\n%s", tcContent[:40])
+	}
+
+	// 2. Project override aliasing: only skills/coordinator exists, task-coordinator resolves it with normalized name
+	tmp2 := t.TempDir()
+	coordDir := filepath.Join(tmp2, "skills", "coordinator")
+	if err := os.MkdirAll(coordDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	customCoord := "---\nname: coordinator\ndescription: Custom\n---\n# Custom Coordinator Body\n"
+	if err := os.WriteFile(filepath.Join(coordDir, "SKILL.md"), []byte(customCoord), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	aliasedTC, err := role.ResolveSkill(tmp2, "task-coordinator", nil)
+	if err != nil {
+		t.Fatalf("failed to resolve aliased task-coordinator: %v", err)
+	}
+	if !strings.HasPrefix(aliasedTC, "---\nname: task-coordinator\n") {
+		t.Errorf("expected normalized task-coordinator frontmatter, got:\n%s", aliasedTC[:50])
+	}
+	if !strings.Contains(aliasedTC, "# Custom Coordinator Body") {
+		t.Errorf("expected custom body in aliased resolution")
+	}
+
+	// 3. Reverse project override aliasing: only skills/task-coordinator exists, coordinator resolves it with normalized name
+	tmp3 := t.TempDir()
+	tcDir := filepath.Join(tmp3, "skills", "task-coordinator")
+	if err := os.MkdirAll(tcDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	customTC := "---\nname: task-coordinator\ndescription: Custom TC\n---\n# Custom Task Coordinator Body\n"
+	if err := os.WriteFile(filepath.Join(tcDir, "SKILL.md"), []byte(customTC), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	aliasedCoord, err := role.ResolveSkill(tmp3, "coordinator", nil)
+	if err != nil {
+		t.Fatalf("failed to resolve aliased coordinator: %v", err)
+	}
+	if !strings.HasPrefix(aliasedCoord, "---\nname: coordinator\n") {
+		t.Errorf("expected normalized coordinator frontmatter, got:\n%s", aliasedCoord[:50])
+	}
+	if !strings.Contains(aliasedCoord, "# Custom Task Coordinator Body") {
+		t.Errorf("expected custom body in aliased resolution")
 	}
 }

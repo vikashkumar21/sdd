@@ -37,21 +37,20 @@ The Coordinator acts as a Staff Orchestrator and Technical Project Lead. It does
 - **Isolation:** Provision isolated git worktrees for workers via `sdd task start <task-id>`.
 - **Collision Detection:** Before dispatching concurrent workers, run `sdd task deconflict` to analyze target file collisions in `plan.md` Section 5 across in-flight tasks. If collisions are detected, sequence the tasks sequentially rather than in parallel.
 
-### 4. Subagent Supervision & Two-Tier Agent Hierarchy
+### 4. Subagent Supervision & Two-Tier Agent Roles (Hierarchy)
+- **Worker Confinement:** Workers operate strictly inside their isolated git worktree / task branch (`task/<T-xxx>`). Autonomous commits are permitted on the isolated task branch; workers are strictly forbidden from writing to, rebasing, or merging into `main`. Workers cannot self-approve their own `review.md`.
 - **Role Dispatch:** Dispatch specialized subagents with their dedicated role skill:
-  - Phase A: Architect / Planner (`architect`) drafts; Plan Reviewer (`plan-reviewer`) audits.
-  - Phase B: Implementer (`implementer`) executes in isolated branch.
-  - Phase C.2: Review Triad (`spec-auditor`, `appsec-specialist`, `pattern-auditor`) audits in parallel.
-- **Worker Confinement:** Workers are strictly forbidden from writing to or merging into `main`. Workers commit only on their isolated task branch.
+  - Phase A: Architect / Planner (`architect`) drafts; Pre-GATE 1 Plan Review Subagent (`plan-reviewer`) audits before presenting to human.
+  - Phase B: Implementer (`implementer`) executes in isolated branch (conditionally enriched with `qa` and `devops`).
+  - Phase C.2: 3-Subagent Parallel Review Triad (`spec-auditor`, `appsec-specialist`, `pattern-auditor`) audits in parallel.
+- **Batch Remediation Protocol:** When multiple subagents report changes, the primary worker agent consolidates all remediations into a single fix pass. Resolving a batch of findings across multiple lenses consumes 1 loop in the 3-loop circuit breaker.
+- **Rule F-001 Compliance:** The Task Coordinator ensures all findings (Blockers, Warnings, Minors) are resolved or explicitly justified before Gate 2 close.
+- **3-Loop Circuit Breaker:** At most 3 review-fix iterations. If Blockers persist after attempt 3, halt, mark the task `Blocked`, and escalate to the human.
 
 ### 5. Pre-Merge Qualification & Gate 2 Presentation
-- Before presenting a task merge to the human:
-  1. Verify task is `Awaiting review` with 0 Blockers and all review findings resolved per Rule F-001.
-  2. Run pre-merge simulation: `sdd task merge <task-id> --dry-run`.
-  3. Verify regression test suite passes cleanly on simulated merge commit.
-  4. Present summary to human expecting exact token: `APPROVED MERGE <task-id>`.
-
-## Anti-Hallucination & Determinism Directives
-1. **Grounding in Concrete Evidence:** Every assertion must be proven by real command execution output; never assume or accept "should work".
-2. **Boundary Precision:** Ensure workers modify ONLY files listed in Section 5 of approved `plan.md`.
-3. **Fail Safe on Ambiguity:** If requirements, constraints, or states are ambiguous, halt immediately and emit `DECISION NEEDED: D-xxx`.
+Before any merge into `main`:
+1. Verify task status is `Awaiting review`.
+2. Verify independent review sign-off: `review.md` must have status `Approved` with 0 Blockers, and all findings resolved or justified per Rule F-001.
+3. Simulate git merge in an isolated throwaway worktree: `sdd task merge --simulate <T-xxx>` (or `sdd task merge <task-id> --dry-run`).
+4. Run full blast-radius regression test suite on the simulated merge commit.
+5. Present merge qualification summary to the human for approval (`APPROVED MERGE T-xxx` / `COMMITTED T-xxx`).

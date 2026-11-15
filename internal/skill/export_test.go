@@ -40,6 +40,10 @@ func TestExportProtocolSkillBasic(t *testing.T) {
 	}
 }
 
+func TestCanonicalSDDProtocolSkillValid(t *testing.T) {
+	TestExportProtocolSkillValid(t)
+}
+
 func TestExportProtocolSkillValid(t *testing.T) {
 	parsed, err := Parse([]byte(CanonicalSDDProtocolSkill))
 	if err != nil {
@@ -53,6 +57,18 @@ func TestExportProtocolSkillValid(t *testing.T) {
 
 	if parsed.Name != "sdd-protocol" {
 		t.Errorf("Name = %s, want sdd-protocol", parsed.Name)
+	}
+
+	for _, substr := range []string{
+		"tasks/<typology>/T-xxx-<slug>/",
+		"review.md",
+		"Rule F-001 (Resolve All Findings)",
+		"Plan Review Subagent",
+		"Review Triad",
+	} {
+		if !strings.Contains(CanonicalSDDProtocolSkill, substr) {
+			t.Errorf("CanonicalSDDProtocolSkill missing expected substring %q", substr)
+		}
 	}
 }
 
@@ -188,6 +204,12 @@ func TestCanonicalCodeReviewSkillValid(t *testing.T) {
 	if !strings.Contains(CanonicalCodeReviewSkill, "The Ensemble Review Triad") {
 		t.Errorf("missing ensemble review triad in canonical code-review skill")
 	}
+	if !strings.Contains(CanonicalCodeReviewSkill, "Rule F-001 Finding Resolution Mandate") {
+		t.Errorf("missing Rule F-001 mandate in canonical code-review skill")
+	}
+	if !strings.Contains(CanonicalCodeReviewSkill, "tasks/<typology>/T-xxx-<slug>/review.md") {
+		t.Errorf("missing tasks typology path in canonical code-review skill")
+	}
 }
 
 func TestCanonicalTaskCoordinatorSkillValid(t *testing.T) {
@@ -206,6 +228,12 @@ func TestCanonicalTaskCoordinatorSkillValid(t *testing.T) {
 	}
 	if !strings.Contains(CanonicalTaskCoordinatorSkill, "Two-Tier Agent Roles") {
 		t.Errorf("missing two-tier roles in canonical task-coordinator skill")
+	}
+	if !strings.Contains(CanonicalTaskCoordinatorSkill, "PR Size Guardrail") {
+		t.Errorf("missing PR size guardrail in canonical task-coordinator skill")
+	}
+	if !strings.Contains(CanonicalTaskCoordinatorSkill, "sdd task state") {
+		t.Errorf("missing sdd task state in canonical task-coordinator skill")
 	}
 }
 

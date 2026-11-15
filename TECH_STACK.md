@@ -143,7 +143,7 @@ internal/version/     build version (set with -ldflags)
 | D-037 | Execution and operations role skills taxonomy, conditional plan activation, and roles manifest extension | **Approved** 2026-11-15 | n/a | Option A: Author canonical implementer, qa, and devops role skills, add phase-b mapping in .sdd/roles.json, support conditional plan activation (plans naming QA/DevOps activate respective skills), extend sdd skill export and sdd prompt, and enforce strict execution boundaries |
 | D-038 | Cross-project and service dependency register in TECH_STACK.md §8 and sdd check validation | **Approved** 2026-11-15 | n/a | Option A: Extend TECH_STACK.md template with §8.1 packages and §8.2 cross-project/service dependencies (Name, Repo/URL, Direction, Contract/Version, Owner, Decision, Status), sdd check mechanical validation (D-xxx ref, Direction enum, Status enum), bump templates.Version to 1.8.0, and adopt in this repo's §8 |
 | D-039 | Role-based agent skill: codebase-analyst and discovery phase mapping | **Approved** 2026-11-15 | n/a | Option A: Canonical codebase-analyst role skill, phase-discovery mapping in .sdd/roles.json, turnkey sdd prompt discovery, 10-role export, and sdd check validation |
-| D-040 | Universal CI workflows, automated PR packaging, and CI log ingestion | Open | T-045 | Option A: Adaptable CI workflow templates (GitHub, GitLab, Bitbucket, Azure DevOps), sdd task pr packaging command, and sdd ingest --ci-log with ANSI stripping and secret sanitization |
+| D-040 | Universal CI workflows, automated PR packaging, and CI log ingestion | Open | T-046 | Option A: Adaptable CI workflow templates (GitHub, GitLab, Bitbucket, Azure DevOps), sdd task pr packaging command, and sdd ingest --ci-log with ANSI stripping and secret sanitization |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 
@@ -179,6 +179,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-15 | Canonical execution and operations role skills (implementer, qa, devops), conditional plan activation, sdd prompt implement, and 9-role export verified | Run in internal/role, internal/templates, internal/cli, internal/check tests (T-041) | M11 |
 | 2026-11-15 | Partitioned dependency register (§8.1 packages, §8.2 cross-project/service dependencies), mechanical sdd check validation (techstack-dep-decision, techstack-dep-direction, techstack-dep-status), and template version 1.8.0 verified | Run in internal/templates, internal/check, internal/scaffold, internal/upgrade tests (T-042) | M11 |
 | 2026-11-15 | Canonical codebase-analyst role skill, phase-discovery mapping in .sdd/roles.json, 10-role export, and sdd check mechanical validation verified | Run in internal/role, internal/templates, internal/cli, internal/check tests (T-043) | M11 |
+| 2026-11-15 | Canonical protocol skills (sdd-protocol, code-review, coordinator) synchronized with tasks/ typology, Review Triad, Rule F-001, and role aliasing verified | Run in internal/skill, internal/role, internal/templates, internal/cli tests (T-044) | M11 |
 
 ## 8. Dependency register
 
