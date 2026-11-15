@@ -433,13 +433,16 @@ func TestInitExtendedRolesJson(t *testing.T) {
 		t.Fatalf("failed to read created .sdd/roles.json: %v", err)
 	}
 	content := string(data)
-	for _, r := range []string{"implementer", "qa", "devops"} {
+	for _, r := range []string{"implementer", "qa", "devops", "codebase-analyst"} {
 		if !strings.Contains(content, `"`+r+`"`) {
 			t.Errorf(".sdd/roles.json missing role %s", r)
 		}
 	}
 	if !strings.Contains(content, `"phase-b"`) {
 		t.Errorf(".sdd/roles.json missing phase-b mapping")
+	}
+	if !strings.Contains(content, `"phase-discovery"`) {
+		t.Errorf(".sdd/roles.json missing phase-discovery mapping")
 	}
 	if !strings.Contains(content, `"operations"`) {
 		t.Errorf(".sdd/roles.json missing operations mapping")

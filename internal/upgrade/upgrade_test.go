@@ -788,13 +788,16 @@ func TestUpgradeExtendedRolesJson(t *testing.T) {
 		t.Fatalf("missing .sdd/roles.json file on disk: %v", err)
 	}
 	s := string(content)
-	for _, r := range []string{"implementer", "qa", "devops"} {
+	for _, r := range []string{"implementer", "qa", "devops", "codebase-analyst"} {
 		if !strings.Contains(s, `"`+r+`"`) {
 			t.Errorf("expected role %s in upgraded .sdd/roles.json", r)
 		}
 	}
 	if !strings.Contains(s, `"phase-b"`) {
 		t.Errorf("expected phase-b in upgraded .sdd/roles.json")
+	}
+	if !strings.Contains(s, `"phase-discovery"`) {
+		t.Errorf("expected phase-discovery in upgraded .sdd/roles.json")
 	}
 	if !strings.Contains(s, `"operations"`) {
 		t.Errorf("expected operations in upgraded .sdd/roles.json")

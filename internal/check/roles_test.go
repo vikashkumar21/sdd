@@ -342,6 +342,16 @@ func TestRolesCheck_ExtendedPhaseMappingsUnresolved(t *testing.T) {
 			phase:   "operations",
 			missing: "ghost-devops",
 		},
+		{
+			name: "unresolved analyst in phase-discovery",
+			mutate: func(cfg *role.RoleConfig) {
+				cfg.Phases["phase-discovery"] = role.PhaseMapping{
+					Analyst: "ghost-analyst",
+				}
+			},
+			phase:   "phase-discovery",
+			missing: "ghost-analyst",
+		},
 	}
 
 	for _, tc := range cases {
@@ -370,5 +380,26 @@ func TestRolesCheck_ExtendedPhaseMappingsUnresolved(t *testing.T) {
 				t.Errorf("[%s] expected roles-phase-unresolved finding for %s in %s, got: %+v", tc.name, tc.missing, tc.phase, r.Findings)
 			}
 		})
+	}
+}
+
+func TestRolesCheck_LegacyMissingPhaseDiscovery(t *testing.T) {
+	tmp := t.TempDir()
+	cfg := role.DefaultRoleConfig()
+	delete(cfg.Phases, "phase-discovery")
+
+	if err := role.SaveRoles(tmp, cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := check.Run(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, f := range r.Findings {
+		if f.File == ".sdd/roles.json" {
+			t.Errorf("unexpected finding for legacy roles manifest missing phase-discovery: %+v", f)
+		}
 	}
 }

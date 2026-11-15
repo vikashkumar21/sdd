@@ -16,8 +16,8 @@ func TestRoleConfigSchema(t *testing.T) {
 	}
 
 	names := role.CanonicalRoleNames()
-	if len(names) != 9 {
-		t.Fatalf("expected 9 canonical role names, got %d", len(names))
+	if len(names) != 10 {
+		t.Fatalf("expected 10 canonical role names, got %d", len(names))
 	}
 
 	for _, name := range names {
@@ -35,6 +35,11 @@ func TestRoleConfigSchema(t *testing.T) {
 	}
 
 	// Verify phase mappings
+	phaseDiscovery, ok := cfg.Phases["phase-discovery"]
+	if !ok || phaseDiscovery.Analyst != "codebase-analyst" || phaseDiscovery.Planner != "architect" {
+		t.Errorf("unexpected phase-discovery mapping: %+v", phaseDiscovery)
+	}
+
 	phaseA, ok := cfg.Phases["phase-a"]
 	if !ok || phaseA.Planner != "architect" || phaseA.Reviewer != "plan-reviewer" {
 		t.Errorf("unexpected phase-a mapping: %+v", phaseA)
@@ -71,6 +76,7 @@ func TestCanonicalRoleNames(t *testing.T) {
 	expected := []string{
 		"appsec-specialist",
 		"architect",
+		"codebase-analyst",
 		"coordinator",
 		"devops",
 		"implementer",
@@ -98,8 +104,8 @@ func TestLoadRoles_Default(t *testing.T) {
 	if cfg == nil || cfg.Schema != role.CurrentSchema {
 		t.Fatalf("expected default config, got %+v", cfg)
 	}
-	if len(cfg.Roles) != 9 {
-		t.Errorf("expected 9 default roles, got %d", len(cfg.Roles))
+	if len(cfg.Roles) != 10 {
+		t.Errorf("expected 10 default roles, got %d", len(cfg.Roles))
 	}
 }
 
@@ -130,8 +136,8 @@ func TestSaveAndLoadRoles(t *testing.T) {
 	}
 
 	roleNames := loaded.RoleNames()
-	if len(roleNames) != 10 {
-		t.Errorf("expected 10 role names, got %d", len(roleNames))
+	if len(roleNames) != 11 {
+		t.Errorf("expected 11 role names, got %d", len(roleNames))
 	}
 }
 

@@ -131,5 +131,10 @@ func (c *checker) checkRoles() {
 				c.add(Error, relPath, 0, "roles-phase-unresolved", "phase %q references undefined devops role %q", pName, m.DevOps)
 			}
 		}
+		if m.Analyst != "" {
+			if _, ok := cfg.Roles[m.Analyst]; !ok {
+				c.add(Error, relPath, 0, "roles-phase-unresolved", "phase %q references undefined analyst role %q", pName, m.Analyst)
+			}
+		}
 	}
 }

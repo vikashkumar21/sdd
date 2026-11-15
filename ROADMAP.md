@@ -38,6 +38,7 @@ Status: living document · Last updated: 2026-10-26
 | M8 | Autonomous Multi-Agent Git Workflows and Work Typology | T-028 – T-033 | 18 | Work typology templates, git worktree isolation, static plan deconfliction, task coordinator merge engine, and ensemble review standards |
 | M9 | Multi-Agent Workspace Ergonomics and Review Ensemble | T-034 – T-038 | 15 | Unified tasks folder hierarchy, plan review, rule F-001, document lifecycle frontmatter, and native self-update |
 | M10 | Autonomous Multi-Agent Architecture, Roles, and State Persistence | T-039 – T-042 | 17 | Task state persistence, event journaling, role-based agentskills.io skills, and cross-project dependency register |
+| M11 | Codebase Discovery & Remote CI/PR Orchestration | T-043 – T-046 | 16 | codebase-analyst role skill, sdd prompt discovery, multi-platform CI workflows, sdd task pr packaging, and CI log ingestion |
 
 ## 4. Tasks
 
@@ -137,7 +138,16 @@ Status: living document · Last updated: 2026-10-26
 | T-039 | Deterministic task state persistence and event journaling (sdd task state) | M | T-034 | Subcommands under sdd task state (show, save, append-event, purge) with POSIX atomic writes, append-only JSONL events, worktree cross-check, and sdd task clean integration | D-035 | Done |
 | T-040 | Role-based agent skills: core governance, planning, and review triad | M | T-033, T-035, T-039 | Canonical governance skills (coordinator, architect, plan-reviewer, spec-auditor, appsec-specialist, pattern-auditor), .sdd/roles.json phase mapping, sdd check validation, and turnkey CLI prompt integration | D-036 | Done |
 | T-041 | Role-based agent skills: implementer, QA, and DevOps operations | M | T-040 | Execution and operational skills (implementer, qa, devops), conditional plan activation, and roles manifest extension | D-037 | Done |
-| T-042 | Cross-project and service dependency register in TECH_STACK.md §8 | S | T-039 | Extended TECH_STACK.md template, §8 cross-project dependency table, and sdd check validation | D-038 | Awaiting review |
+| T-042 | Cross-project and service dependency register in TECH_STACK.md §8 | S | T-039 | Extended TECH_STACK.md template, §8 cross-project dependency table, and sdd check validation | D-038 | Done |
+
+### M11 — Codebase Discovery & Remote CI/PR Orchestration
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-043 | Role-based agent skills: codebase-analyst and discovery phase mapping | M | T-040, T-041 | Canonical codebase-analyst skill, phase-discovery in .sdd/roles.json, 10-role export, and sdd check validation | D-039 | Awaiting review |
+| T-044 | Turnkey sdd prompt discovery and brownfield synthesis protocol | S | T-043 | sdd prompt discovery command, progressive extraction guide, and brownfield synthesis into living docs | D-039 | Not started |
+| T-045 | Universal CI workflows and automated PR packaging (sdd task pr) | M | T-042 | Adaptable CI workflow templates (GitHub, GitLab, Bitbucket, Azure DevOps), sdd task pr packaging command | D-040 | Not started |
+| T-046 | Remote CI failure ingestion and diagnostic auto-repair loop | S | T-045 | sdd ingest --ci-log with ANSI stripping, secret sanitization, and bugfix reproduction seeding | D-040 | Not started |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -156,7 +166,6 @@ Unfamiliar technology derails projects. To prevent that:
 
 ## 7. Parking lot (do not start without a new approved task)
 
-- Milestone 10: Remote CI & PR Orchestration (GitHub Actions workflow, PR packaging, and remote CI auto-repair loop)
 - Language packs for Rust, Kotlin, C#
 - Optional shell completion
 - Enhance table markdown parser to treat backslashes inside inline code spans as non-escaping backticks
@@ -164,15 +173,15 @@ Unfamiliar technology derails projects. To prevent that:
 
 ## 8. Next action
 
-1. M0 through M9 are complete (39 tasks delivered).
-2. Active milestone: Milestone 10: Autonomous Multi-Agent Architecture, Roles, and State Persistence (T-039 – T-042).
-3. Active task: T-042 (Cross-project and service dependency register in TECH_STACK.md §8).
+1. M0 through M10 are complete (43 tasks delivered).
+2. Active milestone: Milestone 11: Codebase Discovery & Remote CI/PR Orchestration (T-043 – T-046).
+3. Active task: T-043 (Role-based agent skills: codebase-analyst and discovery phase mapping).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
-| 2026-11-15 | T-042: Cross-project and service dependency register in TECH_STACK.md §8 awaiting review |
+| 2026-11-15 | T-042: Cross-project and service dependency register in TECH_STACK.md §8 done (Milestone 10 complete) |
 | 2026-11-15 | T-041: Role-based agent skills: implementer, QA, and DevOps operations done (Milestone 10 complete) |
 | 2026-11-15 | T-040: Role-based agent skills: core governance, planning, and review triad done |
 | 2026-11-14 | T-039: Deterministic task state persistence and event journaling (sdd task state) done |

@@ -431,7 +431,7 @@ func TestPromptImplement_ConditionalPlanActivation(t *testing.T) {
 	}
 }
 
-func TestSkillExport_AllNineRoles(t *testing.T) {
+func TestSkillExport_AllTenRoles(t *testing.T) {
 	tmp := t.TempDir()
 	var stdout, stderr bytes.Buffer
 	env := IO{
@@ -447,14 +447,45 @@ func TestSkillExport_AllNineRoles(t *testing.T) {
 	}
 
 	names := role.CanonicalRoleNames()
-	if len(names) != 9 {
-		t.Fatalf("expected 9 canonical roles, got %d", len(names))
+	if len(names) != 10 {
+		t.Fatalf("expected 10 canonical roles, got %d", len(names))
 	}
 	for _, name := range names {
 		p := filepath.Join(tmp, "skills", name, "SKILL.md")
 		if _, err := os.Stat(p); err != nil {
 			t.Errorf("expected exported skill %s, err: %v", name, err)
 		}
+	}
+}
+
+func TestSkillExport_CodebaseAnalyst(t *testing.T) {
+	tmp := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	code := runSkillExport([]string{"--dir", tmp, "--role", "codebase-analyst"}, env)
+	if code != 0 {
+		t.Fatalf("runSkillExport --role codebase-analyst failed with code %d: %s", code, stderr.String())
+	}
+
+	skillFile := filepath.Join(tmp, "skills", "codebase-analyst", "SKILL.md")
+	data, err := os.ReadFile(skillFile)
+	if err != nil {
+		t.Fatalf("missing exported codebase-analyst skill: %v", err)
+	}
+	if !strings.Contains(string(data), "name: codebase-analyst") {
+		t.Errorf("exported skill missing expected frontmatter name")
+	}
+
+	// Verify other roles were NOT exported
+	otherFile := filepath.Join(tmp, "skills", "coordinator", "SKILL.md")
+	if _, err := os.Stat(otherFile); err == nil {
+		t.Errorf("coordinator skill should not have been exported")
 	}
 }
 

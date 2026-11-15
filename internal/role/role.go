@@ -34,6 +34,7 @@ type PhaseMapping struct {
 	Implementer string   `json:"implementer,omitempty"`
 	QA          string   `json:"qa,omitempty"`
 	DevOps      string   `json:"devops,omitempty"`
+	Analyst     string   `json:"analyst,omitempty"`
 }
 
 // RoleConfig represents the configuration stored in .sdd/roles.json.
@@ -43,11 +44,12 @@ type RoleConfig struct {
 	Phases map[string]PhaseMapping `json:"phases"`
 }
 
-// CanonicalRoleNames returns the sorted list of canonical governance role identifiers.
+// CanonicalRoleNames returns the sorted list of canonical role identifiers.
 func CanonicalRoleNames() []string {
 	return []string{
 		"appsec-specialist",
 		"architect",
+		"codebase-analyst",
 		"coordinator",
 		"devops",
 		"implementer",
@@ -70,6 +72,10 @@ func DefaultRoleConfig() *RoleConfig {
 			"architect": {
 				Skill:       "architect",
 				Description: "Phase A requirements synthesis, architectural decision formulation (D-xxx), boundary setting, and risk modeling",
+			},
+			"codebase-analyst": {
+				Skill:       "codebase-analyst",
+				Description: "Forensic codebase analysis, design system & CSS/font extraction, backend architecture mapping, schema discovery, and tech debt auditing",
 			},
 			"plan-reviewer": {
 				Skill:       "plan-reviewer",
@@ -101,6 +107,10 @@ func DefaultRoleConfig() *RoleConfig {
 			},
 		},
 		Phases: map[string]PhaseMapping{
+			"phase-discovery": {
+				Analyst: "codebase-analyst",
+				Planner: "architect",
+			},
 			"phase-a": {
 				Planner:  "architect",
 				Reviewer: "plan-reviewer",

@@ -130,6 +130,7 @@ func TestEmbeddedRoleSkills(t *testing.T) {
 	roleSkills := []string{
 		"coordinator",
 		"architect",
+		"codebase-analyst",
 		"plan-reviewer",
 		"spec-auditor",
 		"appsec-specialist",

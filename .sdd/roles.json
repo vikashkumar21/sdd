@@ -9,6 +9,10 @@
       "skill": "architect",
       "description": "Phase A requirements synthesis, architectural decision formulation (D-xxx), boundary setting, and risk modeling"
     },
+    "codebase-analyst": {
+      "skill": "codebase-analyst",
+      "description": "Forensic codebase analysis, design system & CSS/font extraction, backend architecture mapping, schema discovery, and tech debt auditing"
+    },
     "coordinator": {
       "skill": "coordinator",
       "description": "Multi-agent workspace governance, task decomposition, state tracking, and merge qualification"
@@ -39,6 +43,10 @@
     }
   },
   "phases": {
+    "phase-discovery": {
+      "analyst": "codebase-analyst",
+      "planner": "architect"
+    },
     "governance": {
       "coordinator": "coordinator"
     },

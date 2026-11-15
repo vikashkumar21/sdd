@@ -105,8 +105,9 @@ sdd skill new quick-fix --from-text "run make verify"            # import raw in
 sdd skill list                                # list available skills with scope, status, and descriptions
 sdd skill list --json                         # output skill catalog as structured JSON
 sdd skill export                                  # export canonical skills (sdd-protocol, code-review, task-coordinator) to skills/
-sdd skill export --roles                          # export all canonical role skills (governance, execution, operations)
-sdd skill export --role implementer               # export specific canonical role skill (e.g. implementer, qa, devops)
+sdd skill export --roles                          # export all 10 canonical role skills (governance, execution, operations, discovery)
+sdd skill export --role codebase-analyst          # export specific canonical discovery role skill
+sdd skill export --role implementer               # export specific canonical execution role skill (e.g. implementer, qa, devops)
 sdd skill export --role appsec-specialist         # export specific canonical governance role skill
 sdd skill export --skill task-coordinator         # export specific canonical skill
 sdd skill export --skill code-review          # export specific canonical skill
@@ -162,7 +163,7 @@ sdd self-update --yes                     # proceed without interactive confirma
 - **Discovery:** `sdd skill list` scans `skills/` (project-facing) and `.sdd/skills/` (internal/infrastructure), validating naming and bounds (`--json` supported).
 - **Progressive Disclosure Handover:** `sdd prompt <agent>` dynamically compiles a concise table of available skills (name and trigger description, ~50 tokens total). The AI agent knows exactly what skills exist and when to activate them, without bloating prompt context with full markdown bodies. If unrefined raw notes are detected, the agent is directed to synthesize them into standard sections per `SKILLS.md`.
 - **Exporting for IDEs & SDKs:** `sdd skill export` exports canonical skills to project repositories, user-global directories (`--global`), or programmatic Agent SDK application folders (`--target <dir>`), allowing programmatic agents (Python/TypeScript/Go) and IDE assistants to enforce SDD gates natively.
-- **Role-Based Governance Skills & Phase Mapping:** `.sdd/roles.json` defines deterministic phase-to-role assignments (`phase-a` -> architect + plan-reviewer, `phase-c.2` -> Review Triad). Role skills resolve via a two-tier hierarchy: project overrides in `skills/<role>/SKILL.md` take precedence over infrastructure baselines in `.sdd/skills/<role>/SKILL.md` and embedded templates. Turnkey prompts (`sdd prompt plan-review`, `sdd prompt review --lens <lens>`) automatically enrich context with the respective role skill instructions.
+- **Role-Based Governance Skills & Phase Mapping:** `.sdd/roles.json` defines deterministic phase-to-role assignments (`phase-discovery` -> codebase-analyst + architect, `phase-a` -> architect + plan-reviewer, `phase-b` -> implementer + optional QA/DevOps, `phase-c.2` -> Review Triad). Role skills resolve via a two-tier hierarchy: project overrides in `skills/<role>/SKILL.md` take precedence over infrastructure baselines in `.sdd/skills/<role>/SKILL.md` and embedded templates. Turnkey prompts (`sdd prompt plan-review`, `sdd prompt implement`, `sdd prompt review --lens <lens>`) automatically enrich context with the respective role skill instructions.
 
 ## What `sdd check` verifies
 
