@@ -37,7 +37,7 @@ Status: living document · Last updated: 2026-10-26
 | M7 | Agent Code Review Standards and Ergonomics | T-026 – T-027 | 10 | review.md 4th task doc, official code-review skill, sdd check verification, and sdd status |
 | M8 | Autonomous Multi-Agent Git Workflows and Work Typology | T-028 – T-033 | 18 | Work typology templates, git worktree isolation, static plan deconfliction, task coordinator merge engine, and ensemble review standards |
 | M9 | Multi-Agent Workspace Ergonomics and Review Ensemble | T-034 – T-038 | 15 | Unified tasks folder hierarchy, plan review, rule F-001, document lifecycle frontmatter, and native self-update |
-| M10 | Autonomous Multi-Agent Architecture, Roles, and State Persistence | T-039 – T-041 | 15 | Task state persistence, event journaling, role-based agentskills.io skills, and phase mapping |
+| M10 | Autonomous Multi-Agent Architecture, Roles, and State Persistence | T-039 – T-042 | 17 | Task state persistence, event journaling, role-based agentskills.io skills, and cross-project dependency register |
 
 ## 4. Tasks
 
@@ -136,7 +136,8 @@ Status: living document · Last updated: 2026-10-26
 |---|---|---|---|---|---|---|
 | T-039 | Deterministic task state persistence and event journaling (sdd task state) | M | T-034 | Subcommands under sdd task state (show, save, append-event, purge) with POSIX atomic writes, append-only JSONL events, worktree cross-check, and sdd task clean integration | D-035 | Done |
 | T-040 | Role-based agent skills: core governance, planning, and review triad | M | T-033, T-035, T-039 | Canonical governance skills (coordinator, architect, plan-reviewer, spec-auditor, appsec-specialist, pattern-auditor), .sdd/roles.json phase mapping, sdd check validation, and turnkey CLI prompt integration | D-036 | Done |
-| T-041 | Role-based agent skills: implementer, QA, and DevOps operations | M | T-040 | Execution and operational skills (implementer, qa, devops), conditional plan activation, and roles manifest extension | D-037 | Awaiting review |
+| T-041 | Role-based agent skills: implementer, QA, and DevOps operations | M | T-040 | Execution and operational skills (implementer, qa, devops), conditional plan activation, and roles manifest extension | D-037 | Done |
+| T-042 | Cross-project and service dependency register in TECH_STACK.md §8 | S | T-039 | Extended TECH_STACK.md template, §8 cross-project dependency table, and sdd check validation | D-038 | Awaiting review |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -164,14 +165,15 @@ Unfamiliar technology derails projects. To prevent that:
 ## 8. Next action
 
 1. M0 through M9 are complete (39 tasks delivered).
-2. Active milestone: Milestone 10: Autonomous Multi-Agent Architecture, Roles, and State Persistence (T-039 – T-041).
-3. Active task: T-041 (Role-based agent skills: implementer, QA, and DevOps operations).
+2. Active milestone: Milestone 10: Autonomous Multi-Agent Architecture, Roles, and State Persistence (T-039 – T-042).
+3. Active task: T-042 (Cross-project and service dependency register in TECH_STACK.md §8).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
-| 2026-11-15 | T-041: Role-based agent skills: implementer, QA, and DevOps operations awaiting review |
+| 2026-11-15 | T-042: Cross-project and service dependency register in TECH_STACK.md §8 awaiting review |
+| 2026-11-15 | T-041: Role-based agent skills: implementer, QA, and DevOps operations done (Milestone 10 complete) |
 | 2026-11-15 | T-040: Role-based agent skills: core governance, planning, and review triad done |
 | 2026-11-14 | T-039: Deterministic task state persistence and event journaling (sdd task state) done |
 | 2026-11-10 | T-038: Native sdd self-update CLI binary updater done (Milestone 9 complete) |

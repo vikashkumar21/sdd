@@ -1,5 +1,5 @@
 ---
-status: active
+status: completed
 task_id: T-041
 last_reviewed: 2026-11-15
 ---
@@ -7,7 +7,7 @@ last_reviewed: 2026-11-15
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
-Status: Approved
+Status: Completed
 Roadmap ref: `ROADMAP.md` T-041
 
 ## 1. Goal

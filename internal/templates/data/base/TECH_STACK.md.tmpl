@@ -66,9 +66,18 @@ TODO(human): The planned layout, created task by task. Do not create empty place
 | | (none yet) | | |
 
 ## 8. Dependency register
+
+### 8.1 Package and library dependencies
 {{if .Detected.Manifests}}
 Dependency manifests *detected* (unverified): {{join .Detected.Manifests ", "}}. List the approved dependencies below as they are verified.
 {{end}}
 | Dependency | Purpose | Status |
 |---|---|---|
 | | (none recorded yet) | |
+
+### 8.2 Cross-project and service dependencies
+List external repositories, microservices, APIs, and sibling projects that this project depends on or that consume this project:
+
+| Name | Repo / URL | Direction | Contract / Version | Owner | Decision | Status |
+|---|---|---|---|---|---|---|
+| | | | | | | |

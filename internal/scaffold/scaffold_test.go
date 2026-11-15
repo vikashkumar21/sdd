@@ -445,3 +445,35 @@ func TestInitExtendedRolesJson(t *testing.T) {
 		t.Errorf(".sdd/roles.json missing operations mapping")
 	}
 }
+
+func TestScaffoldTECH_STACK(t *testing.T) {
+	root := t.TempDir()
+	det, _ := detect.Detect(root)
+	set, err := templates.New("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := BuildPlan(root, answers(), det, set, fixedNow, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Apply(plan, fixedNow, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(root, "TECH_STACK.md"))
+	if err != nil {
+		t.Fatalf("failed to read created TECH_STACK.md: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "### 8.1 Package and library dependencies") {
+		t.Errorf("TECH_STACK.md missing Section 8.1 header")
+	}
+	if !strings.Contains(content, "### 8.2 Cross-project and service dependencies") {
+		t.Errorf("TECH_STACK.md missing Section 8.2 header")
+	}
+	if !strings.Contains(content, "| Name | Repo / URL | Direction | Contract / Version | Owner | Decision | Status |") {
+		t.Errorf("TECH_STACK.md missing canonical cross-project dependency table header")
+	}
+}

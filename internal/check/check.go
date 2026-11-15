@@ -102,16 +102,46 @@ func (r Report) JSON(strict bool) ([]byte, error) {
 }
 
 var (
-	decisionRowRe  = regexp.MustCompile(`(?m)^\|\s*(D-\d{3})\s*\|`)
-	decisionRefRe  = regexp.MustCompile(`\bD-\d{3}\b`)
-	taskRefRe      = regexp.MustCompile(`\bT-\d{3}\b`)
-	featureDirRe   = regexp.MustCompile(`^(T-\d{3})-[a-z0-9]+(?:-[a-z0-9]+)*$`)
-	feedbackRe     = regexp.MustCompile(`(?m)^##\s+.*Human feedback rules`)
-	approvalRe     = regexp.MustCompile(`Approved by:\s*_{3,}`)
-	factHdrRe      = regexp.MustCompile(`(?i)^\|\s*Date\s*\|\s*Fact\s*\|\s*Source\s*\|\s*Re-verify at\s*\|`)
-	milestoneRefRe = regexp.MustCompile(`\bM\d+\b`)
-	statusHeaderRe = regexp.MustCompile(`(?m)^Status:\s*([^\r\n]+)`)
+	decisionRowRe      = regexp.MustCompile(`(?m)^\|\s*(D-\d{3})\s*\|`)
+	decisionRefRe      = regexp.MustCompile(`\bD-\d{3}\b`)
+	taskRefRe          = regexp.MustCompile(`\bT-\d{3}\b`)
+	featureDirRe       = regexp.MustCompile(`^(T-\d{3})-[a-z0-9]+(?:-[a-z0-9]+)*$`)
+	feedbackRe         = regexp.MustCompile(`(?m)^##\s+.*Human feedback rules`)
+	approvalRe         = regexp.MustCompile(`Approved by:\s*_{3,}`)
+	factHdrRe          = regexp.MustCompile(`(?i)^\|\s*Date\s*\|\s*Fact\s*\|\s*Source\s*\|\s*Re-verify at\s*\|`)
+	milestoneRefRe     = regexp.MustCompile(`\bM\d+\b`)
+	statusHeaderRe     = regexp.MustCompile(`(?m)^Status:\s*([^\r\n]+)`)
+	crossDepHdrRe      = regexp.MustCompile(`(?i)^###\s*8\.2\s+Cross-project and service dependencies`)
+	crossDepTableHdrRe = regexp.MustCompile(`(?i)^\|\s*Name\s*\|\s*Repo\s*(?:/\s*URL)?\s*\|\s*Direction\s*\|\s*Contract\s*(?:/\s*Version)?\s*\|\s*Owner\s*\|\s*Decision\s*\|\s*Status\s*\|`)
 )
+
+var validDirections = map[string]bool{
+	"":                   true,
+	"-":                  true,
+	"n/a":                true,
+	"(none)":             true,
+	"none":               true,
+	"inbound":            true,
+	"outbound":           true,
+	"bidirectional":      true,
+	"inbound / outbound": true,
+	"inbound/outbound":   true,
+	"producer":           true,
+	"consumer":           true,
+}
+
+var validDepStatuses = map[string]bool{
+	"":           true,
+	"-":          true,
+	"n/a":        true,
+	"(none)":     true,
+	"approved":   true,
+	"proposed":   true,
+	"deprecated": true,
+	"active":     true,
+	"draft":      true,
+	"retired":    true,
+}
 
 var coreDocs = []string{"MISSION.md", "TECH_STACK.md", "ROADMAP.md", "SKILLS.md"}
 
@@ -224,6 +254,7 @@ func (c *checker) run() {
 	tasks := c.checkRoadmap()
 	c.checkFeatures(tasks)
 	c.checkVerifiedFactsExpiry(tasks)
+	c.checkTechStackDependencies()
 	if hasManifest && mErr == nil {
 		c.checkManifestDrift(manifest)
 	}
@@ -451,7 +482,23 @@ func (c *checker) checkReferences(docs []string) {
 		if !ok {
 			continue
 		}
+		inCrossDepTable := false
 		for i, line := range strings.Split(text, "\n") {
+			trimmed := strings.TrimSpace(line)
+			if rel == "TECH_STACK.md" {
+				if crossDepHdrRe.MatchString(trimmed) {
+					inCrossDepTable = true
+					continue
+				}
+				if inCrossDepTable {
+					if strings.HasPrefix(trimmed, "#") {
+						inCrossDepTable = false
+					} else if strings.HasPrefix(trimmed, "|") {
+						// Delegated to checkTechStackDependencies to provide specialized techstack-dep-decision rule
+						continue
+					}
+				}
+			}
 			if haveStack {
 				for _, id := range decisionRefRe.FindAllString(line, -1) {
 					if !decisions[id] && !reportedD[id] {
@@ -831,6 +878,91 @@ func (c *checker) checkVerifiedFactsExpiry(tasks []roadmap.Task) {
 					c.add(Warn, "TECH_STACK.md", lineNo, "fact-expiry",
 						"verified fact %q is past due for re-verification (milestone %s is completed)", truncate(fact, 50), mID)
 				}
+			}
+		}
+	}
+}
+
+func (c *checker) checkTechStackDependencies() {
+	text, ok := c.load("TECH_STACK.md")
+	if !ok {
+		return
+	}
+
+	decisions := map[string]bool{}
+	for _, m := range decisionRowRe.FindAllStringSubmatch(text, -1) {
+		decisions[m[1]] = true
+	}
+
+	lines := strings.Split(text, "\n")
+	inCrossDepSection := false
+
+	for i, line := range lines {
+		lineNo := i + 1
+		trimmed := strings.TrimSpace(line)
+
+		if crossDepHdrRe.MatchString(trimmed) {
+			inCrossDepSection = true
+			continue
+		}
+
+		if inCrossDepSection {
+			// If we hit another heading, section has ended
+			if strings.HasPrefix(trimmed, "#") {
+				inCrossDepSection = false
+				continue
+			}
+
+			if !strings.HasPrefix(trimmed, "|") {
+				continue
+			}
+
+			if crossDepTableHdrRe.MatchString(trimmed) || strings.Contains(trimmed, "---") {
+				continue
+			}
+
+			cells := splitRow(trimmed)
+			if len(cells) != 7 {
+				c.add(Warn, "TECH_STACK.md", lineNo, "techstack-dep-columns",
+					"row in §8.2 cross-project dependency table has %d columns (expected 7: Name, Repo / URL, Direction, Contract / Version, Owner, Decision, Status)", len(cells))
+				continue
+			}
+
+			name := strings.TrimSpace(cells[0])
+			if name == "" || name == "-" || name == "(none)" || strings.HasPrefix(name, "(") {
+				continue
+			}
+
+			dir := strings.TrimSpace(cells[2])
+			if !validDirections[strings.ToLower(dir)] {
+				c.add(Warn, "TECH_STACK.md", lineNo, "techstack-dep-direction",
+					"unrecognized dependency direction %q in §8.2 (expected Inbound, Outbound, Bidirectional, Producer, Consumer, or None)", dir)
+			}
+
+			decisionCol := strings.TrimSpace(cells[5])
+			if decisionCol != "" && decisionCol != "-" && !strings.EqualFold(decisionCol, "n/a") && decisionCol != "(none)" && !strings.EqualFold(decisionCol, "none") {
+				dTokens := strings.FieldsFunc(decisionCol, func(r rune) bool {
+					return r == ',' || r == ';' || r == ' '
+				})
+				for _, tok := range dTokens {
+					tok = strings.TrimSpace(tok)
+					if tok == "" || tok == "-" || strings.EqualFold(tok, "n/a") || tok == "(none)" {
+						continue
+					}
+					if !decisionRefRe.MatchString(tok) {
+						c.add(Error, "TECH_STACK.md", lineNo, "techstack-dep-decision",
+							"invalid decision reference %q for dependency %q in §8.2 (expected D-xxx)", tok, name)
+					} else if !decisions[tok] {
+						c.add(Error, "TECH_STACK.md", lineNo, "techstack-dep-decision",
+							"cross-project dependency %q references decision %s which has no row in the Decision register (TECH_STACK.md §6)", name, tok)
+					}
+				}
+			}
+
+			status := strings.TrimSpace(cells[6])
+			if !validDepStatuses[strings.ToLower(status)] {
+				c.add(Warn, "TECH_STACK.md", lineNo, "techstack-dep-status",
+					"unrecognized dependency status %q in §8.2 (expected Approved, Proposed, Deprecated, Active, Draft, or Retired)", status)
 			}
 		}
 	}

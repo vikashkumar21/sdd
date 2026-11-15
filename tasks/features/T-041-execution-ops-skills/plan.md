@@ -1,5 +1,5 @@
 ---
-status: active
+status: completed
 task_id: T-041
 last_reviewed: 2026-11-15
 ---
@@ -7,7 +7,7 @@ last_reviewed: 2026-11-15
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
-Status: Approved
+Status: Completed
 
 ## 1. Approach summary
 Author canonical `agentskills.io` compliant skills for execution and operations roles (`implementer`, `qa`, `devops`), extend `.sdd/roles.json` with Phase B and operations phase mappings, introduce `sdd prompt implement` for turnkey execution handover with conditional QA/DevOps plan detection, extend `sdd skill export`, and implement mechanical validation in `sdd check`.

@@ -800,3 +800,40 @@ func TestUpgradeExtendedRolesJson(t *testing.T) {
 		t.Errorf("expected operations in upgraded .sdd/roles.json")
 	}
 }
+
+func TestUpgradeTECH_STACK(t *testing.T) {
+	root := generateKit(t)
+	// Simulate an older kit where TECH_STACK was recorded under an older template version
+	manifestPath := filepath.Join(root, ".sdd", "manifest.json")
+	data, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	oldManifest := strings.Replace(string(data), `"version": "1.8.0"`, `"version": "1.7.0"`, 1)
+	if err := os.WriteFile(manifestPath, []byte(oldManifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Untouched TECH_STACK.md should be updated in place to 1.8.0 with §8.1 and §8.2
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatalf("BuildPlan failed: %v", err)
+	}
+	rep, err := Apply(plan, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	updatedData, err := os.ReadFile(filepath.Join(root, "TECH_STACK.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(updatedData)
+	if !strings.Contains(s, "### 8.1 Package and library dependencies") {
+		t.Errorf("upgraded TECH_STACK.md missing Section 8.1")
+	}
+	if !strings.Contains(s, "### 8.2 Cross-project and service dependencies") {
+		t.Errorf("upgraded TECH_STACK.md missing Section 8.2")
+	}
+	_ = rep
+}

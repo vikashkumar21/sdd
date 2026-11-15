@@ -8,8 +8,29 @@ import (
 )
 
 func TestVersion(t *testing.T) {
-	if Version != "1.7.0" {
-		t.Errorf("Version = %q, want 1.7.0", Version)
+	if Version != "1.8.0" {
+		t.Errorf("Version = %q, want 1.8.0", Version)
+	}
+}
+
+func TestTechStackTemplateDependencySections(t *testing.T) {
+	set, err := New("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := set.Raw("base/TECH_STACK.md.tmpl")
+	if err != nil {
+		t.Fatalf("failed to read base/TECH_STACK.md.tmpl: %v", err)
+	}
+	if !strings.Contains(content, "### 8.1 Package and library dependencies") {
+		t.Errorf("base/TECH_STACK.md.tmpl missing Section 8.1 header")
+	}
+	if !strings.Contains(content, "### 8.2 Cross-project and service dependencies") {
+		t.Errorf("base/TECH_STACK.md.tmpl missing Section 8.2 header")
+	}
+	canonicalHeader := "| Name | Repo / URL | Direction | Contract / Version | Owner | Decision | Status |"
+	if !strings.Contains(content, canonicalHeader) {
+		t.Errorf("base/TECH_STACK.md.tmpl missing canonical 7-column header: %s", canonicalHeader)
 	}
 }
 

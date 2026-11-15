@@ -1609,3 +1609,150 @@ superseded_by: ../../../../../../etc/passwd
 		t.Errorf("expected lifecycle-superseded warning on path traversal attempt, got: %+v", r8.Findings)
 	}
 }
+
+func TestCrossProjectDependencies_Valid(t *testing.T) {
+	root := generate(t)
+	// Add valid cross-project dependency row
+	edit(t, root, "TECH_STACK.md", func(s string) string {
+		return s + `
+| sdd-agent | https://github.com/example/sdd-agent | Outbound | v1.0.0 | Vikash | D-001 | Approved |
+| auth-service | ../auth | Inbound | gRPC v2 | Team Sec | D-002 | Active |
+| billing | https://billing.local | Bidirectional | REST v1 | Team Pay | D-003 | Proposed |
+`
+	})
+	r := run(t, root)
+	for _, f := range r.Findings {
+		if strings.HasPrefix(f.Rule, "techstack-dep-") {
+			t.Errorf("unexpected finding on valid cross-project dependencies: %+v", f)
+		}
+	}
+}
+
+func TestCrossProjectDependencies_DanglingDecision(t *testing.T) {
+	root := generate(t)
+	edit(t, root, "TECH_STACK.md", func(s string) string {
+		return s + `
+| sister-app | https://github.com/example/sister | Outbound | v1 | Team | D-999 | Approved |
+`
+	})
+	r := run(t, root)
+	found := false
+	for _, f := range r.Findings {
+		if f.Rule == "techstack-dep-decision" && strings.Contains(f.Message, "D-999") {
+			found = true
+			if f.Severity != Error {
+				t.Errorf("expected techstack-dep-decision to be Error, got %v", f.Severity)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected techstack-dep-decision error for D-999, got: %+v", r.Findings)
+	}
+}
+
+func TestCrossProjectDependencies_InvalidDecisionFormat(t *testing.T) {
+	root := generate(t)
+	edit(t, root, "TECH_STACK.md", func(s string) string {
+		return s + `
+| sister-app | https://github.com/example/sister | Outbound | v1 | Team | D-9999 | Approved |
+`
+	})
+	r := run(t, root)
+	found := false
+	for _, f := range r.Findings {
+		if f.Rule == "techstack-dep-decision" && strings.Contains(f.Message, "D-9999") {
+			found = true
+			if f.Severity != Error {
+				t.Errorf("expected techstack-dep-decision to be Error, got %v", f.Severity)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected techstack-dep-decision error for invalid format D-9999, got: %+v", r.Findings)
+	}
+}
+
+func TestCrossProjectDependencies_DirectionEnum(t *testing.T) {
+	root := generate(t)
+	edit(t, root, "TECH_STACK.md", func(s string) string {
+		return s + `
+| sister-app | https://github.com/example/sister | Sideways | v1 | Team | D-001 | Approved |
+`
+	})
+	r := run(t, root)
+	found := false
+	for _, f := range r.Findings {
+		if f.Rule == "techstack-dep-direction" && strings.Contains(f.Message, "Sideways") {
+			found = true
+			if f.Severity != Warn {
+				t.Errorf("expected techstack-dep-direction to be Warn, got %v", f.Severity)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected techstack-dep-direction warning for Sideways, got: %+v", r.Findings)
+	}
+}
+
+func TestCrossProjectDependencies_StatusEnum(t *testing.T) {
+	root := generate(t)
+	edit(t, root, "TECH_STACK.md", func(s string) string {
+		return s + `
+| sister-app | https://github.com/example/sister | Inbound | v1 | Team | D-001 | UnknownStatus |
+`
+	})
+	r := run(t, root)
+	found := false
+	for _, f := range r.Findings {
+		if f.Rule == "techstack-dep-status" && strings.Contains(f.Message, "UnknownStatus") {
+			found = true
+			if f.Severity != Warn {
+				t.Errorf("expected techstack-dep-status to be Warn, got %v", f.Severity)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected techstack-dep-status warning for UnknownStatus, got: %+v", r.Findings)
+	}
+}
+
+func TestCrossProjectDependencies_MalformedColumns(t *testing.T) {
+	root := generate(t)
+	edit(t, root, "TECH_STACK.md", func(s string) string {
+		return s + `
+| sister-app | https://github.com/example/sister | Inbound |
+| brother-app | https://github.com/example/brother | Outbound | v1 | Team | D-001 | Approved | ExtraCol |
+`
+	})
+	r := run(t, root)
+	count := 0
+	for _, f := range r.Findings {
+		if f.Rule == "techstack-dep-columns" {
+			count++
+			if f.Severity != Warn {
+				t.Errorf("expected techstack-dep-columns to be Warn, got %v", f.Severity)
+			}
+		}
+	}
+	if count != 2 {
+		t.Errorf("expected 2 techstack-dep-columns warnings for malformed rows (<7 and >7), got %d: %+v", count, r.Findings)
+	}
+}
+
+func TestCrossProjectDependencies_BackwardCompatibility(t *testing.T) {
+	root := generate(t)
+	// Strip out §8.2 from TECH_STACK.md
+	edit(t, root, "TECH_STACK.md", func(s string) string {
+		idx := strings.Index(s, "### 8.2")
+		if idx != -1 {
+			return s[:idx]
+		}
+		return s
+	})
+	r := run(t, root)
+	for _, f := range r.Findings {
+		if strings.HasPrefix(f.Rule, "techstack-dep-") {
+			t.Errorf("legacy TECH_STACK.md without §8.2 must produce no techstack-dep findings, got: %+v", f)
+		}
+	}
+}
