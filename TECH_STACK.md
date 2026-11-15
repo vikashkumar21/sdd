@@ -181,6 +181,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-15 | Canonical codebase-analyst role skill, phase-discovery mapping in .sdd/roles.json, 10-role export, and sdd check mechanical validation verified | Run in internal/role, internal/templates, internal/cli, internal/check tests (T-043) | M11 |
 | 2026-11-15 | Canonical protocol skills (sdd-protocol, code-review, coordinator) synchronized with tasks/ typology, Review Triad, Rule F-001, and role aliasing verified | Run in internal/skill, internal/role, internal/templates, internal/cli tests (T-044) | M11 |
 | 2026-11-15 | Turnkey sdd prompt discovery CLI command, codebase-analyst role enrichment, 4-pillar progressive extraction checklist, brownfield living document synthesis, and DiscoveryPromptContext JSON verified | Run in internal/cli tests (T-045) | M11 |
+| 2026-11-15 | Release v1.6.0 cross-platform static binaries (darwin, linux, windows), template version 1.9.0, and SHA256SUMS verified | Build, tests, and make dist | M12 |
 
 ## 8. Dependency register
 

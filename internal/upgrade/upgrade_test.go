@@ -812,7 +812,7 @@ func TestUpgradeTECH_STACK(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	oldManifest := strings.Replace(string(data), `"version": "1.8.0"`, `"version": "1.7.0"`, 1)
+	oldManifest := strings.Replace(string(data), `"version": "`+templates.Version+`"`, `"version": "1.7.0"`, 1)
 	if err := os.WriteFile(manifestPath, []byte(oldManifest), 0o644); err != nil {
 		t.Fatal(err)
 	}

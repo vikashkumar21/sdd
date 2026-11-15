@@ -59,4 +59,4 @@ Feedback-rule compliance (SKILLS.md, "Human feedback rules"):
 
 ## 8. Sign-off
 Suggested commit message: `feat(cli): add turnkey sdd prompt discovery and brownfield synthesis protocol`
-Reviewed by: Vikash (human)   Date: ______   Reply received: `COMMITTED T-045`
+Reviewed by: Vikash (human)   Date: 2026-11-15   Reply received: `COMMITTED T-045`

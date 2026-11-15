@@ -1,5 +1,5 @@
 ---
-status: active
+status: completed
 task_id: T-045
 last_reviewed: 2026-11-15
 ---

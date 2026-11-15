@@ -146,7 +146,7 @@ Status: living document · Last updated: 2026-10-26
 |---|---|---|---|---|---|---|
 | T-043 | Role-based agent skills: codebase-analyst and discovery phase mapping | M | T-040, T-041 | Canonical codebase-analyst skill, phase-discovery in .sdd/roles.json, 10-role export, and sdd check validation | D-039 | Done |
 | T-044 | Canonical protocol skills synchronization and taxonomy alignment | S | T-043 | Synchronize sdd-protocol, code-review, and coordinator skills with tasks/ typology, Review Triad, Rule F-001, and role aliases | none | Done |
-| T-045 | Turnkey sdd prompt discovery and brownfield synthesis protocol | S | T-044 | sdd prompt discovery command, progressive extraction guide, and brownfield synthesis into living docs | D-039 | Awaiting review |
+| T-045 | Turnkey sdd prompt discovery and brownfield synthesis protocol | S | T-044 | sdd prompt discovery command, progressive extraction guide, and brownfield synthesis into living docs | D-039 | Done |
 | T-046 | Universal CI workflows and automated PR packaging (sdd task pr) | M | T-042 | Adaptable CI workflow templates (GitHub, GitLab, Bitbucket, Azure DevOps), sdd task pr packaging command | D-040 | Not started |
 | T-047 | Remote CI failure ingestion and diagnostic auto-repair loop | S | T-046 | sdd ingest --ci-log with ANSI stripping, secret sanitization, and bugfix reproduction seeding | D-040 | Not started |
 
@@ -182,6 +182,7 @@ Unfamiliar technology derails projects. To prevent that:
 
 | Date | Change |
 |---|---|
+| 2026-11-15 | T-045: Turnkey sdd prompt discovery and brownfield synthesis protocol done |
 | 2026-11-15 | T-044: Canonical protocol skills synchronization and taxonomy alignment done |
 | 2026-11-15 | T-043: Role-based agent skills: codebase-analyst and discovery phase mapping done |
 | 2026-11-15 | T-042: Cross-project and service dependency register in TECH_STACK.md §8 done (Milestone 10 complete) |
