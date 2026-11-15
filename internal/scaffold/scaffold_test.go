@@ -411,3 +411,37 @@ func TestInitRolesJson(t *testing.T) {
 		t.Errorf("expected schema 1 in created .sdd/roles.json, got:\n%s", string(data))
 	}
 }
+
+func TestInitExtendedRolesJson(t *testing.T) {
+	root := t.TempDir()
+	det, _ := detect.Detect(root)
+	set, err := templates.New("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := BuildPlan(root, answers(), det, set, fixedNow, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = Apply(plan, fixedNow, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(root, ".sdd", "roles.json"))
+	if err != nil {
+		t.Fatalf("failed to read created .sdd/roles.json: %v", err)
+	}
+	content := string(data)
+	for _, r := range []string{"implementer", "qa", "devops"} {
+		if !strings.Contains(content, `"`+r+`"`) {
+			t.Errorf(".sdd/roles.json missing role %s", r)
+		}
+	}
+	if !strings.Contains(content, `"phase-b"`) {
+		t.Errorf(".sdd/roles.json missing phase-b mapping")
+	}
+	if !strings.Contains(content, `"operations"`) {
+		t.Errorf(".sdd/roles.json missing operations mapping")
+	}
+}

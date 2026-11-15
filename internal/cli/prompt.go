@@ -51,6 +51,28 @@ type PlanReviewPromptContext struct {
 	Prompt        string   `json:"prompt"`
 }
 
+// ImplementPromptContext represents the structured context bundle for Phase B implementation.
+type ImplementPromptContext struct {
+	TaskID          string   `json:"taskId"`
+	TaskDir         string   `json:"taskDir"`
+	Typology        string   `json:"typology"`
+	Role            string   `json:"role"`
+	RoleSkill       string   `json:"roleSkill,omitempty"`
+	ActivatedSkills []string `json:"activatedSkills,omitempty"`
+	Requirements    string   `json:"requirements,omitempty"`
+	Plan            string   `json:"plan,omitempty"`
+	Validation      string   `json:"validation,omitempty"`
+	PlannedFiles    []string `json:"plannedFiles"`
+	FeedbackRules   string   `json:"feedbackRules"`
+	Decisions       []string `json:"decisions"`
+	Prompt          string   `json:"prompt"`
+}
+
+var (
+	qaKeywordPattern     = regexp.MustCompile(`(?i)(?:\b(qa|quality\s+assurance|fuzzing|fuzz|race\s+detector|benchmark)\b|-race\b)`)
+	devopsKeywordPattern = regexp.MustCompile(`(?i)\b(devops|sre|ci/cd|docker|container|packaging|release\s+pipeline|cross-compil)\b`)
+)
+
 func runPromptPlanReview(args []string, env IO) int {
 	fs := newFlagSet("prompt plan-review", env)
 	dir := fs.String("dir", ".", "project root")
@@ -94,6 +116,9 @@ func runPromptPlanReview(args []string, env IO) int {
 	validation := readTaskDoc(taskDirAbs, "validation.md")
 
 	plannedFiles := deconflict.ExtractPlanFiles(plan)
+	if len(plannedFiles) == 0 {
+		fprintf(env.Err, "sdd prompt implement: warning: no planned files resolved from %s/plan.md Section 5\n", taskDirRel)
+	}
 	feedbackRules := extractActiveFeedbackRules(root)
 	decisions := extractApprovedDecisions(root)
 
@@ -220,6 +245,194 @@ func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []stri
 	sb.WriteString("3. Report any 🔴 Blocker (missing step, boundary hole, untestable assertion, unapproved dependency) or 🟡 Warning.\n")
 	sb.WriteString("4. Verify that the `Open questions` section in `requirements.md` is empty.\n")
 	sb.WriteString("5. Provide an explicit sign-off recommendation: `[Approved / Changes Requested]` with actionable remediation notes.\n")
+
+	return sb.String()
+}
+
+func runPromptImplement(args []string, env IO) int {
+	fs := newFlagSet("prompt implement", env)
+	dir := fs.String("dir", ".", "project root")
+	roleFlag := fs.String("role", "implementer", "role persona to activate: implementer, qa, devops")
+	jsonFlag := fs.Bool("json", false, "output machine-readable implementation context bundle as JSON")
+
+	pos, err := parseInterspersed(fs, args)
+	if err != nil {
+		return parseExit(err)
+	}
+
+	if len(pos) != 1 {
+		fprintln(env.Err, "usage: sdd prompt implement <T-xxx> [--role <implementer|qa|devops>] [--dir <project>] [--json]")
+		return 2
+	}
+
+	rawTaskID := strings.ToUpper(strings.TrimSpace(pos[0]))
+	if !taskIDPattern.MatchString(rawTaskID) {
+		fprintf(env.Err, "sdd prompt implement: invalid task ID format %q (expected format like T-001)\n", pos[0])
+		return 1
+	}
+
+	targetRole := strings.ToLower(strings.TrimSpace(*roleFlag))
+	switch targetRole {
+	case "implementer", "qa", "devops":
+		// valid
+	default:
+		fprintf(env.Err, "sdd prompt implement: invalid role %q (available: implementer, qa, devops)\n", *roleFlag)
+		return 1
+	}
+
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		fprintf(env.Err, "sdd prompt implement: %v\n", err)
+		return 1
+	}
+
+	taskDirRel, typology, err := findTaskDirectory(root, rawTaskID)
+	if err != nil {
+		fprintf(env.Err, "sdd prompt implement: %v\n", err)
+		return 1
+	}
+
+	taskDirAbs := filepath.Join(root, filepath.FromSlash(taskDirRel))
+
+	requirements := readTaskDoc(taskDirAbs, "requirements.md")
+	plan := readTaskDoc(taskDirAbs, "plan.md")
+	if plan == "" {
+		plan = readTaskDoc(taskDirAbs, "patch.md")
+	}
+	validation := readTaskDoc(taskDirAbs, "validation.md")
+
+	plannedFiles := deconflict.ExtractPlanFiles(plan)
+	if len(plannedFiles) == 0 {
+		fprintf(env.Err, "sdd prompt implement: warning: no planned files resolved from %s/plan.md Section 5\n", taskDirRel)
+	}
+	feedbackRules := extractActiveFeedbackRules(root)
+	decisions := extractApprovedDecisions(root)
+
+	roleSkill, _ := role.ResolveSkill(root, targetRole, nil)
+	activatedSkills := detectOperationalSkills(plan)
+
+	promptText := buildImplementPrompt(rawTaskID, taskDirRel, typology, targetRole, roleSkill, activatedSkills, plannedFiles, feedbackRules, decisions)
+
+	ctx := ImplementPromptContext{
+		TaskID:          rawTaskID,
+		TaskDir:         taskDirRel,
+		Typology:        typology,
+		Role:            targetRole,
+		RoleSkill:       roleSkill,
+		ActivatedSkills: activatedSkills,
+		Requirements:    requirements,
+		Plan:            plan,
+		Validation:      validation,
+		PlannedFiles:    plannedFiles,
+		FeedbackRules:   feedbackRules,
+		Decisions:       decisions,
+		Prompt:          promptText,
+	}
+
+	if *jsonFlag {
+		enc := json.NewEncoder(env.Out)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(ctx); err != nil {
+			fprintf(env.Err, "sdd prompt implement: json encode: %v\n", err)
+			return 1
+		}
+		return 0
+	}
+
+	fprint(env.Out, promptText)
+	return 0
+}
+
+func detectOperationalSkills(planContent string) []string {
+	if planContent == "" {
+		return nil
+	}
+	scanTarget := planContent
+	if idx := strings.Index(planContent, "## 4. Implementation steps"); idx != -1 {
+		scanTarget = planContent[idx:]
+		if nextSec := strings.Index(scanTarget[len("## 4. Implementation steps"):], "## "); nextSec != -1 {
+			scanTarget = scanTarget[:len("## 4. Implementation steps")+nextSec]
+		}
+	}
+
+	var activated []string
+	if qaKeywordPattern.MatchString(scanTarget) {
+		activated = append(activated, "qa")
+	}
+	if devopsKeywordPattern.MatchString(scanTarget) {
+		activated = append(activated, "devops")
+	}
+	sort.Strings(activated)
+	return activated
+}
+
+func buildImplementPrompt(taskID, taskDir, typology, targetRole, roleSkill string, activatedSkills, plannedFiles []string, feedbackRules string, decisions []string) string {
+	var sb strings.Builder
+
+	roleTitle := "Senior Software Engineer (Implementer)"
+	switch targetRole {
+	case "qa":
+		roleTitle = "Senior QA Automation Engineer (QA)"
+	case "devops":
+		roleTitle = "Senior DevOps / SRE Engineer (DevOps)"
+	}
+
+	fmt.Fprintf(&sb, "# Handover: Phase B Implementation for %s (%s)\n\n", taskID, roleTitle)
+	fmt.Fprintf(&sb, "You are acting as the **%s** for task `%s` (%s).\n", roleTitle, taskID, typology)
+	sb.WriteString("Your mandate is to execute the approved specification and plan step-by-step within the isolated task worktree branch.\n\n")
+
+	sb.WriteString("## SDD Anthem & Principles\n")
+	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
+
+	if strings.TrimSpace(roleSkill) != "" {
+		fmt.Fprintf(&sb, "## Canonical Role Skill: %s (%s)\n", roleTitle, targetRole)
+		sb.WriteString(strings.TrimSpace(roleSkill))
+		sb.WriteString("\n\n")
+	}
+
+	if len(activatedSkills) > 0 {
+		sb.WriteString("## Conditional Operational Skills Activated by Plan\n")
+		sb.WriteString("The implementation plan contains steps activating the following specialized operational skills:\n")
+		for _, s := range activatedSkills {
+			fmt.Fprintf(&sb, "- **%s**: Operational steps detected in plan.md\n", s)
+		}
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("## Task Details & Boundaries\n")
+	fmt.Fprintf(&sb, "- **Task ID:** %s\n", taskID)
+	fmt.Fprintf(&sb, "- **Task Directory:** %s\n", taskDir)
+	fmt.Fprintf(&sb, "- **Typology:** %s\n", typology)
+	fmt.Fprintf(&sb, "- **Active Role:** %s\n", targetRole)
+	sb.WriteString("- **Planned Files Boundary (Section 5):**\n")
+	if len(plannedFiles) == 0 {
+		sb.WriteString("  - (none resolved from plan)\n")
+	} else {
+		for _, f := range plannedFiles {
+			fmt.Fprintf(&sb, "  - `%s`\n", f)
+		}
+	}
+	sb.WriteString("\n")
+
+	if len(decisions) > 0 {
+		sb.WriteString("## Approved Architectural Decisions (TECH_STACK.md)\n")
+		for _, d := range decisions {
+			fmt.Fprintf(&sb, "- %s\n", d)
+		}
+		sb.WriteString("\n")
+	}
+
+	sb.WriteString("## Active Feedback Rules (SKILLS.md §8)\n")
+	sb.WriteString(feedbackRules)
+	sb.WriteString("\n\n")
+
+	sb.WriteString("## Execution Instructions\n")
+	fmt.Fprintf(&sb, "1. Read `%s/requirements.md` and `%s/plan.md` carefully.\n", taskDir, taskDir)
+	sb.WriteString("2. Execute `plan.md` Section 4 step-by-step, running proving checks after each step.\n")
+	sb.WriteString("3. Enforce strict boundary precision (Hard Rule 11): modify ONLY files listed under Planned Files Boundary above.\n")
+	sb.WriteString("4. Standard library only (Decision D-007): introduce zero third-party dependencies.\n")
+	sb.WriteString("5. Determinism: inject clocks and ID generators; table-driven tests; verify tests pass with identical outputs.\n")
+	fmt.Fprintf(&sb, "6. After implementation, run all verification commands and record real outcomes in `%s/validation.md`.\n", taskDir)
 
 	return sb.String()
 }

@@ -113,6 +113,9 @@ func TestEmbeddedRoleSkills(t *testing.T) {
 		"spec-auditor",
 		"appsec-specialist",
 		"pattern-auditor",
+		"implementer",
+		"qa",
+		"devops",
 	}
 
 	for _, name := range roleSkills {
@@ -127,6 +130,33 @@ func TestEmbeddedRoleSkills(t *testing.T) {
 		}
 		if !strings.Contains(content, "ALWAYS BE DETERMINISTIC") {
 			t.Errorf("embedded role skill %s missing SDD anthem", tmplPath)
+		}
+	}
+}
+
+func TestExtendedEmbeddedRoleSkills(t *testing.T) {
+	set, err := New("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	extendedRoles := []string{
+		"implementer",
+		"qa",
+		"devops",
+	}
+
+	for _, name := range extendedRoles {
+		tmplPath := "skills/" + name + "/SKILL.md"
+		content, err := set.Raw(tmplPath)
+		if err != nil {
+			t.Fatalf("failed to read extended embedded role skill %s: %v", tmplPath, err)
+		}
+		if !strings.HasPrefix(content, "---\nname: "+name+"\n") {
+			t.Errorf("extended embedded role skill %s missing expected frontmatter header", tmplPath)
+		}
+		if !strings.Contains(content, "ALWAYS BE DETERMINISTIC") {
+			t.Errorf("extended embedded role skill %s missing SDD anthem", tmplPath)
 		}
 	}
 }

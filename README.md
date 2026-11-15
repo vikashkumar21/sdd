@@ -89,6 +89,9 @@ sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements
 sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
 sdd prompt plan-review T-003                  # generate turnkey pre-GATE 1 plan review prompt (--json supported)
+sdd prompt implement T-003                    # generate turnkey Phase B implementation prompt (implementer role, --json supported)
+sdd prompt implement T-003 --role qa          # generate implementation prompt enriched with QA automation skill
+sdd prompt implement T-003 --role devops      # generate implementation prompt enriched with DevOps / SRE skill
 sdd prompt review T-003                       # generate turnkey subagent review prompt for Phase C.2 independent audit (Rule F-001)
 sdd prompt review T-003 --lens spec          # review focused on requirements traceability & plan boundaries
 sdd prompt review T-003 --lens security      # review focused on AppSec, threat surface, input validation & secrets
@@ -102,7 +105,8 @@ sdd skill new quick-fix --from-text "run make verify"            # import raw in
 sdd skill list                                # list available skills with scope, status, and descriptions
 sdd skill list --json                         # output skill catalog as structured JSON
 sdd skill export                                  # export canonical skills (sdd-protocol, code-review, task-coordinator) to skills/
-sdd skill export --roles                          # export canonical governance role skills (coordinator, architect, etc.)
+sdd skill export --roles                          # export all canonical role skills (governance, execution, operations)
+sdd skill export --role implementer               # export specific canonical role skill (e.g. implementer, qa, devops)
 sdd skill export --role appsec-specialist         # export specific canonical governance role skill
 sdd skill export --skill task-coordinator         # export specific canonical skill
 sdd skill export --skill code-review          # export specific canonical skill

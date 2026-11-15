@@ -16,8 +16,8 @@ func TestRoleConfigSchema(t *testing.T) {
 	}
 
 	names := role.CanonicalRoleNames()
-	if len(names) != 6 {
-		t.Fatalf("expected 6 canonical role names, got %d", len(names))
+	if len(names) != 9 {
+		t.Fatalf("expected 9 canonical role names, got %d", len(names))
 	}
 
 	for _, name := range names {
@@ -40,6 +40,11 @@ func TestRoleConfigSchema(t *testing.T) {
 		t.Errorf("unexpected phase-a mapping: %+v", phaseA)
 	}
 
+	phaseB, ok := cfg.Phases["phase-b"]
+	if !ok || phaseB.Implementer != "implementer" {
+		t.Errorf("unexpected phase-b mapping: %+v", phaseB)
+	}
+
 	phaseC2, ok := cfg.Phases["phase-c.2"]
 	if !ok || len(phaseC2.Reviewers) != 3 {
 		t.Errorf("unexpected phase-c.2 mapping: %+v", phaseC2)
@@ -54,6 +59,11 @@ func TestRoleConfigSchema(t *testing.T) {
 	if !ok || gov.Coordinator != "coordinator" {
 		t.Errorf("unexpected governance mapping: %+v", gov)
 	}
+
+	ops, ok := cfg.Phases["operations"]
+	if !ok || ops.QA != "qa" || ops.DevOps != "devops" {
+		t.Errorf("unexpected operations mapping: %+v", ops)
+	}
 }
 
 func TestCanonicalRoleNames(t *testing.T) {
@@ -62,8 +72,11 @@ func TestCanonicalRoleNames(t *testing.T) {
 		"appsec-specialist",
 		"architect",
 		"coordinator",
+		"devops",
+		"implementer",
 		"pattern-auditor",
 		"plan-reviewer",
+		"qa",
 		"spec-auditor",
 	}
 	if len(names) != len(expected) {
@@ -85,8 +98,8 @@ func TestLoadRoles_Default(t *testing.T) {
 	if cfg == nil || cfg.Schema != role.CurrentSchema {
 		t.Fatalf("expected default config, got %+v", cfg)
 	}
-	if len(cfg.Roles) != 6 {
-		t.Errorf("expected 6 default roles, got %d", len(cfg.Roles))
+	if len(cfg.Roles) != 9 {
+		t.Errorf("expected 9 default roles, got %d", len(cfg.Roles))
 	}
 }
 
@@ -117,8 +130,8 @@ func TestSaveAndLoadRoles(t *testing.T) {
 	}
 
 	roleNames := loaded.RoleNames()
-	if len(roleNames) != 7 {
-		t.Errorf("expected 7 role names, got %d", len(roleNames))
+	if len(roleNames) != 10 {
+		t.Errorf("expected 10 role names, got %d", len(roleNames))
 	}
 }
 

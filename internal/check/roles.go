@@ -116,5 +116,20 @@ func (c *checker) checkRoles() {
 				c.add(Error, relPath, 0, "roles-phase-unresolved", "phase %q references undefined coordinator role %q", pName, m.Coordinator)
 			}
 		}
+		if m.Implementer != "" {
+			if _, ok := cfg.Roles[m.Implementer]; !ok {
+				c.add(Error, relPath, 0, "roles-phase-unresolved", "phase %q references undefined implementer role %q", pName, m.Implementer)
+			}
+		}
+		if m.QA != "" {
+			if _, ok := cfg.Roles[m.QA]; !ok {
+				c.add(Error, relPath, 0, "roles-phase-unresolved", "phase %q references undefined qa role %q", pName, m.QA)
+			}
+		}
+		if m.DevOps != "" {
+			if _, ok := cfg.Roles[m.DevOps]; !ok {
+				c.add(Error, relPath, 0, "roles-phase-unresolved", "phase %q references undefined devops role %q", pName, m.DevOps)
+			}
+		}
 	}
 }

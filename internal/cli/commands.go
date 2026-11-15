@@ -261,6 +261,11 @@ func runPrompt(args []string, env IO) int {
 			reviewArgs = append(reviewArgs, args[i+1:]...)
 			return runPromptReview(reviewArgs, env)
 		}
+		if a == "implement" {
+			implementArgs := append([]string{}, args[:i]...)
+			implementArgs = append(implementArgs, args[i+1:]...)
+			return runPromptImplement(implementArgs, env)
+		}
 		if !strings.HasPrefix(a, "-") {
 			break
 		}

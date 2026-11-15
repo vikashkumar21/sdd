@@ -304,3 +304,71 @@ func TestRolesCheck_DescriptionBounds(t *testing.T) {
 		t.Errorf("expected roles-desc-empty finding, got %+v", r.Findings)
 	}
 }
+
+func TestRolesCheck_ExtendedPhaseMappingsUnresolved(t *testing.T) {
+	cases := []struct {
+		name    string
+		mutate  func(*role.RoleConfig)
+		phase   string
+		missing string
+	}{
+		{
+			name: "unresolved implementer",
+			mutate: func(cfg *role.RoleConfig) {
+				cfg.Phases["phase-b"] = role.PhaseMapping{
+					Implementer: "ghost-implementer",
+				}
+			},
+			phase:   "phase-b",
+			missing: "ghost-implementer",
+		},
+		{
+			name: "unresolved qa",
+			mutate: func(cfg *role.RoleConfig) {
+				cfg.Phases["operations"] = role.PhaseMapping{
+					QA: "ghost-qa",
+				}
+			},
+			phase:   "operations",
+			missing: "ghost-qa",
+		},
+		{
+			name: "unresolved devops",
+			mutate: func(cfg *role.RoleConfig) {
+				cfg.Phases["operations"] = role.PhaseMapping{
+					DevOps: "ghost-devops",
+				}
+			},
+			phase:   "operations",
+			missing: "ghost-devops",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tmp := t.TempDir()
+			cfg := role.DefaultRoleConfig()
+			tc.mutate(cfg)
+
+			if err := role.SaveRoles(tmp, cfg); err != nil {
+				t.Fatal(err)
+			}
+
+			r, err := check.Run(tmp)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			found := false
+			for _, f := range r.Findings {
+				if f.File == ".sdd/roles.json" && f.Rule == "roles-phase-unresolved" {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Errorf("[%s] expected roles-phase-unresolved finding for %s in %s, got: %+v", tc.name, tc.missing, tc.phase, r.Findings)
+			}
+		})
+	}
+}

@@ -767,3 +767,36 @@ func TestUpgradeInstallsMissingRolesJson(t *testing.T) {
 		t.Errorf("expected coordinator in .sdd/roles.json content, got:\n%s", string(content))
 	}
 }
+
+func TestUpgradeExtendedRolesJson(t *testing.T) {
+	root := generateKit(t)
+	rolesPath := filepath.Join(root, ".sdd", "roles.json")
+	_ = os.Remove(rolesPath)
+
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatalf("BuildPlan failed: %v", err)
+	}
+
+	_, err = Apply(plan, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	content, err := os.ReadFile(rolesPath)
+	if err != nil {
+		t.Fatalf("missing .sdd/roles.json file on disk: %v", err)
+	}
+	s := string(content)
+	for _, r := range []string{"implementer", "qa", "devops"} {
+		if !strings.Contains(s, `"`+r+`"`) {
+			t.Errorf("expected role %s in upgraded .sdd/roles.json", r)
+		}
+	}
+	if !strings.Contains(s, `"phase-b"`) {
+		t.Errorf("expected phase-b in upgraded .sdd/roles.json")
+	}
+	if !strings.Contains(s, `"operations"`) {
+		t.Errorf("expected operations in upgraded .sdd/roles.json")
+	}
+}

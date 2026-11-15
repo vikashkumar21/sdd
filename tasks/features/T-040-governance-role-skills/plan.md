@@ -1,13 +1,13 @@
 ---
-status: draft
+status: completed
 task_id: T-040
-last_reviewed: 2026-11-14
+last_reviewed: 2026-11-15
 ---
 # Plan — T-040 Role-based agent skills: core governance, planning, and review triad
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
-Status: Draft
+Status: Approved
 
 ## 1. Approach summary
 Author canonical `agentskills.io` compliant skills for the 6 core governance and review roles (`coordinator`, `architect`, `plan-reviewer`, `spec-auditor`, `appsec-specialist`, `pattern-auditor`), introduce a deterministic phase-to-role mapping manifest (`.sdd/roles.json`), implement mechanical consistency validation in `sdd check`, enrich `sdd prompt plan-review` and `sdd prompt review --lens` with role skills, and extend `sdd skill export` with `--roles` and `--role <name>`.

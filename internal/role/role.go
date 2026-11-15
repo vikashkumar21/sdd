@@ -31,6 +31,9 @@ type PhaseMapping struct {
 	Reviewer    string   `json:"reviewer,omitempty"`
 	Reviewers   []string `json:"reviewers,omitempty"`
 	Coordinator string   `json:"coordinator,omitempty"`
+	Implementer string   `json:"implementer,omitempty"`
+	QA          string   `json:"qa,omitempty"`
+	DevOps      string   `json:"devops,omitempty"`
 }
 
 // RoleConfig represents the configuration stored in .sdd/roles.json.
@@ -46,8 +49,11 @@ func CanonicalRoleNames() []string {
 		"appsec-specialist",
 		"architect",
 		"coordinator",
+		"devops",
+		"implementer",
 		"pattern-auditor",
 		"plan-reviewer",
+		"qa",
 		"spec-auditor",
 	}
 }
@@ -81,11 +87,26 @@ func DefaultRoleConfig() *RoleConfig {
 				Skill:       "pattern-auditor",
 				Description: "Phase C.2 Review Triad lens: decision conformance, determinism, language idioms, and Rule F-001",
 			},
+			"implementer": {
+				Skill:       "implementer",
+				Description: "Phase B step-by-step implementation, strict plan boundary enforcement, and determinism",
+			},
+			"qa": {
+				Skill:       "qa",
+				Description: "Senior QA automation engineer; integration testing; negative coverage; race detection; determinism; fuzzing",
+			},
+			"devops": {
+				Skill:       "devops",
+				Description: "Senior DevOps / SRE engineer; build automation; CI/CD recipes; packaging; distribution",
+			},
 		},
 		Phases: map[string]PhaseMapping{
 			"phase-a": {
 				Planner:  "architect",
 				Reviewer: "plan-reviewer",
+			},
+			"phase-b": {
+				Implementer: "implementer",
 			},
 			"phase-c.2": {
 				Reviewers: []string{
@@ -99,6 +120,10 @@ func DefaultRoleConfig() *RoleConfig {
 			},
 			"governance": {
 				Coordinator: "coordinator",
+			},
+			"operations": {
+				QA:     "qa",
+				DevOps: "devops",
 			},
 		},
 	}

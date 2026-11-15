@@ -249,3 +249,238 @@ func TestSkillExport_DefaultBackwardCompat(t *testing.T) {
 		}
 	}
 }
+
+func TestPromptImplement_TurnkeyPrompt(t *testing.T) {
+	tmp := t.TempDir()
+	setupTestTask(t, tmp, "T-041")
+
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	// 1. Default implementer prompt
+	code := runPromptImplement([]string{"--dir", tmp, "T-041"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptImplement failed with code %d: %s", code, stderr.String())
+	}
+	outText := stdout.String()
+	if !strings.Contains(outText, "Canonical Role Skill: Senior Software Engineer (Implementer) (implementer)") {
+		t.Errorf("prompt missing implementer role header")
+	}
+	if !strings.Contains(outText, "name: implementer") {
+		t.Errorf("prompt missing implementer skill frontmatter")
+	}
+	if !strings.Contains(outText, "internal/test.go") {
+		t.Errorf("prompt missing planned file boundary")
+	}
+
+	// 2. QA role prompt
+	stdout.Reset()
+	code = runPromptImplement([]string{"--dir", tmp, "T-041", "--role", "qa"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptImplement --role qa failed with code %d: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "name: qa") || !strings.Contains(stdout.String(), "Senior QA Automation Engineer (QA)") {
+		t.Errorf("prompt missing QA role skill content")
+	}
+
+	// 3. DevOps role prompt
+	stdout.Reset()
+	code = runPromptImplement([]string{"--dir", tmp, "T-041", "--role", "devops"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptImplement --role devops failed with code %d: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "name: devops") || !strings.Contains(stdout.String(), "Senior DevOps / SRE Engineer (DevOps)") {
+		t.Errorf("prompt missing DevOps role skill content")
+	}
+
+	// 4. JSON output
+	stdout.Reset()
+	code = runPromptImplement([]string{"--dir", tmp, "T-041", "--role", "implementer", "--json"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptImplement --json failed with code %d: %s", code, stderr.String())
+	}
+	var ctx ImplementPromptContext
+	if err := json.Unmarshal(stdout.Bytes(), &ctx); err != nil {
+		t.Fatalf("failed to unmarshal JSON context: %v", err)
+	}
+	if ctx.Role != "implementer" {
+		t.Errorf("expected role implementer, got %s", ctx.Role)
+	}
+	if !strings.Contains(ctx.RoleSkill, "name: implementer") {
+		t.Errorf("JSON RoleSkill missing implementer frontmatter")
+	}
+	if len(ctx.PlannedFiles) == 0 || ctx.PlannedFiles[0] != "internal/test.go" {
+		t.Errorf("unexpected planned files in JSON context: %v", ctx.PlannedFiles)
+	}
+
+	// 5. Invalid role
+	stderr.Reset()
+	code = runPromptImplement([]string{"--dir", tmp, "T-041", "--role", "invalid-role"}, env)
+	if code != 1 {
+		t.Fatalf("expected code 1 for invalid role, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "invalid role") {
+		t.Errorf("expected invalid role error message, got: %s", stderr.String())
+	}
+
+	// 6. Invalid task ID
+	stderr.Reset()
+	code = runPromptImplement([]string{"--dir", tmp, "INVALID_TASK"}, env)
+	if code != 1 {
+		t.Fatalf("expected code 1 for invalid task ID, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "invalid task ID format") {
+		t.Errorf("expected invalid task ID format error, got: %s", stderr.String())
+	}
+}
+
+func TestPromptImplement_ConditionalPlanActivation(t *testing.T) {
+	tmp := t.TempDir()
+	taskDir := filepath.Join(tmp, "tasks", "features", "T-042-conditional-feature")
+	if err := os.MkdirAll(taskDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	planWithOps := `# Plan
+## 4. Implementation steps
+| # | Step | Files | Proving test / check |
+|---|---|---|---|
+| 1 | Core logic | internal/app.go | go test ./internal/app |
+| 2 | QA automation with race detector and fuzzing | internal/app_test.go | go test -race ./internal/app |
+| 3 | DevOps CI/CD packaging and release pipeline | Makefile | make dist |
+
+## 5. Files to create or modify
+| Path | Action | Reason |
+|---|---|---|
+| internal/app.go | create | logic |
+`
+	if err := os.WriteFile(filepath.Join(taskDir, "requirements.md"), []byte("# Req\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(taskDir, "plan.md"), []byte(planWithOps), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(taskDir, "validation.md"), []byte("# Val\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	code := runPromptImplement([]string{"--dir", tmp, "T-042", "--json"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptImplement failed with code %d: %s", code, stderr.String())
+	}
+
+	var ctx ImplementPromptContext
+	if err := json.Unmarshal(stdout.Bytes(), &ctx); err != nil {
+		t.Fatalf("unmarshal error: %v", err)
+	}
+
+	if len(ctx.ActivatedSkills) != 2 {
+		t.Fatalf("expected 2 activated operational skills, got %v", ctx.ActivatedSkills)
+	}
+	if ctx.ActivatedSkills[0] != "devops" || ctx.ActivatedSkills[1] != "qa" {
+		t.Errorf("unexpected activated skills: %v", ctx.ActivatedSkills)
+	}
+
+	// Verify text output includes conditional activation section
+	stdout.Reset()
+	code = runPromptImplement([]string{"--dir", tmp, "T-042"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptImplement text failed: %s", stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Conditional Operational Skills Activated by Plan") {
+		t.Errorf("text prompt missing conditional operational skills section")
+	}
+	if !strings.Contains(stdout.String(), "- **qa**") || !strings.Contains(stdout.String(), "- **devops**") {
+		t.Errorf("text prompt missing detected skill bullet points")
+	}
+
+	// Verify -race alone triggers QA detection (SEC-001)
+	planWithRaceOnly := `# Plan
+## 4. Implementation steps
+| # | Step | Files | Proving test / check |
+|---|---|---|---|
+| 1 | Concurrency sweep | internal/app.go | go test -race ./... |
+`
+	if err := os.WriteFile(filepath.Join(taskDir, "plan.md"), []byte(planWithRaceOnly), 0644); err != nil {
+		t.Fatal(err)
+	}
+	stdout.Reset()
+	code = runPromptImplement([]string{"--dir", tmp, "T-042", "--json"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptImplement failed: %s", stderr.String())
+	}
+	var ctxRace ImplementPromptContext
+	if err := json.Unmarshal(stdout.Bytes(), &ctxRace); err != nil {
+		t.Fatal(err)
+	}
+	if len(ctxRace.ActivatedSkills) != 1 || ctxRace.ActivatedSkills[0] != "qa" {
+		t.Errorf("expected qa activated by -race alone, got: %v", ctxRace.ActivatedSkills)
+	}
+}
+
+func TestSkillExport_AllNineRoles(t *testing.T) {
+	tmp := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	code := runSkillExport([]string{"--dir", tmp, "--roles"}, env)
+	if code != 0 {
+		t.Fatalf("runSkillExport failed with code %d: %s", code, stderr.String())
+	}
+
+	names := role.CanonicalRoleNames()
+	if len(names) != 9 {
+		t.Fatalf("expected 9 canonical roles, got %d", len(names))
+	}
+	for _, name := range names {
+		p := filepath.Join(tmp, "skills", name, "SKILL.md")
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("expected exported skill %s, err: %v", name, err)
+		}
+	}
+}
+
+func TestSkillExport_ImplementerOps(t *testing.T) {
+	tmp := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	for _, name := range []string{"implementer", "qa", "devops"} {
+		stdout.Reset()
+		code := runSkillExport([]string{"--dir", tmp, "--role", name}, env)
+		if code != 0 {
+			t.Fatalf("runSkillExport --role %s failed with code %d: %s", name, code, stderr.String())
+		}
+		p := filepath.Join(tmp, "skills", name, "SKILL.md")
+		data, err := os.ReadFile(p)
+		if err != nil {
+			t.Fatalf("missing exported skill %s: %v", name, err)
+		}
+		if !strings.Contains(string(data), "name: "+name) {
+			t.Errorf("exported skill %s missing expected frontmatter", name)
+		}
+	}
+}

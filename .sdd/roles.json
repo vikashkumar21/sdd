@@ -13,6 +13,14 @@
       "skill": "coordinator",
       "description": "Multi-agent workspace governance, task decomposition, state tracking, and merge qualification"
     },
+    "devops": {
+      "skill": "devops",
+      "description": "Senior DevOps / SRE engineer; build automation; CI/CD recipes; packaging; distribution"
+    },
+    "implementer": {
+      "skill": "implementer",
+      "description": "Phase B step-by-step implementation, strict plan boundary enforcement, and determinism"
+    },
     "pattern-auditor": {
       "skill": "pattern-auditor",
       "description": "Phase C.2 Review Triad lens: decision conformance, determinism, language idioms, and Rule F-001"
@@ -20,6 +28,10 @@
     "plan-reviewer": {
       "skill": "plan-reviewer",
       "description": "Pre-GATE 1 independent plan audit, rubric checking, boundary precision, and open questions verification"
+    },
+    "qa": {
+      "skill": "qa",
+      "description": "Senior QA automation engineer; integration testing; negative coverage; race detection; determinism; fuzzing"
     },
     "spec-auditor": {
       "skill": "spec-auditor",
@@ -30,9 +42,16 @@
     "governance": {
       "coordinator": "coordinator"
     },
+    "operations": {
+      "qa": "qa",
+      "devops": "devops"
+    },
     "phase-a": {
       "planner": "architect",
       "reviewer": "plan-reviewer"
+    },
+    "phase-b": {
+      "implementer": "implementer"
     },
     "phase-c.2": {
       "reviewers": [

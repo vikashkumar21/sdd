@@ -140,6 +140,7 @@ internal/version/     build version (set with -ldflags)
 | D-034 | Native binary self-update architecture and verification | **Approved** 2026-11-10 | n/a | Option A: In-place self-update via sdd self-update with GitHub Releases API, SHA256 checksum verification, atomic swap, and rollback |
 | D-035 | Task state persistence, event journaling, and IPC architecture (`sdd task state`) | **Approved** 2026-11-14 | n/a | Option A: Native stdlib state store in `.sdd/state/<TASK_ID>/`, atomic `state.json` snapshot via temp file & rename, append-only `events.jsonl` with 1MB buffered scanner, task ID regex validation, worktree cross-check, and `--json` output |
 | D-036 | Role skill taxonomy, phase-to-role mapping (.sdd/roles.json), and two-tier storage architecture | **Approved** 2026-11-14 | n/a | Option A: Two-tier storage (.sdd/skills/ infrastructure baseline, skills/ project override), .sdd/roles.json phase mapping, agentskills.io compliance, and turnkey sdd prompt/export integration |
+| D-037 | Execution and operations role skills taxonomy, conditional plan activation, and roles manifest extension | **Approved** 2026-11-15 | n/a | Option A: Author canonical implementer, qa, and devops role skills, add phase-b mapping in .sdd/roles.json, support conditional plan activation (plans naming QA/DevOps activate respective skills), extend sdd skill export and sdd prompt, and enforce strict execution boundaries |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 
@@ -172,6 +173,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-10 | Native binary self-update (sdd self-update), GitHub Releases API, SHA256 integrity verification, symlink-aware atomic binary replacement, and 100% offline mock tests verified | Run in internal/update, internal/cli tests (T-038) | M10 |
 | 2026-11-14 | Deterministic task state store (.sdd/state/<TASK_ID>/), atomic state.json snapshot via temp file & rename, append-only events.jsonl with 1MB buffered scanner, task ID regex validation, worktree cross-check, and sdd task state CLI subcommands verified | Run in internal/state, internal/cli tests (T-039) | M10 |
 | 2026-11-14 | Role-based governance skills (coordinator, architect, plan-reviewer, spec-auditor, appsec-specialist, pattern-auditor), .sdd/roles.json phase mapping, two-tier resolution, sdd check validation, and prompt/export integration verified | Run in internal/role, internal/check, internal/cli tests (T-040) | M10 |
+| 2026-11-15 | Canonical execution and operations role skills (implementer, qa, devops), conditional plan activation, sdd prompt implement, and 9-role export verified | Run in internal/role, internal/templates, internal/cli, internal/check tests (T-041) | M10 |
 
 ## 8. Dependency register
 
