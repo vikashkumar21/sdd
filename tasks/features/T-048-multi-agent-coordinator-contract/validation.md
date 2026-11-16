@@ -108,4 +108,4 @@ ok  	github.com/vikashkumar21/sdd/internal/check	22.526s
 
 ## 8. Sign-off
 Suggested commit message: `feat(contract): align embedded contract and handover prompt with multi-agent coordinator workflow (v1.7.0 / templates 2.0.0)`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-048`
+Reviewed by: Vikash (human)   Date: 2026-11-16   Reply received: `COMMITTED T-048`
