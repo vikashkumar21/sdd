@@ -295,6 +295,40 @@ func TestFeatureNewAndPromptWorkflow(t *testing.T) {
 	}
 }
 
+func TestPromptCoordinatorBriefing(t *testing.T) {
+	root := t.TempDir()
+	rInit := exec(t, "", false, "", "init", "--yes", "--dir", root, "--name", "flow", "--lang", "go")
+	if rInit.code != 0 {
+		t.Fatalf("init failed: %+v", rInit)
+	}
+
+	p := exec(t, "", false, "", "prompt", "claude", "--dir", root)
+	if p.code != 0 {
+		t.Fatalf("prompt execution failed: %+v", p)
+	}
+
+	assertions := []string{
+		"acting as the **Task Coordinator**",
+		"Role orchestration: As Task Coordinator",
+		".sdd/roles.json",
+		"architect",
+		"plan-reviewer",
+		"implementer",
+		"qa",
+		"tasks/<typology>/",
+		"sdd prompt plan-review",
+		"sdd prompt implement",
+		"sdd prompt review",
+		"sdd task merge",
+	}
+
+	for _, want := range assertions {
+		if !strings.Contains(p.out, want) {
+			t.Errorf("prompt missing expected coordinator briefing substring: %q\nprompt output:\n%s", want, p.out)
+		}
+	}
+}
+
 func TestInitIsDeterministic(t *testing.T) {
 	a, b := t.TempDir(), t.TempDir()
 	args := []string{"init", "--yes", "--name", "same", "--purpose", "x", "--lang", "go,java,python,typescript", "--maintainer", "V"}

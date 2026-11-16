@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vikashkumar21/sdd/internal/block"
 	"github.com/vikashkumar21/sdd/internal/detect"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 	"github.com/vikashkumar21/sdd/internal/templates"
@@ -837,6 +838,92 @@ func TestUpgradeTECH_STACK(t *testing.T) {
 	}
 	if !strings.Contains(s, "### 8.2 Cross-project and service dependencies") {
 		t.Errorf("upgraded TECH_STACK.md missing Section 8.2")
+	}
+	_ = rep
+}
+
+func TestUpgradeContractToV2(t *testing.T) {
+	root := generateKit(t)
+
+	// Put 1.9.0 contract in CLAUDE.md with a human custom section outside the block
+	claudePath := filepath.Join(root, "CLAUDE.md")
+	existingClaude, err := os.ReadFile(claudePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	v190Claude := strings.Replace(string(existingClaude), "templates=2.0.0", "templates=1.9.0", 1)
+	v190Claude = strings.Replace(v190Claude, "Coordinator & Subagent Actions", "What the agent does", 1)
+	v190Claude = strings.Replace(v190Claude, "Two-tier agent hierarchy & role dispatch", "Two-tier agent hierarchy", 1)
+	humanNote := "\n\n## Custom User Guidelines\n- Always use deterministic timestamps.\n"
+	v190Claude += humanNote
+
+	if err := os.WriteFile(claudePath, []byte(v190Claude), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	inner, ok := block.Inner(v190Claude)
+	if !ok {
+		t.Fatal("failed to extract inner block from simulated 1.9.0 CLAUDE.md")
+	}
+
+	// Update manifest to simulate 1.9.0 templates with untouched CLAUDE.md
+	manifestPath := filepath.Join(root, ".sdd", "manifest.json")
+	man, ok, err := scaffold.ReadManifest(root)
+	if err != nil || !ok {
+		t.Fatalf("ReadManifest failed: %v", err)
+	}
+	man.Templates.Version = "1.9.0"
+	for i := range man.Files {
+		if man.Files[i].Path == "CLAUDE.md" {
+			man.Files[i].SHA256 = sum(inner)
+		}
+	}
+	manifestBytes, err := json.MarshalIndent(man, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifestPath, append(manifestBytes, '\n'), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run sdd upgrade
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatalf("BuildPlan failed: %v", err)
+	}
+
+	rep, err := Apply(plan, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	// Verify CLAUDE.md was upgraded in place
+	upgradedBytes, err := os.ReadFile(claudePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	upgradedStr := string(upgradedBytes)
+
+	if !strings.Contains(upgradedStr, "templates=2.0.0") {
+		t.Errorf("expected CLAUDE.md to have templates=2.0.0, got:\n%s", upgradedStr)
+	}
+	if !strings.Contains(upgradedStr, "Coordinator & Subagent Actions") {
+		t.Errorf("expected CLAUDE.md to have Coordinator & Subagent Actions, got:\n%s", upgradedStr)
+	}
+	if !strings.Contains(upgradedStr, "Two-tier agent hierarchy & role dispatch") {
+		t.Errorf("expected CLAUDE.md to have Two-tier agent hierarchy & role dispatch, got:\n%s", upgradedStr)
+	}
+	if !strings.Contains(upgradedStr, "## Custom User Guidelines") {
+		t.Errorf("custom human text outside managed block was lost!\n%s", upgradedStr)
+	}
+
+	// Verify manifest was updated to 2.0.0
+	upgradedManifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(upgradedManifestBytes), `"version": "2.0.0"`) {
+		t.Errorf("expected manifest to be updated to 2.0.0, got:\n%s", string(upgradedManifestBytes))
 	}
 	_ = rep
 }

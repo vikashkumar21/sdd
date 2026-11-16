@@ -84,7 +84,7 @@ func TestPromptWithTaskContext(t *testing.T) {
 		"Staged external context (.sdd/context/)",
 		"Context assigned to focus task (T-001):",
 		"jira-101.json",
-		"features/T-xxx-<slug>/requirements.md",
+		"tasks/<typology>/T-xxx-<slug>/requirements.md",
 	} {
 		if !strings.Contains(p.out, want) {
 			t.Errorf("prompt output missing expected section %q:\n%s", want, p.out)

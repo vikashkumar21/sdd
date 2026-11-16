@@ -1,6 +1,6 @@
 # GEMINI.md — sdd agent contract (Gemini)
 
-<!-- sdd:begin contract templates=1.9.0 -->
+<!-- sdd:begin contract templates=2.0.0 -->
 > **ANTHEM: ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**
 
 This is the operating contract for AI agents working on `sdd`. The rules are identical in every agent file (CLAUDE.md, GEMINI.md, AGENTS.md); only the title line differs. If you change a rule in one file, mirror it in the others in the same change set (§9). `sdd check` verifies that they match.
@@ -14,25 +14,25 @@ This is the operating contract for AI agents working on `sdd`. The rules are ide
 3. `ROADMAP.md` — milestones, tasks (T-xxx), statuses, parking lot
 4. `SKILLS.md` — standards, playbooks, and the Human feedback rules (F-xxx)
 5. `README.md` — current public-facing state
-6. If a task is active: `tasks/features/T-xxx-<slug>/requirements.md`, `plan.md`, `validation.md`
+6. If a task is active: `tasks/<typology>/T-xxx-<slug>/requirements.md`, `plan.md`, `validation.md`
 
 Start every session by stating: the active task (or "none"), the files you read, and its current status in `ROADMAP.md`. If two files contradict each other, STOP and report the conflict. Do not pick a winner.
 
 ## 2. The workflow (strict — no phase may be skipped or reordered)
 
-| Phase | What the agent does | Output | Gate |
+| Phase | Coordinator & Subagent Actions | Output | Gate |
 |---|---|---|---|
-| A. Specify | Create `tasks/features/T-xxx-<kebab-slug>/` from `tasks/features/_templates/` (`sdd feature new T-xxx <slug>` does this mechanically). Draft `requirements.md`, `plan.md`, `validation.md`, `review.md`. Invoke independent Plan Review Subagent (`sdd prompt plan-review`). Remediate findings until 0 Blockers (max 3 loops). **No code. No changes outside this folder.** | Four drafted docs; Plan Review sign-off | **GATE 1** |
-| B. Implement | Execute `plan.md` step by step. Touch only files listed in the plan. | Code and tests | none |
-| C.1 Verify | Run every check in `validation.md`; record the real commands and real results. | Filled `validation.md` | none |
-| C.2 Independent Audit (Review Triad) | Spawn 3 parallel subagent reviewers across specialized lenses: Spec Auditor, AppSec Specialist, Pattern Auditor (`sdd prompt review T-xxx --lens <lens>`). Remediate findings in unified fix commits (max 3 loops). Primary agent is strictly forbidden from self-approving `review.md`. | Approved `review.md` (0 Blockers across all 3 lenses) | none |
-| D. Close | Update the living docs listed in the plan (§6). Set the ROADMAP status to `Awaiting review`. Prepare a diff summary and a suggested commit message. | Doc updates and summary | **GATE 2** |
+| A. Specify | Coordinator assumes or dispatches `architect` subagent to draft `requirements.md`, `plan.md`, `validation.md`, `review.md` in `tasks/<typology>/T-xxx-<slug>/` (`sdd task new` / `sdd feature new`). Coordinator dispatches independent `plan-reviewer` subagent (`sdd prompt plan-review T-xxx`). Remediate findings until 0 Blockers (max 3 loops). **No code. No changes outside task folder.** | Four drafted docs; Plan Review sign-off | **GATE 1** |
+| B. Implement | Coordinator provisions isolated worktree (`sdd task start T-xxx`) and dispatches `implementer` subagent (and conditional `devops` subagent per `.sdd/roles.json`). Execute `plan.md` step by step. Touch only files listed in the plan. | Code and unit tests | none |
+| C.1 Verify | Coordinator dispatches `qa` subagent to execute every check in `validation.md`, boundary/fuzz cases, race detection (`-race`), and determinism verification (`-count=2`); record real commands and outputs. | Filled `validation.md` | none |
+| C.2 Independent Audit (Review Triad) | Coordinator spawns 3 parallel subagent reviewers across specialized lenses: Spec Auditor (`spec-auditor`), AppSec Specialist (`appsec-specialist`), Pattern Auditor (`pattern-auditor`) via `sdd prompt review T-xxx --lens <lens>`. Primary worker agent remediates findings in unified fix batch (max 3 loops). Reviewers are strictly read-only auditors; author agent is strictly forbidden from self-approving `review.md`. | Approved `review.md` (0 Blockers, all findings resolved per F-001) | none |
+| D. Close | Coordinator qualifies pre-merge (`sdd task merge T-xxx --dry-run`), merges task branch into main, updates living docs (§6), sets ROADMAP status to `Awaiting review`, and prepares diff summary with suggested commit message. | Doc updates and summary | **GATE 2** |
 
 `T-000` (the bootstrap scaffolding) is the only task exempt from the `tasks/` document quartet. Every other task follows the table above.
 
 ### GATE 1 — approve requirements and plan (before any code)
 
-- Before presenting to the human, an independent **Plan Review Subagent** audits requirements and plan soundness (`sdd prompt plan-review T-xxx`). All plan review findings must be addressed. Bounded by a 3-loop circuit breaker: max 3 review-fix iterations before escalating to the human.
+- Before presenting to the human, the Task Coordinator dispatches an independent **Plan Review Subagent** (`plan-reviewer`) to audit requirements and plan soundness (`sdd prompt plan-review T-xxx`). All plan review findings must be addressed. Bounded by a 3-loop circuit breaker: max 3 review-fix iterations before escalating to the human.
 - The agent presents: requirements, plan, Plan Review Subagent sign-off, open decisions (each with options, trade-offs, a recommendation), risks, and the exact files it intends to touch.
 - The human replies exactly `APPROVED T-xxx` to proceed. `CHANGES T-xxx: <notes>` sends it back. **Anything else — silence, "ok", "looks good", a thumbs-up — is NOT approval.**
 - The `Open questions` section of `requirements.md` must be empty before GATE 1.
@@ -41,10 +41,10 @@ Start every session by stating: the active task (or "none"), the files you read,
 
 ### Phase C.2 — 3-subagent parallel review triad (before GATE 2)
 
-- The primary agent invokes three independent subagent reviewers in parallel (via `invoke_subagent`, `Task` tool, or context generated by `sdd prompt review T-xxx --lens <spec|security|pattern>`):
-  1. 🔎 **Spec Auditor Lens:** requirements traceability, negative test cases, plan boundary enforcement, standard library purity.
-  2. 🛡️ **AppSec Specialist Lens:** threat surface, input validation, filesystem confinement (`os.Root`), secrets hygiene, command safety.
-  3. 📐 **Pattern & Quality Auditor Lens:** architectural decision conformance (`D-xxx`), determinism, language idioms, active feedback rules (`F-xxx`).
+- The Task Coordinator invokes three independent subagent reviewers in parallel (via `invoke_subagent`, `Task` tool, or context generated by `sdd prompt review T-xxx --lens <spec|security|pattern>`):
+  1. 🔎 **Spec Auditor Lens (`spec-auditor`):** requirements traceability, negative test cases, plan boundary enforcement, standard library purity.
+  2. 🛡️ **AppSec Specialist Lens (`appsec-specialist`):** threat surface, input validation, filesystem confinement (`os.Root`), secrets hygiene, command safety.
+  3. 📐 **Pattern & Quality Auditor Lens (`pattern-auditor`):** architectural decision conformance (`D-xxx`), determinism, language idioms, active feedback rules (`F-xxx`).
 - **Batch Remediation Protocol:** When multiple subagents report changes, the primary worker agent batches all remediations into a single fix pass. Review subagents are strictly read-only auditors; only the primary worker agent modifies code.
 - **Conflict Resolution:** Safety, security, and determinism take precedence over convenience. If review recommendations fundamentally conflict, the agent halts and issues a `DECISION NEEDED: D-xxx` to the human.
 - **The primary agent is strictly forbidden from self-approving its own work in `review.md`.**
@@ -78,7 +78,7 @@ The human's reply is recorded in the Decision register (status `Approved`, date,
 
 ## 4. Hard rules
 
-1. **No code before GATE 1** for the task. Only `tasks/features/T-xxx-*/` docs may be written during Phase A.
+1. **No code before GATE 1** for the task. Only `tasks/<typology>/T-xxx-*/` docs may be written during Phase A.
 2. **Never commit or push.** Suggest; the human commits.
 3. **One task at a time. No scope creep.** Anything discovered but out of scope goes to the `ROADMAP.md` Parking lot, not into the code.
 4. **Fail safe.** When input, state, or intent is unknown or ambiguous, choose the most restrictive outcome or stop and ask. Never default to the permissive path.
@@ -90,7 +90,7 @@ The human's reply is recorded in the Decision register (status `Approved`, date,
 10. **Truth over optimism.** Report failures, skipped checks, and deviations plainly. Never mark a requirement verified without evidence.
 11. **Stay inside the project root** and inside the approved plan's file list.
 12. **Capture general human feedback.** When the human gives feedback that applies beyond the current task, record it as a rule in `SKILLS.md` (section "Human feedback rules"; ask the human if "general or task-specific" is unclear), apply it to the current work and sweep existing code, and comply with every active rule in all later tasks. Rule F-001 mandates resolving all review findings before GATE 2. Each plan lists the rules that apply; each validation records compliance.
-13. **Two-tier agent hierarchy.** Worker agents operate strictly inside their isolated git worktree/branch. Autonomous commits are permitted on the task branch; workers are forbidden from writing to or merging into `main`. The Task Coordinator orchestrates deconfliction, provisions worktrees, and qualifies merges.
+13. **Two-tier agent hierarchy & role dispatch.** The primary session agent operates as the Task Coordinator, orchestrating task lifecycle state and dispatching specialized canonical roles from `.sdd/roles.json` (`architect`, `plan-reviewer`, `implementer`, `qa`, `devops`, `spec-auditor`, `appsec-specialist`, `pattern-auditor`, `codebase-analyst`). Worker agents operate strictly inside their isolated git worktree/branch. Autonomous commits are permitted on the task branch; workers are forbidden from writing to or merging into `main`. The Task Coordinator orchestrates deconfliction, provisions worktrees, and qualifies merges.
 14. **Independent review required before gates.** An agent cannot approve its own work. An independent plan review subagent audits Phase A before GATE 1. Three independent subagent reviewers (Spec Auditor, AppSec Specialist, Pattern Auditor) must certify `review.md` with 0 Blockers before Phase D close. Both are bounded by a 3-loop circuit breaker: max 3 review-fix iterations before escalating to the human.
 15. Standard library only: add no third-party dependency without an approved decision.
 16. A change to any template or to the contract bumps templates.Version, and is verified by regenerating a kit in a temporary directory and running sdd check on it.

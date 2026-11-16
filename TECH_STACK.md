@@ -144,6 +144,7 @@ internal/version/     build version (set with -ldflags)
 | D-038 | Cross-project and service dependency register in TECH_STACK.md §8 and sdd check validation | **Approved** 2026-11-15 | n/a | Option A: Extend TECH_STACK.md template with §8.1 packages and §8.2 cross-project/service dependencies (Name, Repo/URL, Direction, Contract/Version, Owner, Decision, Status), sdd check mechanical validation (D-xxx ref, Direction enum, Status enum), bump templates.Version to 1.8.0, and adopt in this repo's §8 |
 | D-039 | Role-based agent skill: codebase-analyst and discovery phase mapping | **Approved** 2026-11-15 | n/a | Option A: Canonical codebase-analyst role skill, phase-discovery mapping in .sdd/roles.json, turnkey sdd prompt discovery, 10-role export, and sdd check validation |
 | D-040 | Universal CI workflows, automated PR packaging, and CI log ingestion | Open | T-046 | Option A: Adaptable CI workflow templates (GitHub, GitLab, Bitbucket, Azure DevOps), sdd task pr packaging command, and sdd ingest --ci-log with ANSI stripping and secret sanitization |
+| D-041 | Multi-agent coordinator contract and handover prompt template alignment | **Approved** 2026-11-16 | n/a | Option A: Codify Task Coordinator and multi-subagent dispatches in contract template Section 2 and 4, update handover prompt with coordinator mandate, bump template version to 2.0.0, and bump release version to 1.7.0 |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 
@@ -182,6 +183,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-15 | Canonical protocol skills (sdd-protocol, code-review, coordinator) synchronized with tasks/ typology, Review Triad, Rule F-001, and role aliasing verified | Run in internal/skill, internal/role, internal/templates, internal/cli tests (T-044) | M11 |
 | 2026-11-15 | Turnkey sdd prompt discovery CLI command, codebase-analyst role enrichment, 4-pillar progressive extraction checklist, brownfield living document synthesis, and DiscoveryPromptContext JSON verified | Run in internal/cli tests (T-045) | M11 |
 | 2026-11-15 | Release v1.6.0 cross-platform static binaries (darwin, linux, windows), template version 1.9.0, and SHA256SUMS verified | Build, tests, and make dist | M12 |
+| 2026-11-16 | Multi-agent coordinator contract template, handover prompt briefing, template version 2.0.0, sdd upgrade in-place contract refresh, and CLI version 1.7.0 verified | Run in internal/templates, internal/cli, internal/upgrade tests (T-048) | M12 |
 
 ## 8. Dependency register
 

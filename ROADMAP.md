@@ -38,7 +38,7 @@ Status: living document · Last updated: 2026-10-26
 | M8 | Autonomous Multi-Agent Git Workflows and Work Typology | T-028 – T-033 | 18 | Work typology templates, git worktree isolation, static plan deconfliction, task coordinator merge engine, and ensemble review standards |
 | M9 | Multi-Agent Workspace Ergonomics and Review Ensemble | T-034 – T-038 | 15 | Unified tasks folder hierarchy, plan review, rule F-001, document lifecycle frontmatter, and native self-update |
 | M10 | Autonomous Multi-Agent Architecture, Roles, and State Persistence | T-039 – T-042 | 17 | Task state persistence, event journaling, role-based agentskills.io skills, and cross-project dependency register |
-| M11 | Codebase Discovery & Remote CI/PR Orchestration | T-043 – T-047 | 18 | codebase-analyst role skill, sdd prompt discovery, multi-platform CI workflows, sdd task pr packaging, and CI log ingestion |
+| M11 | Codebase Discovery & Remote CI/PR Orchestration | T-043 – T-048 | 21 | codebase-analyst role skill, sdd prompt discovery, multi-agent coordinator contract alignment, multi-platform CI workflows, sdd task pr packaging, and CI log ingestion |
 
 ## 4. Tasks
 
@@ -149,6 +149,7 @@ Status: living document · Last updated: 2026-10-26
 | T-045 | Turnkey sdd prompt discovery and brownfield synthesis protocol | S | T-044 | sdd prompt discovery command, progressive extraction guide, and brownfield synthesis into living docs | D-039 | Done |
 | T-046 | Universal CI workflows and automated PR packaging (sdd task pr) | M | T-042 | Adaptable CI workflow templates (GitHub, GitLab, Bitbucket, Azure DevOps), sdd task pr packaging command | D-040 | Not started |
 | T-047 | Remote CI failure ingestion and diagnostic auto-repair loop | S | T-046 | sdd ingest --ci-log with ANSI stripping, secret sanitization, and bugfix reproduction seeding | D-040 | Not started |
+| T-048 | Multi-agent coordinator contract and handover prompt template alignment | S | T-044, T-045 | Embedded contract and prompt templates updated with coordinator role and multi-subagent dispatches, template version 2.0.0, sdd upgrade parity verified | D-041 | Awaiting review |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -175,13 +176,14 @@ Unfamiliar technology derails projects. To prevent that:
 ## 8. Next action
 
 1. M0 through M10 are complete (43 tasks delivered).
-2. Active milestone: Milestone 11: Codebase Discovery & Remote CI/PR Orchestration (T-043 – T-047).
-3. Active task: T-045 (Turnkey sdd prompt discovery and brownfield synthesis protocol).
+2. Active milestone: Milestone 11: Codebase Discovery & Remote CI/PR Orchestration (T-043 – T-048).
+3. Active task: T-048 (Multi-agent coordinator contract and handover prompt template alignment) awaiting review.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-16 | T-048: Multi-agent coordinator contract and handover prompt template alignment awaiting review |
 | 2026-11-15 | T-045: Turnkey sdd prompt discovery and brownfield synthesis protocol done |
 | 2026-11-15 | T-044: Canonical protocol skills synchronization and taxonomy alignment done |
 | 2026-11-15 | T-043: Role-based agent skills: codebase-analyst and discovery phase mapping done |

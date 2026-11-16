@@ -8,8 +8,8 @@ import (
 )
 
 func TestVersion(t *testing.T) {
-	if Version != "1.9.0" {
-		t.Errorf("Version = %q, want 1.9.0", Version)
+	if Version != "2.0.0" {
+		t.Errorf("Version = %q, want 2.0.0", Version)
 	}
 }
 
@@ -31,6 +31,38 @@ func TestTechStackTemplateDependencySections(t *testing.T) {
 	canonicalHeader := "| Name | Repo / URL | Direction | Contract / Version | Owner | Decision | Status |"
 	if !strings.Contains(content, canonicalHeader) {
 		t.Errorf("base/TECH_STACK.md.tmpl missing canonical 7-column header: %s", canonicalHeader)
+	}
+}
+
+func TestContractTemplateCoordinatorAndWorkflow(t *testing.T) {
+	set, err := New("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, err := set.Raw("base/contract.md.tmpl")
+	if err != nil {
+		t.Fatalf("failed to read base/contract.md.tmpl: %v", err)
+	}
+
+	assertions := []string{
+		"| Phase | Coordinator & Subagent Actions | Output | Gate |",
+		"Coordinator assumes or dispatches `architect` subagent",
+		"Coordinator dispatches independent `plan-reviewer` subagent",
+		"Coordinator provisions isolated worktree",
+		"dispatches `implementer` subagent",
+		"Coordinator dispatches `qa` subagent",
+		"Spec Auditor (`spec-auditor`)",
+		"AppSec Specialist (`appsec-specialist`)",
+		"Pattern Auditor (`pattern-auditor`)",
+		"Two-tier agent hierarchy & role dispatch",
+		".sdd/roles.json",
+		"tasks/<typology>/",
+	}
+
+	for _, want := range assertions {
+		if !strings.Contains(content, want) {
+			t.Errorf("base/contract.md.tmpl missing expected substring %q", want)
+		}
 	}
 }
 
