@@ -131,4 +131,4 @@ $ go test -v ./internal/cli ./internal/state ./internal/status ./internal/scaffo
 
 ## 9. Sign-off
 Suggested commit message: `feat(prompt): optimize prompt cache boundary, add compact handover, task token tracking, and brownfield README proposal`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-049`
+Reviewed by: Vikash (human)   Date: 2026-11-19   Reply received: `COMMITTED T-049` (Commit `3852d79df51e724614059e0613c1974f4f7f190e`)
