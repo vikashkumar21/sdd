@@ -6,7 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/vikashkumar21/sdd/internal/state"
 	"github.com/vikashkumar21/sdd/internal/status"
 )
 
@@ -609,5 +611,64 @@ func TestStatusMergeReadiness(t *testing.T) {
 	}
 	if !strings.Contains(rendered, "Merge:     BLOCKED (1 review blocker(s))") {
 		t.Errorf("expected BLOCKED in rendered text:\n%s", rendered)
+	}
+}
+
+func TestStatusJSONTokens(t *testing.T) {
+	roadmap := `# ROADMAP — sdd
+
+## 4. Tasks
+
+### M1 — Tasks
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-001 | Task One | S | none | outcome | none | Implementing |
+| T-002 | Task Two | S | none | outcome | none | Specifying |
+`
+	dir := setupSampleProject(t, roadmap)
+
+	// Record tokens for T-001 and T-002
+	if _, _, err := state.RecordTokens(dir, "T-001", 1000, 5000, 200, time.Time{}); err != nil {
+		t.Fatalf("record tokens T-001 failed: %v", err)
+	}
+	if _, _, err := state.RecordTokens(dir, "T-002", 500, 1000, 100, time.Time{}); err != nil {
+		t.Fatalf("record tokens T-002 failed: %v", err)
+	}
+
+	ps, err := status.Scan(dir)
+	if err != nil {
+		t.Fatalf("Scan failed: %v", err)
+	}
+
+	if ps.TokenSummary == nil {
+		t.Fatalf("expected TokenSummary to be populated, got nil")
+	}
+	if ps.TokenSummary.InputTokens != 1500 || ps.TokenSummary.CacheReadTokens != 6000 || ps.TokenSummary.OutputTokens != 300 || ps.TokenSummary.TotalTokens != 7800 {
+		t.Errorf("unexpected ProjectStatus TokenSummary: %+v", ps.TokenSummary)
+	}
+
+	// Verify RenderJSON output
+	jsonBytes, err := status.RenderJSON(ps)
+	if err != nil {
+		t.Fatalf("RenderJSON failed: %v", err)
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal(jsonBytes, &parsed); err != nil {
+		t.Fatalf("unmarshal RenderJSON output failed: %v", err)
+	}
+	tokSummary, ok := parsed["token_summary"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected token_summary in JSON status, got %+v", parsed["token_summary"])
+	}
+	if tokSummary["total_tokens"].(float64) != 7800 {
+		t.Errorf("expected total_tokens=7800, got %v", tokSummary["total_tokens"])
+	}
+
+	// Verify RenderText output
+	text := status.RenderText(ps)
+	if !strings.Contains(text, "Token Telemetry:") || !strings.Contains(text, "Total: 7800") {
+		t.Errorf("expected Token Telemetry in rendered text:\n%s", text)
 	}
 }

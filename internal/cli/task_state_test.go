@@ -273,3 +273,107 @@ func TestTaskClean_PurgeState(t *testing.T) {
 		t.Errorf("expected state dir to be deleted after --purge-state, stat err = %v", err)
 	}
 }
+
+func TestTaskStateRecordTokens(t *testing.T) {
+	dir := t.TempDir()
+	taskID := "T-049"
+
+	// 1. Record tokens via CLI flags in text mode
+	r1 := exec(t, "", false, "", "task", "state", "record-tokens", taskID, "--input", "1000", "--cache", "5000", "--output", "250", "--dir", dir)
+	if r1.code != 0 {
+		t.Fatalf("record-tokens text mode failed: %s (err: %s)", r1.out, r1.err)
+	}
+	if !strings.Contains(r1.out, "Recorded tokens for T-049: input=+1000, cache=+5000, output=+250") || !strings.Contains(r1.out, "total=6250") {
+		t.Errorf("unexpected output from record-tokens:\n%s", r1.out)
+	}
+
+	// 2. Accumulate tokens via CLI flags with --json
+	r2 := exec(t, "", false, "", "task", "state", "record-tokens", taskID, "--input", "500", "--cache", "1500", "--output", "100", "--json", "--dir", dir)
+	if r2.code != 0 {
+		t.Fatalf("record-tokens --json failed: %s (err: %s)", r2.out, r2.err)
+	}
+	var res RecordTokensResult
+	if err := json.Unmarshal([]byte(r2.out), &res); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, r2.out)
+	}
+	if !res.Saved || res.TaskID != "T-049" {
+		t.Errorf("unexpected RecordTokensResult: %+v", res)
+	}
+	if res.Delta.InputTokens != 500 || res.Delta.CacheReadTokens != 1500 || res.Delta.OutputTokens != 100 {
+		t.Errorf("unexpected delta: %+v", res.Delta)
+	}
+	if res.Totals.InputTokens != 1500 || res.Totals.CacheReadTokens != 6500 || res.Totals.OutputTokens != 350 || res.Totals.TotalTokens != 8350 {
+		t.Errorf("unexpected totals: %+v", res.Totals)
+	}
+
+	// 3. Record tokens via --stdin
+	stdinData := `{"input": 200, "cache": 300, "output": 50}`
+	r3 := exec(t, stdinData, false, "", "task", "state", "record-tokens", taskID, "--stdin", "--json", "--dir", dir)
+	if r3.code != 0 {
+		t.Fatalf("record-tokens --stdin failed: %s (err: %s)", r3.out, r3.err)
+	}
+	var res3 RecordTokensResult
+	if err := json.Unmarshal([]byte(r3.out), &res3); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, r3.out)
+	}
+	if res3.Totals.InputTokens != 1700 || res3.Totals.CacheReadTokens != 6800 || res3.Totals.OutputTokens != 400 || res3.Totals.TotalTokens != 8900 {
+		t.Errorf("unexpected totals after stdin: %+v", res3.Totals)
+	}
+
+	// 4. Negative rejection
+	rNeg := exec(t, "", false, "", "task", "state", "record-tokens", taskID, "--input", "-50", "--dir", dir)
+	if rNeg.code != 1 {
+		t.Fatalf("expected exit code 1 on negative input, got %d", rNeg.code)
+	}
+	if !strings.Contains(rNeg.err, "cannot be negative") {
+		t.Errorf("expected negative error message, got:\n%s", rNeg.err)
+	}
+}
+
+func TestTaskStateShowTokens(t *testing.T) {
+	dir := t.TempDir()
+	taskID := "T-049"
+
+	// Record tokens
+	rRec := exec(t, "", false, "", "task", "state", "record-tokens", taskID, "--input", "1200", "--cache", "4000", "--output", "300", "--dir", dir)
+	if rRec.code != 0 {
+		t.Fatalf("record-tokens failed: %s", rRec.err)
+	}
+
+	// 1. Show in human-readable text mode
+	rShow := exec(t, "", false, "", "task", "state", "show", taskID, "--dir", dir)
+	if rShow.code != 0 {
+		t.Fatalf("show failed: %s", rShow.err)
+	}
+	for _, want := range []string{
+		"Token Telemetry:",
+		"Input Tokens:      1200",
+		"Cache Read Tokens: 4000",
+		"Output Tokens:     300",
+		"Total Tokens:      5500",
+	} {
+		if !strings.Contains(rShow.out, want) {
+			t.Errorf("show text output missing %q:\n%s", want, rShow.out)
+		}
+	}
+
+	// 2. Show in JSON mode
+	rShowJSON := exec(t, "", false, "", "task", "state", "show", taskID, "--json", "--dir", dir)
+	if rShowJSON.code != 0 {
+		t.Fatalf("show --json failed: %s", rShowJSON.err)
+	}
+	var combined state.CombinedState
+	if err := json.Unmarshal([]byte(rShowJSON.out), &combined); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, rShowJSON.out)
+	}
+	if !combined.Found || combined.TaskID != "T-049" {
+		t.Errorf("unexpected combined state: %+v", combined)
+	}
+	tt, ok := state.ExtractTokens(combined.State)
+	if !ok {
+		t.Fatalf("tokens not found in combined state.State: %+v", combined.State)
+	}
+	if tt.InputTokens != 1200 || tt.CacheReadTokens != 4000 || tt.OutputTokens != 300 || tt.TotalTokens != 5500 {
+		t.Errorf("unexpected tokens in JSON state: %+v", tt)
+	}
+}

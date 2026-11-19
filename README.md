@@ -6,6 +6,7 @@
 - living documents: `MISSION.md`, `TECH_STACK.md`, `ROADMAP.md`, `SKILLS.md`
 - per-task templates for all work typologies in `tasks/features/_templates/`, `tasks/bugfixes/_templates/`, `tasks/hotfixes/_templates/`, `tasks/spikes/_templates/`
 - a root `.ragignore` excluding ephemeral and build artifacts from RAG/vector indexing
+- safe brownfield proposal files (`README.md.sdd-new`) preserving existing project documentation untouched
 - a `.sdd/manifest.json` recording what was generated
 
 The workflow it installs: the agent drafts requirements and a plan, **the human approves before any code**, the agent implements and verifies, and **the human reviews and commits**. The anthem: *always be deterministic, and take human approval or decisions to accomplish that determinism.*
@@ -80,6 +81,7 @@ sdd task clean T-003 --purge-state            # clean worktree and completely pu
 sdd task state show T-003 --json              # read state snapshot, events journal, and worktree status
 sdd task state save T-003 --state '<json>'    # atomically save task state snapshot (--stdin, --json supported)
 sdd task state append-event T-003 --event '<json>' # append lifecycle event to .sdd/state/T-003/events.jsonl
+sdd task state record-tokens T-003 --input 1200 --cache 4000 --output 300 # record task token consumption delta (--stdin, --json)
 sdd task state purge T-003 --force            # remove task state store from .sdd/state/T-003 (--json supported)
 sdd task deconflict                           # analyze plan file collisions across in-flight tasks
 sdd task deconflict T-003 T-004               # analyze collisions between specific tasks (--json, --all)
@@ -88,6 +90,7 @@ sdd task merge T-003                          # merge task branch into main afte
 sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements from Jira and stage into context
 sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
+sdd prompt gemini --compact # generate high-density micro-context prompt (< 400 tokens)
 sdd prompt discovery                        # generate turnkey brownfield exploration prompt (codebase-analyst role, --json)
 sdd prompt discovery T-003                  # generate discovery prompt linked to specific task requirements and plan
 sdd prompt plan-review T-003                  # generate turnkey pre-GATE 1 plan review prompt (--json supported)

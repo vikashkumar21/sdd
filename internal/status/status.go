@@ -16,6 +16,7 @@ import (
 
 	"github.com/vikashkumar21/sdd/internal/deconflict"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
+	"github.com/vikashkumar21/sdd/internal/state"
 	"github.com/vikashkumar21/sdd/internal/worktree"
 )
 
@@ -40,18 +41,19 @@ type GateInfo struct {
 
 // TaskInfo represents a task with its SDD phase and gate details.
 type TaskInfo struct {
-	ID             string    `json:"id"`
-	Title          string    `json:"title"`
-	Milestone      string    `json:"milestone"`
-	Status         string    `json:"status"`
-	Phase          string    `json:"phase"`
-	Folder         string    `json:"folder,omitempty"`
-	Typology       string    `json:"typology,omitempty"`
-	Worktree       string    `json:"worktree,omitempty"`
-	WorktreeBranch string    `json:"worktree_branch,omitempty"`
-	Gate           *GateInfo `json:"gate,omitempty"`
-	ReviewBlockers int       `json:"review_blockers,omitempty"`
-	MergeReady     bool      `json:"merge_ready,omitempty"`
+	ID             string                `json:"id"`
+	Title          string                `json:"title"`
+	Milestone      string                `json:"milestone"`
+	Status         string                `json:"status"`
+	Phase          string                `json:"phase"`
+	Folder         string                `json:"folder,omitempty"`
+	Typology       string                `json:"typology,omitempty"`
+	Worktree       string                `json:"worktree,omitempty"`
+	WorktreeBranch string                `json:"worktree_branch,omitempty"`
+	Gate           *GateInfo             `json:"gate,omitempty"`
+	ReviewBlockers int                   `json:"review_blockers,omitempty"`
+	MergeReady     bool                  `json:"merge_ready,omitempty"`
+	Tokens         *state.TokenTelemetry `json:"tokens,omitempty"`
 }
 
 // TaskSummary aggregates counts across all roadmap tasks.
@@ -65,14 +67,15 @@ type TaskSummary struct {
 
 // ProjectStatus is the complete status of an SDD repository.
 type ProjectStatus struct {
-	Root            string          `json:"root"`
-	ActiveMilestone *MilestoneInfo  `json:"active_milestone,omitempty"`
-	Milestones      []MilestoneInfo `json:"milestones"`
-	TaskSummary     TaskSummary     `json:"task_summary"`
-	ActiveTasks     []TaskInfo      `json:"active_tasks"`
-	NextTask        *TaskInfo       `json:"next_task,omitempty"`
-	NextGate        *GateInfo       `json:"next_gate,omitempty"`
-	Warnings        []string        `json:"warnings,omitempty"`
+	Root            string                `json:"root"`
+	ActiveMilestone *MilestoneInfo        `json:"active_milestone,omitempty"`
+	Milestones      []MilestoneInfo       `json:"milestones"`
+	TaskSummary     TaskSummary           `json:"task_summary"`
+	ActiveTasks     []TaskInfo            `json:"active_tasks"`
+	NextTask        *TaskInfo             `json:"next_task,omitempty"`
+	NextGate        *GateInfo             `json:"next_gate,omitempty"`
+	Warnings        []string              `json:"warnings,omitempty"`
+	TokenSummary    *state.TokenTelemetry `json:"token_summary,omitempty"`
 }
 
 var (
@@ -271,6 +274,22 @@ func Scan(root string) (*ProjectStatus, error) {
 
 	sort.Strings(warnings)
 
+	// Aggregate token telemetry across all roadmap tasks
+	var totalTokens *state.TokenTelemetry
+	for _, t := range tasks {
+		if sMap, has, err := state.ReadState(absRoot, t.ID); err == nil && has {
+			if tt, ok := state.ExtractTokens(sMap); ok {
+				if totalTokens == nil {
+					totalTokens = &state.TokenTelemetry{}
+				}
+				totalTokens.InputTokens += tt.InputTokens
+				totalTokens.CacheReadTokens += tt.CacheReadTokens
+				totalTokens.OutputTokens += tt.OutputTokens
+				totalTokens.TotalTokens += tt.TotalTokens
+			}
+		}
+	}
+
 	return &ProjectStatus{
 		Root:            absRoot,
 		ActiveMilestone: activeMilestone,
@@ -280,6 +299,7 @@ func Scan(root string) (*ProjectStatus, error) {
 		NextTask:        nextNotStarted,
 		NextGate:        nextGate,
 		Warnings:        warnings,
+		TokenSummary:    totalTokens,
 	}, nil
 }
 
@@ -371,6 +391,13 @@ func buildTaskInfo(root string, t roadmap.Task, normStatus, kind string, feature
 
 	mergeReady := normStatus == "Awaiting review" && blockers == 0
 
+	var tokenTele *state.TokenTelemetry
+	if sMap, has, err := state.ReadState(root, t.ID); err == nil && has {
+		if tt, ok := state.ExtractTokens(sMap); ok {
+			tokenTele = &tt
+		}
+	}
+
 	return TaskInfo{
 		ID:             t.ID,
 		Title:          t.Title,
@@ -384,6 +411,7 @@ func buildTaskInfo(root string, t roadmap.Task, normStatus, kind string, feature
 		Gate:           gate,
 		ReviewBlockers: blockers,
 		MergeReady:     mergeReady,
+		Tokens:         tokenTele,
 	}
 }
 
@@ -654,6 +682,10 @@ func RenderText(ps *ProjectStatus) string {
 					fmt.Fprintf(&b, "      Merge:     BLOCKED (%d review blocker(s))\n", at.ReviewBlockers)
 				}
 			}
+			if at.Tokens != nil && at.Tokens.TotalTokens > 0 {
+				fmt.Fprintf(&b, "      Tokens:    %d total (in: %d, cache: %d, out: %d)\n",
+					at.Tokens.TotalTokens, at.Tokens.InputTokens, at.Tokens.CacheReadTokens, at.Tokens.OutputTokens)
+			}
 		}
 	}
 
@@ -674,6 +706,11 @@ func RenderText(ps *ProjectStatus) string {
 	// Tasks Overview
 	fmt.Fprintf(&b, "\nTasks Overview:\n  Total: %d | Done: %d | In Progress: %d | Blocked: %d | Not Started: %d\n",
 		ps.TaskSummary.Total, ps.TaskSummary.Done, ps.TaskSummary.InProgress, ps.TaskSummary.Blocked, ps.TaskSummary.NotStarted)
+
+	if ps.TokenSummary != nil && ps.TokenSummary.TotalTokens > 0 {
+		fmt.Fprintf(&b, "\nToken Telemetry:\n  Input: %d | Cache Read: %d | Output: %d | Total: %d\n",
+			ps.TokenSummary.InputTokens, ps.TokenSummary.CacheReadTokens, ps.TokenSummary.OutputTokens, ps.TokenSummary.TotalTokens)
+	}
 
 	// Warnings
 	if len(ps.Warnings) > 0 {

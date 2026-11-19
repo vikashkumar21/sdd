@@ -62,6 +62,7 @@ commands:
   task list                  list active task worktrees (--json for structured output)
   task deconflict [tasks...] analyze plan file collisions and schedule parallel batches
   task merge <T-xxx>         qualify pre-merge matrix and merge task into target branch
+  task state <cmd>           manage deterministic task state, events, and token telemetry
   feature new <T-xxx> <slug> create tasks/features/T-xxx-<slug>/ from project templates
   bugfix new <T-xxx> <slug>  create tasks/bugfixes/T-xxx-<slug>/ with reproduction test template
   hotfix new <T-xxx> <slug>  create tasks/hotfixes/T-xxx-<slug>/ with incident patch template
@@ -69,7 +70,7 @@ commands:
   skill new <name>           scaffold a new agentskills.io skill (skills/<name>/SKILL.md)
   skill list                 list available skills in the project (--json for structured output)
   skill export               export the SDD protocol as a native agent skill
-  prompt <agent>             print a handover prompt for an agent (claude, gemini, agents, or any name)
+  prompt <agent>             print a handover prompt for an agent (claude, gemini, agents; --compact for micro-context)
   prompt discovery [T-xxx]   generate a turnkey codebase discovery and forensic extraction prompt (--json)
   prompt plan-review <T-xxx> generate a pre-GATE 1 plan review prompt (--json for structured output)
   prompt implement <T-xxx>   generate a Phase B implementation prompt (--role implementer|qa|devops, --json)

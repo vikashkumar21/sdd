@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -113,6 +114,110 @@ type CombinedState struct {
 	Events         []any          `json:"events,omitempty"`
 	WorktreeActive bool           `json:"worktree_active"`
 	WorktreePath   string         `json:"worktree_path,omitempty"`
+}
+
+// TokenTelemetry tracks accumulated token consumption metrics for a task.
+type TokenTelemetry struct {
+	InputTokens     int64 `json:"input_tokens"`
+	CacheReadTokens int64 `json:"cache_read_tokens"`
+	OutputTokens    int64 `json:"output_tokens"`
+	TotalTokens     int64 `json:"total_tokens"`
+}
+
+// ExtractTokens extracts TokenTelemetry from a task state map if present.
+func ExtractTokens(stateMap map[string]any) (TokenTelemetry, bool) {
+	if stateMap == nil {
+		return TokenTelemetry{}, false
+	}
+	raw, ok := stateMap["tokens"]
+	if !ok || raw == nil {
+		return TokenTelemetry{}, false
+	}
+	tokenBytes, err := json.Marshal(raw)
+	if err != nil {
+		return TokenTelemetry{}, false
+	}
+	var tt TokenTelemetry
+	if err := json.Unmarshal(tokenBytes, &tt); err != nil {
+		return TokenTelemetry{}, false
+	}
+	return tt, true
+}
+
+// RecordTokens validates non-negative token deltas, guards against overflow, accumulates into
+// existing state.json under key "tokens", atomically saves the state snapshot, appends a
+// "token_recorded" event to events.jsonl, and returns the SaveResult and updated TokenTelemetry.
+func RecordTokens(root, taskID string, input, cache, output int64, now time.Time) (SaveResult, TokenTelemetry, error) {
+	normID, err := ValidateTaskID(taskID)
+	if err != nil {
+		return SaveResult{}, TokenTelemetry{}, err
+	}
+	if input < 0 || cache < 0 || output < 0 {
+		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("token values cannot be negative (got input=%d, cache=%d, output=%d)", input, cache, output)
+	}
+
+	stateMap, hasState, err := ReadState(root, normID)
+	if err != nil {
+		return SaveResult{}, TokenTelemetry{}, err
+	}
+	if !hasState || stateMap == nil {
+		stateMap = make(map[string]any)
+	}
+
+	existing, _ := ExtractTokens(stateMap)
+
+	if math.MaxInt64-existing.InputTokens < input ||
+		math.MaxInt64-existing.CacheReadTokens < cache ||
+		math.MaxInt64-existing.OutputTokens < output {
+		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("token accumulation would overflow int64")
+	}
+
+	totals := TokenTelemetry{
+		InputTokens:     existing.InputTokens + input,
+		CacheReadTokens: existing.CacheReadTokens + cache,
+		OutputTokens:    existing.OutputTokens + output,
+	}
+	if math.MaxInt64-totals.InputTokens < totals.CacheReadTokens ||
+		math.MaxInt64-(totals.InputTokens+totals.CacheReadTokens) < totals.OutputTokens {
+		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("total token calculation would overflow int64")
+	}
+	totals.TotalTokens = totals.InputTokens + totals.CacheReadTokens + totals.OutputTokens
+
+	stateMap["tokens"] = totals
+	payload, err := json.Marshal(stateMap)
+	if err != nil {
+		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("marshal state with tokens: %w", err)
+	}
+
+	if now.IsZero() {
+		now = time.Now()
+	}
+
+	res, err := SaveState(root, normID, payload, now)
+	if err != nil {
+		return SaveResult{}, TokenTelemetry{}, err
+	}
+
+	eventMap := map[string]any{
+		"type":    "token_recorded",
+		"task_id": normID,
+		"delta": map[string]int64{
+			"input":  input,
+			"cache":  cache,
+			"output": output,
+		},
+		"totals":      totals,
+		"recorded_at": now.UTC().Format(time.RFC3339),
+	}
+	eventPayload, err := json.Marshal(eventMap)
+	if err != nil {
+		return res, totals, fmt.Errorf("marshal token event: %w", err)
+	}
+	if _, err := AppendEvent(root, normID, eventPayload); err != nil {
+		return res, totals, fmt.Errorf("append token event: %w", err)
+	}
+
+	return res, totals, nil
 }
 
 // SaveState atomically writes or updates the task's state.json snapshot.

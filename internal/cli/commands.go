@@ -279,13 +279,14 @@ func runPrompt(args []string, env IO) int {
 	fs := newFlagSet("prompt", env)
 	dir := fs.String("dir", ".", "project root")
 	task := fs.String("task", "", "focus task, for example T-001 (default: the first open task)")
+	compact := fs.Bool("compact", false, "render high-density micro-context handover prompt")
 	tpl := fs.String("templates", "", "directory whose files override the embedded templates")
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return parseExit(err)
 	}
 	if len(pos) != 1 {
-		fprintln(env.Err, "usage: sdd prompt <agent> [--task T-xxx] [--dir <project>]   (agent: claude, gemini, agents, or any name)\n   or: sdd prompt discovery [T-xxx] [--dir <project>] [--json]\n   or: sdd prompt plan-review <T-xxx> [--dir <project>] [--json]\n   or: sdd prompt implement <T-xxx> [--role <role>] [--dir <project>] [--json]\n   or: sdd prompt review <T-xxx> [--lens <lens>] [--dir <project>] [--json]")
+		fprintln(env.Err, "usage: sdd prompt <agent> [--task T-xxx] [--compact] [--dir <project>]   (agent: claude, gemini, agents, or any name)\n   or: sdd prompt discovery [T-xxx] [--dir <project>] [--json]\n   or: sdd prompt plan-review <T-xxx> [--dir <project>] [--json]\n   or: sdd prompt implement <T-xxx> [--role <role>] [--dir <project>] [--json]\n   or: sdd prompt review <T-xxx> [--lens <lens>] [--dir <project>] [--json]")
 		return 2
 	}
 	fail := func(format string, a ...any) int {
@@ -395,7 +396,11 @@ func runPrompt(args []string, env IO) int {
 	if err != nil {
 		return fail("%v", err)
 	}
-	out, err := set.Render("base/prompt.md.tmpl", data)
+	tplName := "base/prompt.md.tmpl"
+	if *compact {
+		tplName = "base/prompt_compact.md.tmpl"
+	}
+	out, err := set.Render(tplName, data)
 	if err != nil {
 		return fail("%v", err)
 	}

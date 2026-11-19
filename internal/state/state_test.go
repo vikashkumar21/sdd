@@ -369,3 +369,104 @@ func TestReadBounded(t *testing.T) {
 		t.Errorf("expected error message to mention exceeds limit, got %v", err)
 	}
 }
+
+func TestTokenTelemetry(t *testing.T) {
+	tempDir := t.TempDir()
+	taskID := "T-049"
+	fixedTime := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
+
+	// 1. Initial recording on fresh task
+	res1, totals1, err := RecordTokens(tempDir, taskID, 1000, 5000, 250, fixedTime)
+	if err != nil {
+		t.Fatalf("RecordTokens initial failed: %v", err)
+	}
+	if !res1.Saved || res1.TaskID != "T-049" {
+		t.Errorf("unexpected SaveResult: %+v", res1)
+	}
+	if totals1.InputTokens != 1000 || totals1.CacheReadTokens != 5000 || totals1.OutputTokens != 250 || totals1.TotalTokens != 6250 {
+		t.Errorf("unexpected totals1: %+v", totals1)
+	}
+
+	state1, has1, err := ReadState(tempDir, taskID)
+	if err != nil || !has1 {
+		t.Fatalf("ReadState failed: err=%v, has=%v", err, has1)
+	}
+	tt1, ok1 := ExtractTokens(state1)
+	if !ok1 {
+		t.Fatalf("ExtractTokens failed to find tokens in state")
+	}
+	if tt1.InputTokens != 1000 || tt1.CacheReadTokens != 5000 || tt1.OutputTokens != 250 || tt1.TotalTokens != 6250 {
+		t.Errorf("unexpected tokens after run 1: %+v", tt1)
+	}
+
+	// 2. Accumulate additional tokens
+	nextTime := fixedTime.Add(10 * time.Minute)
+	res2, totals2, err := RecordTokens(tempDir, taskID, 500, 2000, 150, nextTime)
+	if err != nil {
+		t.Fatalf("RecordTokens accumulation failed: %v", err)
+	}
+	if !res2.Saved {
+		t.Errorf("expected res2.Saved == true")
+	}
+	if totals2.InputTokens != 1500 || totals2.CacheReadTokens != 7000 || totals2.OutputTokens != 400 || totals2.TotalTokens != 8900 {
+		t.Errorf("unexpected totals2: %+v", totals2)
+	}
+
+	state2, has2, err := ReadState(tempDir, taskID)
+	if err != nil || !has2 {
+		t.Fatalf("ReadState after run 2 failed: %v", err)
+	}
+	tt2, ok2 := ExtractTokens(state2)
+	if !ok2 {
+		t.Fatalf("ExtractTokens run 2 failed")
+	}
+	if tt2.InputTokens != 1500 || tt2.CacheReadTokens != 7000 || tt2.OutputTokens != 400 || tt2.TotalTokens != 8900 {
+		t.Errorf("unexpected accumulated tokens: %+v", tt2)
+	}
+
+	// 3. Verify events.jsonl contains 2 token_recorded events
+	events, err := ReadEvents(tempDir, taskID)
+	if err != nil {
+		t.Fatalf("ReadEvents failed: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(events))
+	}
+	ev1, ok := events[0].(map[string]any)
+	if !ok || ev1["type"] != "token_recorded" {
+		t.Errorf("unexpected event 0: %+v", events[0])
+	}
+	ev2, ok := events[1].(map[string]any)
+	if !ok || ev2["type"] != "token_recorded" {
+		t.Errorf("unexpected event 1: %+v", events[1])
+	}
+}
+
+func TestTokenTelemetry_Negative(t *testing.T) {
+	tempDir := t.TempDir()
+	taskID := "T-049"
+
+	// Negative input
+	if _, _, err := RecordTokens(tempDir, taskID, -100, 0, 0, time.Time{}); err == nil {
+		t.Errorf("expected error on negative input tokens, got nil")
+	}
+	// Negative cache
+	if _, _, err := RecordTokens(tempDir, taskID, 0, -500, 0, time.Time{}); err == nil {
+		t.Errorf("expected error on negative cache tokens, got nil")
+	}
+	// Negative output
+	if _, _, err := RecordTokens(tempDir, taskID, 0, 0, -50, time.Time{}); err == nil {
+		t.Errorf("expected error on negative output tokens, got nil")
+	}
+	// Invalid task ID
+	if _, _, err := RecordTokens(tempDir, "invalid-id", 100, 100, 100, time.Time{}); err == nil {
+		t.Errorf("expected error on invalid task ID, got nil")
+	}
+	// Overflow input
+	if _, _, err := RecordTokens(tempDir, taskID, 1, 1, 0, time.Time{}); err != nil {
+		t.Fatalf("setup record tokens failed: %v", err)
+	}
+	if _, _, err := RecordTokens(tempDir, taskID, 9223372036854775807, 0, 0, time.Time{}); err == nil {
+		t.Errorf("expected overflow error on max int64 input, got nil")
+	}
+}

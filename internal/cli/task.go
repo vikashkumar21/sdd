@@ -30,7 +30,7 @@ func runSpike(args []string, env IO) int {
 
 func runTask(args []string, env IO) int {
 	if len(args) == 0 {
-		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees\n  deconflict [tasks...]  analyze plan file collisions and schedule parallel batches\n  merge <T-xxx>          qualify pre-merge matrix and merge task into target branch\n  state <command>        manage deterministic task state and events (show|save|append-event|purge)")
+		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees\n  deconflict [tasks...]  analyze plan file collisions and schedule parallel batches\n  merge <T-xxx>          qualify pre-merge matrix and merge task into target branch\n  state <command>        manage deterministic task state and events (show|save|append-event|record-tokens|purge)")
 		return 2
 	}
 	switch args[0] {

@@ -149,6 +149,86 @@ func TestBrownfieldNeverTouchesExistingFiles(t *testing.T) {
 	}
 }
 
+func TestBrownfieldReadmeProposal(t *testing.T) {
+	root := t.TempDir()
+	put(t, root, "README.md", "# Existing custom readme\n")
+	a := answers()
+	a.Mode = ModeBrownfield
+	p := plan(t, root, a, false)
+
+	// Verify plan operations
+	foundSkipReadme := false
+	foundCreateProposal := false
+	for _, op := range p.Ops {
+		if op.Path == "README.md" && op.Kind == KindSkip {
+			foundSkipReadme = true
+		}
+		if op.Path == "README.md.sdd-new" && op.Kind == KindCreate {
+			foundCreateProposal = true
+			if !strings.Contains(op.Reason, "existing README.md preserved") {
+				t.Errorf("unexpected proposal reason: %s", op.Reason)
+			}
+		}
+	}
+	if !foundSkipReadme {
+		t.Errorf("expected plan to skip existing README.md")
+	}
+	if !foundCreateProposal {
+		t.Errorf("expected plan to create README.md.sdd-new proposal")
+	}
+
+	// Apply plan
+	apply(t, p)
+
+	// Verify on-disk files
+	if got := read(t, root, "README.md"); got != "# Existing custom readme\n" {
+		t.Errorf("existing README.md was modified: %q", got)
+	}
+	sddNew := read(t, root, "README.md.sdd-new")
+	if !strings.Contains(sddNew, "Status: scaffolded with [sdd]") || !strings.Contains(sddNew, "Spec-driven and human-gated") {
+		t.Errorf("README.md.sdd-new missing expected starter template content:\n%s", sddNew)
+	}
+}
+
+func TestBrownfieldManifestProposalEntry(t *testing.T) {
+	root := t.TempDir()
+	put(t, root, "README.md", "# Pre-existing\n")
+	a := answers()
+	a.Mode = ModeBrownfield
+	apply(t, plan(t, root, a, false))
+
+	m, ok, err := ReadManifest(root)
+	if err != nil || !ok {
+		t.Fatalf("ReadManifest failed: err=%v, ok=%v", err, ok)
+	}
+
+	foundReadme := false
+	foundProposal := false
+	for _, f := range m.Files {
+		if f.Path == "README.md" {
+			foundReadme = true
+			if f.State != "existing" {
+				t.Errorf("expected README.md state=existing, got %s", f.State)
+			}
+		}
+		if f.Path == "README.md.sdd-new" {
+			foundProposal = true
+			if f.State != "created" {
+				t.Errorf("expected README.md.sdd-new state=created, got %s", f.State)
+			}
+			if f.SHA256 == "" {
+				t.Errorf("expected non-empty SHA256 for README.md.sdd-new")
+			}
+		}
+	}
+	if !foundReadme {
+		t.Errorf("manifest missing README.md entry")
+	}
+	if !foundProposal {
+		t.Errorf("manifest missing README.md.sdd-new entry")
+	}
+}
+
 func TestMergeIntoExistingAgentFileIsIdempotent(t *testing.T) {
 	root := t.TempDir()
 	original := "# Our team rules\n\nBe kind.\n"

@@ -12,7 +12,7 @@ import (
 
 func runTaskState(args []string, env IO) int {
 	if len(args) == 0 {
-		fprintln(env.Err, "usage: sdd task state <command> [flags]\n\ncommands:\n  show <T-xxx>          show task state snapshot and event journal (--json supported)\n  save <T-xxx>          atomically save task state snapshot (--state or --stdin, --json)\n  append-event <T-xxx>  append lifecycle event to event journal (--event or --stdin, --json)\n  purge <T-xxx>         completely remove task state directory (--force, --json)")
+		fprintln(env.Err, "usage: sdd task state <command> [flags]\n\ncommands:\n  show <T-xxx>          show task state snapshot and event journal (--json supported)\n  save <T-xxx>          atomically save task state snapshot (--state or --stdin, --json)\n  append-event <T-xxx>  append lifecycle event to event journal (--event or --stdin, --json)\n  record-tokens <T-xxx> record token telemetry delta (--input, --cache, --output, --json)\n  purge <T-xxx>         completely remove task state directory (--force, --json)")
 		return 2
 	}
 	switch args[0] {
@@ -22,10 +22,12 @@ func runTaskState(args []string, env IO) int {
 		return runTaskStateSave(args[1:], env)
 	case "append-event":
 		return runTaskStateAppendEvent(args[1:], env)
+	case "record-tokens":
+		return runTaskStateRecordTokens(args[1:], env)
 	case "purge":
 		return runTaskStatePurge(args[1:], env)
 	default:
-		fprintf(env.Err, "sdd task state: unknown command %q\n\nusage: sdd task state <show|save|append-event|purge> [flags]\n", args[0])
+		fprintf(env.Err, "sdd task state: unknown command %q\n\nusage: sdd task state <show|save|append-event|record-tokens|purge> [flags]\n", args[0])
 		return 2
 	}
 }
@@ -95,6 +97,14 @@ func runTaskStateShow(args []string, env IO) int {
 		for _, k := range keys {
 			fprintf(env.Out, "  %s: %v\n", k, res.State[k])
 		}
+	}
+
+	if tt, ok := state.ExtractTokens(res.State); ok {
+		fprintf(env.Out, "\nToken Telemetry:\n")
+		fprintf(env.Out, "  Input Tokens:      %d\n", tt.InputTokens)
+		fprintf(env.Out, "  Cache Read Tokens: %d\n", tt.CacheReadTokens)
+		fprintf(env.Out, "  Output Tokens:     %d\n", tt.OutputTokens)
+		fprintf(env.Out, "  Total Tokens:      %d\n", tt.TotalTokens)
 	}
 
 	if len(res.Events) > 0 {
@@ -300,5 +310,125 @@ func runTaskStatePurge(args []string, env IO) int {
 	}
 
 	fprintf(env.Out, "Purged state directory for %s (%s)\n", res.TaskID, res.Path)
+	return 0
+}
+
+// RecordTokensResult is returned when recording tokens with --json.
+type RecordTokensResult struct {
+	TaskID    string               `json:"task_id"`
+	Saved     bool                 `json:"saved"`
+	Path      string               `json:"path"`
+	UpdatedAt string               `json:"updated_at"`
+	Delta     state.TokenTelemetry `json:"delta"`
+	Totals    state.TokenTelemetry `json:"totals"`
+}
+
+func runTaskStateRecordTokens(args []string, env IO) int {
+	fs := newFlagSet("task state record-tokens", env)
+	dir := fs.String("dir", ".", "project root")
+	inputFlag := fs.Int64("input", 0, "input token delta")
+	cacheFlag := fs.Int64("cache", 0, "cache read token delta")
+	outputFlag := fs.Int64("output", 0, "output token delta")
+	stdinFlag := fs.Bool("stdin", false, "read token delta from stdin as JSON")
+	jsonFlag := fs.Bool("json", false, "output structured JSON")
+
+	pos, err := parseInterspersed(fs, args)
+	if err != nil {
+		return parseExit(err)
+	}
+	if len(pos) != 1 {
+		fprintln(env.Err, "usage: sdd task state record-tokens <T-xxx> [--input <N>] [--cache <N>] [--output <N>] [--stdin] [--json] [--dir <project>]")
+		return 2
+	}
+
+	normID, err := state.ValidateTaskID(pos[0])
+	if err != nil {
+		fprintf(env.Err, "sdd task state record-tokens: %v\n", err)
+		return 1
+	}
+
+	input := *inputFlag
+	cache := *cacheFlag
+	output := *outputFlag
+
+	if *stdinFlag {
+		data, err := state.ReadBounded(env.In, state.MaxStdinEventBytes)
+		if err != nil {
+			fprintf(env.Err, "sdd task state record-tokens: read stdin: %v\n", err)
+			return 1
+		}
+		var parsed struct {
+			Input      int64 `json:"input"`
+			Cache      int64 `json:"cache"`
+			Output     int64 `json:"output"`
+			InputToks  int64 `json:"input_tokens"`
+			CacheToks  int64 `json:"cache_read_tokens"`
+			OutputToks int64 `json:"output_tokens"`
+		}
+		if err := json.Unmarshal(data, &parsed); err != nil {
+			fprintf(env.Err, "sdd task state record-tokens: invalid JSON from stdin: %v\n", err)
+			return 1
+		}
+		if parsed.Input != 0 {
+			input = parsed.Input
+		} else if parsed.InputToks != 0 {
+			input = parsed.InputToks
+		}
+		if parsed.Cache != 0 {
+			cache = parsed.Cache
+		} else if parsed.CacheToks != 0 {
+			cache = parsed.CacheToks
+		}
+		if parsed.Output != 0 {
+			output = parsed.Output
+		} else if parsed.OutputToks != 0 {
+			output = parsed.OutputToks
+		}
+	}
+
+	if input < 0 || cache < 0 || output < 0 {
+		fprintf(env.Err, "sdd task state record-tokens: token values cannot be negative\n")
+		return 1
+	}
+
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		fprintf(env.Err, "sdd task state record-tokens: %v\n", err)
+		return 1
+	}
+
+	res, totals, err := state.RecordTokens(root, normID, input, cache, output, env.now())
+	if err != nil {
+		fprintf(env.Err, "sdd task state record-tokens: %v\n", err)
+		return 1
+	}
+
+	delta := state.TokenTelemetry{
+		InputTokens:     input,
+		CacheReadTokens: cache,
+		OutputTokens:    output,
+		TotalTokens:     input + cache + output,
+	}
+
+	if *jsonFlag {
+		outObj := RecordTokensResult{
+			TaskID:    res.TaskID,
+			Saved:     res.Saved,
+			Path:      res.Path,
+			UpdatedAt: res.UpdatedAt,
+			Delta:     delta,
+			Totals:    totals,
+		}
+		data, err := json.MarshalIndent(outObj, "", "  ")
+		if err != nil {
+			fprintf(env.Err, "sdd task state record-tokens: encode json: %v\n", err)
+			return 1
+		}
+		fprintln(env.Out, string(data))
+		return 0
+	}
+
+	fprintf(env.Out, "Recorded tokens for %s: input=+%d, cache=+%d, output=+%d (totals: input=%d, cache=%d, output=%d, total=%d)\n",
+		res.TaskID, input, cache, output, totals.InputTokens, totals.CacheReadTokens, totals.OutputTokens, totals.TotalTokens)
 	return 0
 }

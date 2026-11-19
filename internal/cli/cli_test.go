@@ -226,11 +226,14 @@ func TestBrownfieldKeepsExistingFilesAndMergesAgentFile(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("init failed: %+v", r)
 	}
-	if !strings.Contains(r.out, "merge    CLAUDE.md") || !strings.Contains(r.out, "skip     README.md") {
+	if !strings.Contains(r.out, "merge    CLAUDE.md") || !strings.Contains(r.out, "skip     README.md") || !strings.Contains(r.out, "create   README.md.sdd-new") {
 		t.Errorf("plan output wrong:\n%s", r.out)
 	}
 	if read(t, root, "README.md") != "# existing\n" || !strings.HasPrefix(read(t, root, "CLAUDE.md"), "# house rules\n\nBe nice.\n") {
 		t.Error("existing human content was not preserved")
+	}
+	if read(t, root, "README.md.sdd-new") == "" {
+		t.Error("README.md.sdd-new proposal should be created in brownfield mode")
 	}
 	if read(t, root, "MISSION.md") != "# our own mission\n" || !strings.Contains(r.out, "skip     MISSION.md") {
 		t.Error("an existing MISSION.md must be skipped, not replaced")

@@ -148,3 +148,59 @@ func TestPromptWithRefinementSkills(t *testing.T) {
 		}
 	}
 }
+
+func TestPromptStaticPrefix(t *testing.T) {
+	root := t.TempDir()
+	exec(t, "", false, "", "init", "--yes", "--dir", root, "--name", "prefixproj")
+
+	p := exec(t, "", false, "", "prompt", "gemini", "--dir", root)
+	if p.code != 0 {
+		t.Fatalf("prompt execution failed: %+v", p)
+	}
+
+	// Verify order of sections to guarantee KV cache prefix invariance:
+	// Static Invariants:
+	idxCoordinator := strings.Index(p.out, "acting as the **Task Coordinator**")
+	idxAnthem := strings.Index(p.out, "ANTHEM (non-negotiable)")
+	idxStep0 := strings.Index(p.out, "## 1. Step 0 - read the project")
+	idxStep1 := strings.Index(p.out, "## 2. Step 1 - verify repository state")
+	idxStep2 := strings.Index(p.out, "## 3. Step 2 - act on exactly one branch")
+	idxHardRules := strings.Index(p.out, "## 4. Hard rules")
+	idxGateReport := strings.Index(p.out, "## 5. How you report at every gate")
+	// Dynamic Invariants:
+	idxDynamicState := strings.Index(p.out, "Dynamic Project State & Context")
+	idxDate := strings.Index(p.out, "roadmap snapshot below was taken on")
+	idxHumanInputs := strings.Index(p.out, "HUMAN INPUTS")
+
+	for name, idx := range map[string]int{
+		"Coordinator":  idxCoordinator,
+		"Anthem":       idxAnthem,
+		"Step0":        idxStep0,
+		"Step1":        idxStep1,
+		"Step2":        idxStep2,
+		"HardRules":    idxHardRules,
+		"GateReport":   idxGateReport,
+		"DynamicState": idxDynamicState,
+		"Date":         idxDate,
+		"HumanInputs":  idxHumanInputs,
+	} {
+		if idx == -1 {
+			t.Fatalf("missing section %s in prompt output:\n%s", name, p.out)
+		}
+	}
+
+	// Assert strict prefix ordering:
+	validOrder := idxCoordinator < idxAnthem &&
+		idxAnthem < idxStep0 &&
+		idxStep0 < idxStep1 &&
+		idxStep1 < idxStep2 &&
+		idxStep2 < idxHardRules &&
+		idxHardRules < idxGateReport &&
+		idxGateReport < idxDynamicState &&
+		idxDynamicState <= idxDate &&
+		idxDate < idxHumanInputs
+	if !validOrder {
+		t.Errorf("prompt section ordering violates static-first KV cache prefix pinning:\nCoordinator: %d, Anthem: %d, Step0: %d, Step1: %d, Step2: %d, HardRules: %d, GateReport: %d, DynamicState: %d, Date: %d, HumanInputs: %d",
+			idxCoordinator, idxAnthem, idxStep0, idxStep1, idxStep2, idxHardRules, idxGateReport, idxDynamicState, idxDate, idxHumanInputs)
+	}
+}

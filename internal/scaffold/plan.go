@@ -131,6 +131,17 @@ func BuildPlan(root string, a Answers, det detect.Result, set *templates.Set, no
 			return Plan{}, err
 		}
 		p.Ops = append(p.Ops, op)
+		if w.protect && op.Kind == KindSkip {
+			proposalPath := w.path + ".sdd-new"
+			propOp, err := wholeOp(root, proposalPath, content, false, force)
+			if err != nil {
+				return Plan{}, err
+			}
+			if propOp.Kind == KindCreate {
+				propOp.Reason = fmt.Sprintf("existing %s preserved; starter template written to %s", w.path, proposalPath)
+			}
+			p.Ops = append(p.Ops, propOp)
+		}
 	}
 
 	rolesCfg := role.DefaultRoleConfig()
