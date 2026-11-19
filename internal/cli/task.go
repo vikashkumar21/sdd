@@ -11,8 +11,10 @@ import (
 	"github.com/vikashkumar21/sdd/internal/coordinator"
 	"github.com/vikashkumar21/sdd/internal/deconflict"
 	"github.com/vikashkumar21/sdd/internal/feature"
+	"github.com/vikashkumar21/sdd/internal/fsutil"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 	"github.com/vikashkumar21/sdd/internal/state"
+	"github.com/vikashkumar21/sdd/internal/taskpr"
 	"github.com/vikashkumar21/sdd/internal/worktree"
 )
 
@@ -30,7 +32,7 @@ func runSpike(args []string, env IO) int {
 
 func runTask(args []string, env IO) int {
 	if len(args) == 0 {
-		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees\n  deconflict [tasks...]  analyze plan file collisions and schedule parallel batches\n  merge <T-xxx>          qualify pre-merge matrix and merge task into target branch\n  state <command>        manage deterministic task state and events (show|save|append-event|record-tokens|purge)")
+		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees\n  deconflict [tasks...]  analyze plan file collisions and schedule parallel batches\n  merge <T-xxx>          qualify pre-merge matrix and merge task into target branch\n  state <command>        manage deterministic task state and events (show|save|append-event|record-tokens|purge)\n  pr <T-xxx>             package task quartet into a standardized Pull Request bundle (--json, --dry-run)")
 		return 2
 	}
 	switch args[0] {
@@ -48,8 +50,10 @@ func runTask(args []string, env IO) int {
 		return runTaskMerge(args[1:], env)
 	case "state":
 		return runTaskState(args[1:], env)
+	case "pr":
+		return runTaskPR(args[1:], env)
 	default:
-		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new|start|clean|list|deconflict|merge|state> [flags]\n", args[0])
+		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new|start|clean|list|deconflict|merge|state|pr> [flags]\n", args[0])
 		return 2
 	}
 }
@@ -523,5 +527,87 @@ func runTaskMerge(args []string, env IO) int {
 	}
 
 	fprintf(env.Out, "\nSuccessfully merged %s into %s.\n", rep.Branch, rep.TargetBranch)
+	return 0
+}
+
+func runTaskPR(args []string, env IO) int {
+	fs := newFlagSet("task pr", env)
+	dir := fs.String("dir", ".", "project root")
+	base := fs.String("base", "main", "base branch for pull request (default: main)")
+	head := fs.String("head", "", "head branch for pull request (default: auto-inferred)")
+	dryRun := fs.Bool("dry-run", false, "preview generated PR bundle without writing to file")
+	outputFile := fs.String("output", "", "write generated PR markdown description to file")
+	jsonOut := fs.Bool("json", false, "output PR bundle as machine-readable JSON")
+	allowUnreviewed := fs.Bool("allow-unreviewed", false, "allow PR packaging even if review is not approved or has blockers")
+
+	pos, err := parseInterspersed(fs, args)
+	if err != nil {
+		return parseExit(err)
+	}
+	if len(pos) < 1 {
+		fprintln(env.Err, "usage: sdd task pr <T-xxx> [flags]\n\nflags:\n  --dir <path>          project root (default \".\")\n  --base <branch>       base branch for PR (default \"main\")\n  --head <branch>       head branch for PR\n  --output <file>       write generated PR description to file\n  --json                output PR bundle as JSON\n  --dry-run             preview PR title and description on stdout\n  --allow-unreviewed    allow packaging even if review is not approved or has blockers")
+		return 2
+	}
+
+	taskID := pos[0]
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		fprintf(env.Err, "sdd task pr: resolve dir: %v\n", err)
+		return 1
+	}
+
+	opts := taskpr.PROptions{
+		TaskID:          taskID,
+		ProjectDir:      root,
+		AllowUnreviewed: *allowUnreviewed,
+		BaseBranch:      *base,
+		HeadBranch:      *head,
+	}
+
+	bundle, err := taskpr.PackageTaskPR(root, opts)
+	if err != nil {
+		fprintf(env.Err, "sdd task pr: %v\n", err)
+		return 1
+	}
+
+	if *outputFile != "" {
+		if err := fsutil.WriteAtomic(*outputFile, []byte(bundle.Body), 0o644); err != nil {
+			fprintf(env.Err, "sdd task pr: write output file: %v\n", err)
+			return 1
+		}
+	}
+
+	if *jsonOut {
+		data, err := json.MarshalIndent(bundle, "", "  ")
+		if err != nil {
+			fprintf(env.Err, "sdd task pr: marshal json: %v\n", err)
+			return 1
+		}
+		fprintln(env.Out, string(data))
+		if !bundle.QualifiesForPR {
+			return 1
+		}
+		return 0
+	}
+
+	// Human-readable output
+	if *dryRun || *outputFile == "" {
+		fprintf(env.Out, "Pull Request Title:\n%s\n\n", bundle.Title)
+		fprintf(env.Out, "Pull Request Description:\n%s\n", bundle.Body)
+	}
+
+	if *outputFile != "" && !*dryRun {
+		fprintf(env.Out, "Generated Pull Request description written to %s\nTitle: %s\n", *outputFile, bundle.Title)
+	}
+
+	if !bundle.QualifiesForPR {
+		fprintln(env.Err, "\n⚠️  Task PR Qualification FAILED:")
+		for _, w := range bundle.Warnings {
+			fprintf(env.Err, "  - %s\n", w)
+		}
+		fprintln(env.Err, "Resolve review findings before creating PR, or pass --allow-unreviewed to bypass.")
+		return 1
+	}
+
 	return 0
 }

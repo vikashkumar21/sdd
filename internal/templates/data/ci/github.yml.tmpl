@@ -1,0 +1,94 @@
+name: sdd-ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify & SDD Governance
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+{{if .IsGo}}      - name: Setup Go Toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.27'
+          cache: true
+{{else if .IsPython}}      - name: Setup Python Runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+{{else if .IsTypeScript}}      - name: Setup Node.js Runtime
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Node Dependencies
+        run: |
+          if [ -f package-lock.json ]; then npm ci; else npm install; fi
+{{else if .IsJava}}      - name: Setup Java JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'maven'
+{{end}}
+      - name: Install SDD Static Binary
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/vikashkumar21/sdd/main/scripts/install.sh | sh
+          echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: SDD Governance Guard
+        run: |
+          sdd check --strict
+
+      - name: Code Quality & Lint
+        run: |
+          {{.LintCmd}}
+
+      - name: Compile and Build
+        run: |
+          {{.BuildCmd}}
+
+      - name: Run Test Suite
+        run: |
+          {{.TestCmd}}
+
+      - name: Determinism Flake Guard
+        run: |
+          {{.DeterminismCmd}}
+
+      # --- Optional Release Stages (Runs on main branch pushes only) ---
+      # - name: Publish Application Binaries
+      #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      #   run: |
+      #     # Configure your binary distribution bucket/URL (e.g. S3 / GCS)
+      #     echo "Publishing application binaries to YOUR_BINARY_DISTRIBUTION_URL..."
+
+      # - name: Build and Publish Docker Container
+      #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      #   run: |
+      #     # Configure your container registry URL (e.g. ghcr.io/YOUR_ORG/YOUR_APP)
+      #     DOCKER_REGISTRY="ghcr.io/YOUR_ORG/YOUR_APP"
+      #     IMAGE_TAG="${GITHUB_SHA:-latest}"
+      #     # docker build -t "$DOCKER_REGISTRY:$IMAGE_TAG" .
+      #     # docker push "$DOCKER_REGISTRY:$IMAGE_TAG"
+      #     echo "Publishing Docker image to $DOCKER_REGISTRY:$IMAGE_TAG..."

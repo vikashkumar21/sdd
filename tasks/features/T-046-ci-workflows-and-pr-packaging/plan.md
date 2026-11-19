@@ -1,23 +1,23 @@
 ---
 status: active
 task_id: T-046
-last_reviewed: 2026-11-16
+last_reviewed: 2026-11-19
 ---
 # Plan — T-046 Universal CI workflows and automated PR packaging (sdd task pr)
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
-Status: Blocked (deferred by human 2026-11-16)
+Status: Approved (2026-11-19)
 Roadmap ref: `ROADMAP.md` T-046
 
 ## 1. Approach summary
-Implement universal CI workflow templates and generation engine (`internal/ci`) covering GitHub Actions, GitLab CI, Bitbucket Pipelines, and Azure DevOps, paired with `sdd ci init`. Implement an automated task PR packaging engine (`internal/taskpr`) and CLI command `sdd task pr <T-xxx>` to synthesize task quartet documents (`requirements.md`, `plan.md`, `validation.md`, `review.md`) into standardized PR titles, structured Markdown bodies, and machine-readable JSON payloads (`--json`).
+Implement universal CI workflow templates and generation engine (`internal/ci`) covering GitHub Actions, GitLab CI, Bitbucket Pipelines, Azure DevOps, Google Cloud Build (GCP), and AWS CodeBuild, paired with `sdd ci init`. Workflows incorporate language-aware toolchain setup, `sdd check --strict`, linting, explicit compile/build steps, test execution, determinism flake guards, and placeholder publish stages for application binaries and Docker images. Implement an automated task PR packaging engine (`internal/taskpr`) and CLI command `sdd task pr <T-xxx>` to synthesize task quartet documents (`requirements.md`, `plan.md`, `validation.md`, `review.md`) into standardized PR titles, structured Markdown bodies, and machine-readable JSON payloads (`--json`).
 
 ## 2. Decisions involved
 
 | ID | Title | Options | Recommendation | Status |
 |---|---|---|---|---|
-| D-040 | Universal CI workflows, automated PR packaging, and CI log ingestion | Option A: Adaptable CI workflow templates (GitHub Actions, GitLab CI, Bitbucket, Azure DevOps), sdd task pr packaging command, and structured PR JSON bundle / Option B: Simple markdown printer without multi-platform CI templates or machine-readable JSON | Option A: Provides complete multi-platform CI coverage, automates PR packaging across all 4 typologies, and outputs JSON for seamless integration with human developers and Agent SDKs while maintaining D-007 standard library purity. | Open (resolves at GATE 1) |
+| D-040 | Universal CI workflows, automated PR packaging, and CI log ingestion | Option A: Adaptable CI workflow templates (GitHub Actions, GitLab CI, Bitbucket, Azure DevOps, Google Cloud Build, AWS CodeBuild) with compile/build step and binary/docker publish placeholders, sdd task pr packaging command, and structured PR JSON bundle / Option B: Simple markdown printer without multi-platform CI templates or machine-readable JSON | Option A: Provides complete multi-platform CI coverage across top cloud and git providers, automates PR packaging across all 4 typologies, and outputs JSON for seamless integration with human developers and Agent SDKs while maintaining D-007 standard library purity. | Open (resolves at GATE 1) |
 
 ## 3. Design
 ### 3.1 CI Workflow Generation Engine (`internal/ci`)
@@ -31,8 +31,19 @@ const (
     PlatformGitLab    Platform = "gitlab"
     PlatformBitbucket Platform = "bitbucket"
     PlatformAzure     Platform = "azure"
+    PlatformGCP       Platform = "gcp"
+    PlatformAWS       Platform = "aws"
     PlatformAll       Platform = "all"
 )
+
+// PlatformPathMap defines canonical workflow paths per platform:
+//   PlatformGitHub    -> ".github/workflows/sdd-check.yml"
+//   PlatformGitLab    -> ".gitlab-ci.yml"
+//   PlatformBitbucket -> "bitbucket-pipelines.yml"
+//   PlatformAzure     -> "azure-pipelines.yml"
+//   PlatformGCP       -> "cloudbuild.yaml"
+//   PlatformAWS       -> "buildspec.yml"
+```
 
 type Config struct {
     Platform Platform
@@ -87,7 +98,7 @@ func FormatPRMarkdown(bundle *PRBundle) string
 **Typology Document Fallbacks & Compatibility:**
 - **Features:** reads `requirements.md`, `plan.md`, `validation.md`, `review.md`.
 - **Bugfixes:** falls back to `reproduction.md` and `rca.md` if `requirements.md` is absent; reads `plan.md`, `validation.md`, `review.md`.
-- **Hotfixes:** falls back to `incident.md` for problem context and `patch.md` for changes; reads `validation.md` and `review.md`.
+- **Hotfixes:** falls back to `incident.md` for problem context and `patch.md` for changes; reads `validation.md`; if `review.md` is absent, review qualification is treated as N/A or derived from `patch.md` Section 4 expedited approval record.
 - **Spikes:** falls back to `hypotheses.md` and `findings.md`; treats `review.md` and `validation.md` as N/A (spikes are disposable prototypes without merge review).
 
 **CLI Exit Code Semantics:**
@@ -97,14 +108,14 @@ func FormatPRMarkdown(bundle *PRBundle) string
   - Passing `--allow-unreviewed` overrides the qualification check, sets `"qualifies_for_pr": true`, and exits with code 0.
 
 ### 3.3 CLI Command Surface
-- `sdd ci init [--platform <github|gitlab|bitbucket|azure|all>] [--dry-run] [--force] [--dir <project>]`
+- `sdd ci init [--platform <github|gitlab|bitbucket|azure|gcp|aws|all>] [--dry-run] [--force] [--dir <project>]`
 - `sdd task pr <T-xxx> [--json] [--dry-run] [--output <file>] [--allow-unreviewed] [--base <branch>] [--dir <project>]`
 
 ## 4. Implementation steps
 
 | # | Step | Files | Proving test / check |
 |---|---|---|---|
-| 1 | Create CI workflow templates in `internal/templates/data/ci/` for GitHub Actions (`github.yml.tmpl`), GitLab CI (`gitlab.yml.tmpl`), Bitbucket Pipelines (`bitbucket.yml.tmpl`), and Azure DevOps (`azure.yml.tmpl`). Author `internal/ci` generation and apply engine with unit tests. | `internal/templates/data/ci/*.tmpl`, `internal/ci/ci.go`, `internal/ci/ci_test.go` | `go test -v ./internal/ci` |
+| 1 | Create CI workflow templates in `internal/templates/data/ci/` for GitHub Actions (`github.yml.tmpl`), GitLab CI (`gitlab.yml.tmpl`), Bitbucket Pipelines (`bitbucket.yml.tmpl`), Azure DevOps (`azure.yml.tmpl`), Google Cloud Build (`gcp.yml.tmpl`), and AWS CodeBuild (`aws.yml.tmpl`) with compile/build steps and placeholder publish stages for app binaries and Docker images. Author `internal/ci` generation and apply engine with unit tests. | `internal/templates/data/ci/*.tmpl`, `internal/ci/ci.go`, `internal/ci/ci_test.go` | `go test -v ./internal/ci` |
 | 2 | Implement `sdd ci init` CLI command and dispatch in `internal/cli/ci.go`, wiring platform flags, dry-run, force protection, and project detection. Author CLI tests. | `internal/cli/ci.go`, `internal/cli/cli.go`, `internal/cli/ci_test.go` | `go test -v ./internal/cli -run TestCIInit` |
 | 3 | Implement `internal/taskpr` packaging engine: parse task quartet documents across all 4 typologies (`features`, `bugfixes`, `hotfixes`, `spikes`), extract requirements summary, plan changes, validation evidence, Review Triad certification, qualify PR readiness, and render Markdown and JSON bundles. Author tests. | `internal/taskpr/taskpr.go`, `internal/taskpr/taskpr_test.go` | `go test -v ./internal/taskpr` |
 | 4 | Implement `sdd task pr <T-xxx>` subcommand in `internal/cli/task.go`, supporting `--json`, `--dry-run`, `--output`, `--allow-unreviewed`, and `--base`. Wire into `runTask` dispatch and author CLI tests. | `internal/cli/task.go`, `internal/cli/task_test.go` | `go test -v ./internal/cli -run TestTaskPR` |
@@ -119,6 +130,8 @@ func FormatPRMarkdown(bundle *PRBundle) string
 | `internal/templates/data/ci/gitlab.yml.tmpl` | create | Canonical GitLab CI workflow template |
 | `internal/templates/data/ci/bitbucket.yml.tmpl` | create | Canonical Bitbucket Pipelines workflow template |
 | `internal/templates/data/ci/azure.yml.tmpl` | create | Canonical Azure DevOps workflow template |
+| `internal/templates/data/ci/gcp.yml.tmpl` | create | Canonical Google Cloud Build workflow template |
+| `internal/templates/data/ci/aws.yml.tmpl` | create | Canonical AWS CodeBuild workflow template |
 | `internal/ci/ci.go` | create | Multi-platform CI workflow generation and apply engine |
 | `internal/ci/ci_test.go` | create | Unit and golden tests for CI workflow generation |
 | `internal/taskpr/taskpr.go` | create | Task PR packaging engine extracting quartet metadata |
@@ -151,5 +164,5 @@ Standard library only (`D-007`). Zero external third-party dependencies.
 - **F-001:** Worker agents must resolve all findings (Blockers, Warnings, and Minors) reported during review before presenting to human at GATE 2; any retained finding must be explicitly justified in `review.md`.
 
 ## 10. Approval record
-Plan Review Subagent: Approved (0 Blockers) 2026-11-16 (conv: `d28944bf-4ad7-481b-a05b-3116acd15e86`)
-Approved by: ______   Date: ______   Phrase received: `APPROVED T-046`
+Plan Review Subagent: Approved (0 Blockers) 2026-11-19 (conv: `95121abd-1e40-488b-92bb-a59a13b2f562`)
+Approved by: Vikash (human)   Date: 2026-11-19   Phrase received: `APPROVED T-046`

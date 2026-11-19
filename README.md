@@ -104,6 +104,19 @@ sdd prompt review T-003 --lens pattern       # review focused on architecture de
 sdd prompt review T-003 --lens all           # ensemble review covering all three lenses (default)
 sdd prompt review T-003 --json               # structured review context bundle with lens metadata for Agent SDKs
 
+sdd ci init                               # generate CI workflow for GitHub Actions (.github/workflows/sdd-check.yml)
+sdd ci init --platform all                # generate workflows for GitHub, GitLab, Bitbucket, Azure, GCP, and AWS
+sdd ci init --platform gcp                # generate Google Cloud Build workflow (cloudbuild.yaml)
+sdd ci init --platform aws                # generate AWS CodeBuild specification (buildspec.yml)
+sdd ci init --dry-run                     # preview planned CI workflows without writing to disk
+sdd ci init --force                       # overwrite existing CI workflow files
+
+sdd task pr T-003                         # synthesize task quartet into a Pull Request title and description
+sdd task pr T-003 --dry-run               # preview PR title and body on stdout
+sdd task pr T-003 --output pr.md          # write generated PR description to a file
+sdd task pr T-003 --json                  # output machine-readable PRBundle for GitHub/GitLab CLI or Agent SDKs
+sdd task pr T-003 --allow-unreviewed      # package PR even if review is not yet approved
+
 sdd skill new code-review --description "Review code for quality" # scaffold a standard agentskills.io skill
 sdd skill new deploy-helper --from-file deploy.txt                # import raw notes with agent refinement scaffolding
 sdd skill new quick-fix --from-text "run make verify"            # import raw inline text into skill body
@@ -169,6 +182,15 @@ sdd self-update --yes                     # proceed without interactive confirma
 - **Progressive Disclosure Handover:** `sdd prompt <agent>` dynamically compiles a concise table of available skills (name and trigger description, ~50 tokens total). The AI agent knows exactly what skills exist and when to activate them, without bloating prompt context with full markdown bodies. If unrefined raw notes are detected, the agent is directed to synthesize them into standard sections per `SKILLS.md`.
 - **Exporting for IDEs & SDKs:** `sdd skill export` exports canonical skills to project repositories, user-global directories (`--global`), or programmatic Agent SDK application folders (`--target <dir>`), allowing programmatic agents (Python/TypeScript/Go) and IDE assistants to enforce SDD gates natively.
 - **Role-Based Governance Skills & Phase Mapping:** `.sdd/roles.json` defines deterministic phase-to-role assignments (`phase-discovery` -> codebase-analyst + architect, `phase-a` -> architect + plan-reviewer, `phase-b` -> implementer + optional QA/DevOps, `phase-c.2` -> Review Triad). Role skills resolve via a two-tier hierarchy: project overrides in `skills/<role>/SKILL.md` take precedence over infrastructure baselines in `.sdd/skills/<role>/SKILL.md` and embedded templates. Turnkey prompts (`sdd prompt plan-review`, `sdd prompt implement`, `sdd prompt review --lens <lens>`) automatically enrich context with the respective role skill instructions.
+
+### Universal CI workflows and automated PR packaging
+
+`sdd` bridges local agent development and remote team review with universal CI configurations and automated pull request generation:
+- **Universal Multi-Platform CI:** `sdd ci init` generates canonical CI workflows across **GitHub Actions** (`.github/workflows/sdd-check.yml`), **GitLab CI** (`.gitlab-ci.yml`), **Bitbucket Pipelines** (`bitbucket-pipelines.yml`), **Azure DevOps** (`azure-pipelines.yml`), **Google Cloud Build** (`cloudbuild.yaml`), and **AWS CodeBuild** (`buildspec.yml`).
+- **Polyglot & Dependency-Free:** Workflows automatically configure language toolchains for Go, Python, TypeScript/Node, Java, and Generic stacks, running `sdd check --strict` via the static binary installer without requiring a Go compiler on Python/Node/Java CI runners.
+- **Explicit Compile & Release Stages:** Pipelines enforce linting, explicit compile/build steps before test execution, test suites, determinism flake guards, and include placeholder release stages for publishing application binaries and Docker container images.
+- **Automated PR Packaging:** `sdd task pr <T-xxx>` parses task quartet documents across all work typologies (features, bugfixes, hotfixes, spikes), extracts requirements, planned changes, validation matrices, and Review Triad certifications, and synthesizes a standardized PR title (`feat(T-xxx): ...`) and Markdown body.
+- **Pre-PR Qualification Gate:** Validates that tasks have 0 unresolved 🔴 Blockers in `review.md` before packaging (or exits code 1 unless `--allow-unreviewed` is specified). Supports `--json` exporting a machine-readable `PRBundle` for GitHub CLI (`gh pr create`), GitLab CLI (`glab mr create`), or Agent SDKs.
 
 ## What `sdd check` verifies
 
