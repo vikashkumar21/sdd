@@ -147,8 +147,8 @@ Status: living document · Last updated: 2026-10-26
 | T-043 | Role-based agent skills: codebase-analyst and discovery phase mapping | M | T-040, T-041 | Canonical codebase-analyst skill, phase-discovery in .sdd/roles.json, 10-role export, and sdd check validation | D-039 | Done |
 | T-044 | Canonical protocol skills synchronization and taxonomy alignment | S | T-043 | Synchronize sdd-protocol, code-review, and coordinator skills with tasks/ typology, Review Triad, Rule F-001, and role aliases | none | Done |
 | T-045 | Turnkey sdd prompt discovery and brownfield synthesis protocol | S | T-044 | sdd prompt discovery command, progressive extraction guide, and brownfield synthesis into living docs | D-039 | Done |
-| T-046 | Universal CI workflows and automated PR packaging (sdd task pr) | M | T-042 | Adaptable CI workflow templates (GitHub, GitLab, Bitbucket, Azure DevOps, GCP, AWS), sdd task pr packaging command | D-040 | Awaiting review |
-| T-047 | Remote CI failure ingestion and diagnostic auto-repair loop | S | T-046 | sdd ingest --ci-log with ANSI stripping, secret sanitization, and bugfix reproduction seeding | D-040 | Not started |
+| T-046 | Universal CI workflows and automated PR packaging (sdd task pr) | M | T-042 | Adaptable CI workflow templates (GitHub, GitLab, Bitbucket, Azure DevOps, GCP, AWS), sdd task pr packaging command | D-040 | Done |
+| T-047 | Remote CI failure ingestion and diagnostic auto-repair loop | S | T-046 | sdd ingest --ci-log with ANSI stripping, secret sanitization, and bugfix reproduction seeding | D-040 | Awaiting review |
 | T-048 | Multi-agent coordinator contract and handover prompt template alignment | S | T-044, T-045 | Embedded contract and prompt templates updated with coordinator role and multi-subagent dispatches, template version 2.0.0, sdd upgrade parity verified | D-041 | Done |
 | T-049 | Prompt cache boundary optimization, compact handover, and brownfield README proposal | M | T-048 | Static-first prefix pinning, sdd prompt --compact, task state token tracking, and sdd init README proposal | D-042 | Done |
 

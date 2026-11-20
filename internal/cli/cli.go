@@ -75,7 +75,8 @@ commands:
   prompt plan-review <T-xxx> generate a pre-GATE 1 plan review prompt (--json for structured output)
   prompt implement <T-xxx>   generate a Phase B implementation prompt (--role implementer|qa|devops, --json)
   prompt review <T-xxx>      generate a turnkey subagent review prompt (--json for structured output)
-  ingest                     stage external context (text, files, stdin) into .sdd/context/
+  prompt repair <T-xxx>      generate a turnkey auto-repair prompt (--max-loops <N>, --json)
+  ingest                     stage external context (text, files, stdin, --ci-log) into .sdd/context/
   ci init                    generate CI workflow files for GitHub, GitLab, Bitbucket, Azure, GCP, AWS
   permissions                generate agent permission configs denying git state writes
   upgrade                    refresh kit files from newer templates without overwriting human edits

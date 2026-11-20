@@ -398,3 +398,40 @@ func TestNewAllTypologies(t *testing.T) {
 		t.Errorf("expected hypotheses.md to have Disposable Prototype Boundary: %s", hyp)
 	}
 }
+
+func TestNewFromCILog(t *testing.T) {
+	root := kit(t)
+	ciLog := `=== RUN   TestLoginFailure
+--- FAIL: TestLoginFailure (0.01s)
+    auth_test.go:42: expected 401 Unauthorized, got 500 Internal Server Error
+FAIL
+exit status 1
+`
+	now := time.Date(2026, 11, 19, 10, 0, 0, 0, time.UTC)
+	opts := Options{
+		Type:         TypologyBugfix,
+		FromCIData:   []byte(ciLog),
+		FromCIOrigin: "ci-run.log",
+		Now:          now,
+	}
+
+	res, err := NewWithOptions(root, "T-001", "fix-login-failure", opts)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if res.Dir != "tasks/bugfixes/T-001-fix-login-failure" {
+		t.Errorf("expected bugfix dir, got %s", res.Dir)
+	}
+	if res.StagedContext == "" {
+		t.Fatal("expected StagedContext to be non-empty")
+	}
+
+	repro := read(t, root, "tasks/bugfixes/T-001-fix-login-failure/reproduction.md")
+	if !strings.Contains(repro, "TestLoginFailure") {
+		t.Errorf("expected reproduction.md to contain TestLoginFailure, got:\n%s", repro)
+	}
+	if !strings.Contains(repro, "expected 401 Unauthorized, got 500") {
+		t.Errorf("expected reproduction.md to contain failure snippet, got:\n%s", repro)
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vikashkumar21/sdd/internal/cilog"
 	sddcontext "github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/doc"
 	"github.com/vikashkumar21/sdd/internal/fsutil"
@@ -148,6 +149,9 @@ type Options struct {
 	JiraOrigin   string    // filename or label of Jira source
 	FromDocData  []byte    // raw document or PDF bytes
 	FromDocPath  string    // original filename / path of document
+	FromCIData   []byte    // raw or sanitized CI failure log bytes
+	FromCIOrigin string    // original filename or staged ID of CI log
+	FromCIStaged bool      // true if CI log is already staged in .sdd/context/
 	Now          time.Time // clock injection for staging context (defaults to time.Now())
 }
 
@@ -266,6 +270,41 @@ func NewWithOptions(root, id, slug string, opts Options) (Result, error) {
 		docFormat = entry.Format
 	}
 
+	var ciDiag *cilog.Diagnostics
+	var ciStagedPath string
+	if len(opts.FromCIData) > 0 {
+		diag, sanitized, err := cilog.Parse(opts.FromCIData)
+		if err != nil {
+			return Result{}, fmt.Errorf("task: parse ci log: %w", err)
+		}
+		ciDiag = diag
+		opts.FromCIData = []byte(sanitized)
+
+		if !opts.FromCIStaged {
+			now := opts.Now
+			if now.IsZero() {
+				now = time.Now()
+			}
+			ciOrigin := filepath.Base(opts.FromCIOrigin)
+			if ciOrigin == "" || ciOrigin == "." {
+				ciOrigin = "ci-failure.log"
+			}
+			ciItem := sddcontext.Item{
+				Source: "file",
+				Origin: ciOrigin,
+				Name:   "ci-log",
+				Task:   id,
+				Format: "ci-log",
+				Data:   opts.FromCIData,
+			}
+			entry, err := sddcontext.Stage(root, ciItem, now)
+			if err != nil {
+				return Result{}, fmt.Errorf("task: stage ci log: %w", err)
+			}
+			ciStagedPath = entry.Path
+		}
+	}
+
 	topDir := typ.DirectoryIn(root)
 	tmplDir := topDir + "/_templates"
 	reqTemplates := typ.RequiredTemplates()
@@ -322,12 +361,19 @@ func NewWithOptions(root, id, slug string, opts Options) (Result, error) {
 			if docStagedPath != "" {
 				text = doc.InjectDocReference(text, docStagedPath, docOrigin, docFormat)
 			}
+			if ciDiag != nil && name == "reproduction.md" {
+				text = cilog.SeedBugfixReproduction(ciDiag, text)
+			}
 		}
 		rendered[name] = text
 	}
 
 	dirRel := topDir + "/" + id + "-" + slug
-	res := Result{Dir: dirRel, StagedContext: docStagedPath}
+	stagedCtx := docStagedPath
+	if stagedCtx == "" {
+		stagedCtx = ciStagedPath
+	}
+	res := Result{Dir: dirRel, StagedContext: stagedCtx}
 	for _, name := range templatesToRender {
 		rel := dirRel + "/" + name
 		if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(rel), []byte(rendered[name]), 0o644); err != nil {

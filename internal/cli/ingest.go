@@ -6,19 +6,23 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/vikashkumar21/sdd/internal/cilog"
 	"github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/doc"
+	"github.com/vikashkumar21/sdd/internal/feature"
 	"github.com/vikashkumar21/sdd/internal/jira"
 )
 
 type ingestOpts struct {
-	dir   string
-	text  string
-	name  string
-	task  string
-	jira  bool
-	pdf   bool
-	files stringList
+	dir        string
+	text       string
+	name       string
+	task       string
+	jira       bool
+	pdf        bool
+	ciLog      bool
+	seedBugfix bool
+	files      stringList
 }
 
 func runIngest(args []string, env IO) int {
@@ -30,6 +34,8 @@ func runIngest(args []string, env IO) int {
 	fs.StringVar(&o.task, "task", "", "task ID to associate context with (e.g. T-001)")
 	fs.BoolVar(&o.jira, "jira", false, "validate and stage context as a Jira issue")
 	fs.BoolVar(&o.pdf, "pdf", false, "validate and stage context as a PDF document")
+	fs.BoolVar(&o.ciLog, "ci-log", false, "validate, sanitize, and stage context as a CI failure log")
+	fs.BoolVar(&o.seedBugfix, "seed-bugfix", false, "automatically seed a bugfix task folder from the failure diagnostics (requires --task)")
 	fs.Var(&o.files, "file", "path to file to stage as context (repeatable)")
 
 	pos, err := parseInterspersed(fs, args)
@@ -39,6 +45,14 @@ func runIngest(args []string, env IO) int {
 	if len(pos) > 0 {
 		fprintf(env.Err, "sdd ingest: unexpected argument %q\n", pos[0])
 		return 2
+	}
+
+	if o.seedBugfix {
+		if o.task == "" {
+			fprintln(env.Err, "sdd ingest: --seed-bugfix requires --task <T-xxx>")
+			return 2
+		}
+		o.ciLog = true
 	}
 
 	root, err := filepath.Abs(o.dir)
@@ -123,6 +137,27 @@ func runIngest(args []string, env IO) int {
 			it.Format = "pdf"
 		}
 
+		var ciDiag *cilog.Diagnostics
+		if o.ciLog {
+			diag, sanitized, err := cilog.Parse(it.Data)
+			if err != nil {
+				fprintf(env.Err, "sdd ingest: invalid ci log: %v\n", err)
+				return 1
+			}
+			ciDiag = diag
+			it.Format = "ci-log"
+			it.Data = []byte(sanitized)
+			if it.Name == "" {
+				if len(diag.FailedTests) > 0 {
+					it.Name = slugify(diag.FailedTests[0])
+				} else if diag.FailedStep != "" {
+					it.Name = slugify(diag.FailedStep)
+				} else {
+					it.Name = "ci-failure"
+				}
+			}
+		}
+
 		entry, err := context.Stage(root, it, now)
 		if err != nil {
 			fprintf(env.Err, "sdd ingest: %v\n", err)
@@ -130,8 +165,56 @@ func runIngest(args []string, env IO) int {
 		}
 		fprintf(env.Out, "Staged %s (%s, %d bytes) -> %s\n", entry.ID, entry.Format, entry.Bytes, entry.Path)
 		stagedCount++
+
+		if o.seedBugfix && ciDiag != nil {
+			slug := o.name
+			if slug == "" {
+				if len(ciDiag.FailedTests) > 0 {
+					slug = slugify(ciDiag.FailedTests[0])
+				} else if ciDiag.FailedStep != "" {
+					slug = slugify(ciDiag.FailedStep)
+				} else {
+					slug = "ci-failure"
+				}
+			}
+			slug = slugify(slug)
+
+			opts := feature.Options{
+				Type:         feature.TypologyBugfix,
+				FromCIData:   it.Data,
+				FromCIOrigin: it.Origin,
+				FromCIStaged: true,
+				Now:          now,
+			}
+			res, err := feature.NewWithOptions(root, o.task, slug, opts)
+			if err != nil {
+				fprintf(env.Err, "sdd ingest: seed bugfix task: %v\n", err)
+				return 1
+			}
+			fprintf(env.Out, "Seeded bugfix task %s in %s\n", o.task, res.Dir)
+		}
 	}
 
 	fprintf(env.Out, "\nSuccessfully staged %d context item(s) in %s\n", stagedCount, context.ManifestPath)
 	return 0
+}
+
+func slugify(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	var b strings.Builder
+	lastHyphen := false
+	for _, r := range s {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			b.WriteRune(r)
+			lastHyphen = false
+		} else if !lastHyphen && b.Len() > 0 {
+			b.WriteByte('-')
+			lastHyphen = true
+		}
+	}
+	res := strings.Trim(b.String(), "-")
+	if res == "" {
+		return "ci-failure"
+	}
+	return res
 }

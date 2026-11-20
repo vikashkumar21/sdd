@@ -89,6 +89,9 @@ sdd task merge T-003 --dry-run                # qualify pre-merge matrix, blast 
 sdd task merge T-003                          # merge task branch into main after 0 blockers & regression sweeps
 sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements from Jira and stage into context
 sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements
+sdd bugfix new T-003 auth-failure --from-ci failure.log      # seed bugfix reproduction.md from raw or staged CI failure log
+sdd ingest --ci-log --file failure.log                       # scrub ANSI/secrets and stage sanitized CI failure log into context
+sdd ingest --ci-log --seed-bugfix --task T-003 --file log    # stage sanitized CI log and seed bugfix task folder
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
 sdd prompt gemini --compact # generate high-density micro-context prompt (< 400 tokens)
 sdd prompt discovery                        # generate turnkey brownfield exploration prompt (codebase-analyst role, --json)
@@ -103,6 +106,9 @@ sdd prompt review T-003 --lens security      # review focused on AppSec, threat 
 sdd prompt review T-003 --lens pattern       # review focused on architecture decisions, determinism & language idioms
 sdd prompt review T-003 --lens all           # ensemble review covering all three lenses (default)
 sdd prompt review T-003 --json               # structured review context bundle with lens metadata for Agent SDKs
+sdd prompt repair T-003                       # generate turnkey auto-repair prompt for bugfix reproduction & resolution
+sdd prompt repair T-003 --max-loops 3         # configure auto-repair loop ceiling before circuit breaker halt (1-5)
+sdd prompt repair T-003 --json                # structured repair context bundle with loop tracking for Agent SDKs
 
 sdd ci init                               # generate CI workflow for GitHub Actions (.github/workflows/sdd-check.yml)
 sdd ci init --platform all                # generate workflows for GitHub, GitLab, Bitbucket, Azure, GCP, and AWS

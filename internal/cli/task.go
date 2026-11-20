@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/coordinator"
 	"github.com/vikashkumar21/sdd/internal/deconflict"
 	"github.com/vikashkumar21/sdd/internal/feature"
@@ -207,13 +208,14 @@ func runTaskNewWithFlag(args []string, env IO) int {
 	title := fs.String("title", "", "task title (default: the title in ROADMAP.md)")
 	fromJira := fs.String("from-jira", "", "path or raw text of a Jira issue to import and stage into context")
 	fromDoc := fs.String("from-doc", "", "path to reference document or PDF to stage into context")
+	fromCI := fs.String("from-ci", "", "path or staged context ID of a CI failure log to import and stage into context")
 
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
 		return parseExit(err)
 	}
 	if len(pos) != 2 {
-		fprintln(env.Err, "usage: sdd task new [--type feature|bugfix|hotfix|spike] <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--from-doc <file>] [--dir <project>]")
+		fprintln(env.Err, "usage: sdd task new [--type feature|bugfix|hotfix|spike] <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--from-doc <file>] [--from-ci <file|staged-id>] [--dir <project>]")
 		return 2
 	}
 
@@ -223,12 +225,12 @@ func runTaskNewWithFlag(args []string, env IO) int {
 		return 2
 	}
 
-	return executeTaskScaffold(pos[0], pos[1], typ, *dir, *title, *fromJira, *fromDoc, "task new", env)
+	return executeTaskScaffold(pos[0], pos[1], typ, *dir, *title, *fromJira, *fromDoc, *fromCI, "task new", env)
 }
 
 func runTaskNew(args []string, defaultTypology feature.Typology, cmdName string, env IO) int {
 	if len(args) == 0 || args[0] != "new" {
-		fprintf(env.Err, "usage: sdd %s new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--from-doc <file>] [--dir <project>]\n", cmdName)
+		fprintf(env.Err, "usage: sdd %s new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--from-doc <file>] [--from-ci <file|staged-id>] [--dir <project>]\n", cmdName)
 		return 2
 	}
 	fs := newFlagSet(cmdName+" new", env)
@@ -236,19 +238,20 @@ func runTaskNew(args []string, defaultTypology feature.Typology, cmdName string,
 	title := fs.String("title", "", "task title (default: the title in ROADMAP.md)")
 	fromJira := fs.String("from-jira", "", "path or raw text of a Jira issue to import and stage into context")
 	fromDoc := fs.String("from-doc", "", "path to reference document or PDF to stage into context")
+	fromCI := fs.String("from-ci", "", "path or staged context ID of a CI failure log to import and stage into context")
 	pos, err := parseInterspersed(fs, args[1:])
 	if err != nil {
 		return parseExit(err)
 	}
 	if len(pos) != 2 {
-		fprintf(env.Err, "usage: sdd %s new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--from-doc <file>] [--dir <project>]\n", cmdName)
+		fprintf(env.Err, "usage: sdd %s new <T-xxx> <slug> [--title \"...\"] [--from-jira <file|string>] [--from-doc <file>] [--from-ci <file|staged-id>] [--dir <project>]\n", cmdName)
 		return 2
 	}
 
-	return executeTaskScaffold(pos[0], pos[1], defaultTypology, *dir, *title, *fromJira, *fromDoc, cmdName, env)
+	return executeTaskScaffold(pos[0], pos[1], defaultTypology, *dir, *title, *fromJira, *fromDoc, *fromCI, cmdName, env)
 }
 
-func executeTaskScaffold(id, slug string, typ feature.Typology, dir, title, fromJira, fromDoc, cmdName string, env IO) int {
+func executeTaskScaffold(id, slug string, typ feature.Typology, dir, title, fromJira, fromDoc, fromCI, cmdName string, env IO) int {
 	root, err := filepath.Abs(dir)
 	if err != nil {
 		fprintf(env.Err, "sdd %s: %v\n", cmdName, err)
@@ -301,6 +304,46 @@ func executeTaskScaffold(id, slug string, typ feature.Typology, dir, title, from
 		docPath = filePath
 	}
 
+	var ciData []byte
+	var ciOrigin string
+	var ciStaged bool
+	if fromCI != "" {
+		// 1. Check if fromCI matches a staged context ID in manifest
+		if m, ok, err := context.ReadManifest(root); err == nil && ok {
+			for _, e := range m.Entries {
+				if e.ID == fromCI {
+					p := filepath.Join(root, filepath.FromSlash(e.Path))
+					if d, err := os.ReadFile(p); err == nil {
+						ciData = d
+						ciOrigin = e.Origin
+						ciStaged = true
+						break
+					}
+				}
+			}
+		}
+
+		// 2. If not found in manifest, treat as file path
+		if ciData == nil {
+			filePath := fromCI
+			if !filepath.IsAbs(filePath) {
+				if _, err := os.Stat(filePath); err != nil {
+					candidate := filepath.Join(root, filePath)
+					if _, err2 := os.Stat(candidate); err2 == nil {
+						filePath = candidate
+					}
+				}
+			}
+			d, err := os.ReadFile(filePath)
+			if err != nil {
+				fprintf(env.Err, "sdd %s: read ci log file %s: %v\n", cmdName, fromCI, err)
+				return 1
+			}
+			ciData = d
+			ciOrigin = filepath.Base(filePath)
+		}
+	}
+
 	opts := feature.Options{
 		Type:         typ,
 		Title:        title,
@@ -308,6 +351,9 @@ func executeTaskScaffold(id, slug string, typ feature.Typology, dir, title, from
 		JiraOrigin:   jiraOrigin,
 		FromDocData:  docData,
 		FromDocPath:  docPath,
+		FromCIData:   ciData,
+		FromCIOrigin: ciOrigin,
+		FromCIStaged: ciStaged,
 		Now:          env.now(),
 	}
 	res, err := feature.NewWithOptions(root, id, slug, opts)

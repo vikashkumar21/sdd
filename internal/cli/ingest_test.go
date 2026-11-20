@@ -355,3 +355,152 @@ func TestCLIFeatureNewFromDoc(t *testing.T) {
 		t.Errorf("expected prompt to include 'pdf (multimodal inspection)':\n%s", out.String())
 	}
 }
+
+func TestIngest_CILog(t *testing.T) {
+	root := t.TempDir()
+	logContent := "\x1b[31m=== RUN   TestUserAuth\x1b[0m\n" +
+		"--- FAIL: TestUserAuth (0.02s)\n" +
+		"    auth_test.go:50: failed to authenticate with token Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\n" +
+		"    aws_key = AKIAIOSFODNN7EXAMPLE\n" +
+		"FAIL\n" +
+		"exit status 1\n"
+
+	logFile := filepath.Join(t.TempDir(), "failing-ci.log")
+	if err := os.WriteFile(logFile, []byte(logContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errBuf bytes.Buffer
+	env := IO{
+		Out: &out,
+		Err: &errBuf,
+		Now: func() time.Time { return time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC) },
+	}
+
+	// 1. Ingest via --file
+	code := Run([]string{"ingest", "--dir", root, "--ci-log", "--file", logFile, "--name", "ci-build-failure"}, env)
+	if code != 0 {
+		t.Fatalf("ingest --ci-log failed with %d: %s", code, errBuf.String())
+	}
+
+	m, ok, err := context.ReadManifest(root)
+	if err != nil || !ok {
+		t.Fatalf("ReadManifest failed: ok=%v, err=%v", ok, err)
+	}
+	if len(m.Entries) != 1 {
+		t.Fatalf("expected 1 entry, got %d", len(m.Entries))
+	}
+	if m.Entries[0].Format != "ci-log" {
+		t.Errorf("expected format ci-log, got %s", m.Entries[0].Format)
+	}
+
+	stagedPath := filepath.Join(root, filepath.FromSlash(m.Entries[0].Path))
+	data, err := os.ReadFile(stagedPath)
+	if err != nil {
+		t.Fatalf("failed to read staged log: %v", err)
+	}
+	content := string(data)
+	if strings.Contains(content, "\x1b[31m") {
+		t.Errorf("staged log contains ANSI escape codes:\n%s", content)
+	}
+	if strings.Contains(content, "AKIAIOSFODNN7EXAMPLE") {
+		t.Errorf("staged log leaked AWS key:\n%s", content)
+	}
+	if !strings.Contains(content, "[AWS_KEY_REDACTED]") {
+		t.Errorf("expected [AWS_KEY_REDACTED] in staged log:\n%s", content)
+	}
+	if strings.Contains(content, "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9") {
+		t.Errorf("staged log leaked Bearer token:\n%s", content)
+	}
+	if !strings.Contains(content, "Bearer [REDACTED]") {
+		t.Errorf("expected 'Bearer [REDACTED]' in staged log:\n%s", content)
+	}
+
+	// 2. Ingest via stdin
+	out.Reset()
+	errBuf.Reset()
+	stdinLog := "=== RUN   TestPipedStdin\n--- FAIL: TestPipedStdin (0.01s)\nFAIL\n"
+	envStdin := IO{
+		In:          strings.NewReader(stdinLog),
+		Out:         &out,
+		Err:         &errBuf,
+		Interactive: false,
+		Now:         func() time.Time { return time.Date(2026, 11, 19, 12, 1, 0, 0, time.UTC) },
+	}
+	code = Run([]string{"ingest", "--dir", root, "--ci-log"}, envStdin)
+	if code != 0 {
+		t.Fatalf("ingest --ci-log stdin failed with %d: %s", code, errBuf.String())
+	}
+
+	m, ok, err = context.ReadManifest(root)
+	if err != nil || !ok || len(m.Entries) != 2 {
+		t.Fatalf("expected 2 entries in manifest, got %d", len(m.Entries))
+	}
+	if m.Entries[1].Format != "ci-log" {
+		t.Errorf("expected entry 1 format ci-log, got %s", m.Entries[1].Format)
+	}
+}
+
+func TestIngest_CILog_SeedBugfix(t *testing.T) {
+	root := t.TempDir()
+	var out, errBuf bytes.Buffer
+	env := IO{
+		Out: &out,
+		Err: &errBuf,
+		Now: func() time.Time { return time.Date(2026, 11, 19, 12, 0, 0, 0, time.UTC) },
+	}
+
+	// Initialize kit
+	initCode := Run([]string{"init", "--yes", "--dir", root, "--name", "demo"}, env)
+	if initCode != 0 {
+		t.Fatalf("init failed: %s", errBuf.String())
+	}
+
+	logContent := "=== RUN   TestPaymentCheckout\n" +
+		"--- FAIL: TestPaymentCheckout (0.05s)\n" +
+		"    checkout_test.go:88: card expired error not propagated\n" +
+		"FAIL\n" +
+		"exit status 1\n"
+
+	logFile := filepath.Join(t.TempDir(), "ci-error.log")
+	if err := os.WriteFile(logFile, []byte(logContent), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Error if --seed-bugfix passed without --task
+	out.Reset()
+	errBuf.Reset()
+	code := Run([]string{"ingest", "--dir", root, "--ci-log", "--seed-bugfix", "--file", logFile}, env)
+	if code != 2 {
+		t.Errorf("expected exit code 2 when --seed-bugfix lacks --task, got %d", code)
+	}
+	if !strings.Contains(errBuf.String(), "--seed-bugfix requires --task") {
+		t.Errorf("expected '--seed-bugfix requires --task' in error, got %s", errBuf.String())
+	}
+
+	// 2. Successful seed bugfix
+	out.Reset()
+	errBuf.Reset()
+	code = Run([]string{"ingest", "--dir", root, "--ci-log", "--seed-bugfix", "--task", "T-001", "--file", logFile}, env)
+	if code != 0 {
+		t.Fatalf("ingest --seed-bugfix failed with %d: %s", code, errBuf.String())
+	}
+
+	if !strings.Contains(out.String(), "Seeded bugfix task T-001") {
+		t.Errorf("expected output to mention seeded bugfix task, got: %s", out.String())
+	}
+
+	// Check reproduction.md
+	reproFile := filepath.Join(root, "tasks", "bugfixes", "T-001-testpaymentcheckout", "reproduction.md")
+	reproBytes, err := os.ReadFile(reproFile)
+	if err != nil {
+		t.Fatalf("reading reproduction.md: %v", err)
+	}
+	repro := string(reproBytes)
+	if !strings.Contains(repro, "TestPaymentCheckout") {
+		t.Errorf("expected reproduction.md to mention TestPaymentCheckout:\n%s", repro)
+	}
+	if !strings.Contains(repro, "card expired error not propagated") {
+		t.Errorf("expected reproduction.md to include failure snippet:\n%s", repro)
+	}
+}

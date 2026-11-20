@@ -183,3 +183,87 @@ func TestTaskPR_OutputFile(t *testing.T) {
 		t.Errorf("expected Summary in generated file, got: %s", string(data))
 	}
 }
+
+func TestBugfixNew_FromCI(t *testing.T) {
+	root := t.TempDir()
+	var out, errOut bytes.Buffer
+	env := IO{Out: &out, Err: &errOut}
+
+	// 1. Initialize kit
+	initCode := Run([]string{"init", "--yes", "--dir", root, "--name", "demo"}, env)
+	if initCode != 0 {
+		t.Fatalf("init failed: %s", errOut.String())
+	}
+
+	ciLog := `=== RUN   TestAuthRefresh
+--- FAIL: TestAuthRefresh (0.01s)
+    auth_test.go:10: refresh token expired
+FAIL
+exit status 1
+`
+	ciFile := filepath.Join(t.TempDir(), "test-ci.log")
+	if err := os.WriteFile(ciFile, []byte(ciLog), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// 2. bugfix new with --from-ci <file>
+	out.Reset()
+	errOut.Reset()
+	code := Run([]string{"bugfix", "new", "T-001", "auth-refresh-fix", "--from-ci", ciFile, "--dir", root}, env)
+	if code != 0 {
+		t.Fatalf("bugfix new --from-ci failed with %d: %s", code, errOut.String())
+	}
+
+	reproPath := filepath.Join(root, "tasks", "bugfixes", "T-001-auth-refresh-fix", "reproduction.md")
+	reproBytes, err := os.ReadFile(reproPath)
+	if err != nil {
+		t.Fatalf("failed to read reproduction.md: %v", err)
+	}
+	repro := string(reproBytes)
+	if !strings.Contains(repro, "TestAuthRefresh") {
+		t.Errorf("expected reproduction.md to contain TestAuthRefresh:\n%s", repro)
+	}
+	if !strings.Contains(repro, "refresh token expired") {
+		t.Errorf("expected reproduction.md to contain failure snippet:\n%s", repro)
+	}
+
+	// 3. task new --type bugfix with --from-ci <staged-id>
+	// Append T-002 row to ROADMAP.md
+	roadmapPath := filepath.Join(root, "ROADMAP.md")
+	rmContent, err := os.ReadFile(roadmapPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	newRM := string(rmContent) + "\n| T-002 | Auth error fix | S | T-001 | fix | none | Not started |\n"
+	if err := os.WriteFile(roadmapPath, []byte(newRM), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out.Reset()
+	errOut.Reset()
+	code = Run([]string{"task", "new", "--type", "bugfix", "T-002", "auth-staged-fix", "--from-ci", "ctx-001", "--dir", root}, env)
+	if code != 0 {
+		t.Fatalf("task new --type bugfix --from-ci failed with %d: %s", code, errOut.String())
+	}
+
+	reproPath2 := filepath.Join(root, "tasks", "bugfixes", "T-002-auth-staged-fix", "reproduction.md")
+	reproBytes2, err := os.ReadFile(reproPath2)
+	if err != nil {
+		t.Fatalf("failed to read reproduction.md for T-002: %v", err)
+	}
+	repro2 := string(reproBytes2)
+	if !strings.Contains(repro2, "TestAuthRefresh") {
+		t.Errorf("expected reproduction.md for T-002 to contain TestAuthRefresh:\n%s", repro2)
+	}
+
+	// 4. Negative test: non-existent file or context ID
+	out.Reset()
+	errOut.Reset()
+	code = Run([]string{"bugfix", "new", "T-003", "auth-missing-fix", "--from-ci", "non-existent-file.log", "--dir", root}, env)
+	if code != 1 {
+		t.Errorf("expected exit code 1 for non-existent --from-ci target, got %d", code)
+	}
+	if !strings.Contains(errOut.String(), "read ci log file") {
+		t.Errorf("expected read error message, got: %s", errOut.String())
+	}
+}

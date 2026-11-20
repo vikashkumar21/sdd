@@ -187,6 +187,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-16 | Multi-agent coordinator contract template, handover prompt briefing, template version 2.0.0, sdd upgrade in-place contract refresh, and CLI version 1.7.0 verified | Run in internal/templates, internal/cli, internal/upgrade tests (T-048) | M12 |
 | 2026-11-18 | Prompt cache prefix pinning, sdd prompt --compact, task token tracking (.sdd/state/<TASK_ID>/), brownfield README.md.sdd-new proposal, and template version 2.0.0 verified | Run in internal/cli, internal/state, internal/status, and internal/scaffold tests (T-049) | M12 |
 | 2026-11-19 | Universal CI workflow generation (GitHub, GitLab, Bitbucket, Azure DevOps, GCP, AWS) with compile/build step and publish placeholders, sdd task pr packaging engine across 4 typologies, Review Triad blocker qualification, and JSON PR bundles verified | Run in internal/ci, internal/taskpr, and internal/cli tests (T-046) | M11 |
+| 2026-11-19 | CI failure log ingestion (sdd ingest --ci-log), ANSI stripping, secret sanitization (AWS, GitHub tokens, Bearer, private keys), bugfix reproduction seeding (sdd bugfix new --from-ci), and sdd prompt repair with configurable loop ceiling (--max-loops) and circuit breaker halt verified | Run in internal/cilog, internal/cli, internal/feature tests (T-047) | M11 |
 
 ## 8. Dependency register
 

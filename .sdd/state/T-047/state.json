@@ -1,0 +1,8 @@
+{
+  "tokens": {
+    "cache_read_tokens": 180000,
+    "input_tokens": 45000,
+    "output_tokens": 12000,
+    "total_tokens": 237000
+  }
+}
