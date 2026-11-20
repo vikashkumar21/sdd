@@ -176,14 +176,17 @@ Unfamiliar technology derails projects. To prevent that:
 
 ## 8. Next action
 
-1. M0 through M10 are complete (43 tasks delivered).
-2. Active milestone: Milestone 11: Codebase Discovery & Remote CI/PR Orchestration (T-043 – T-049; 5/7 tasks complete).
-3. Active task: T-046 (Universal CI workflows and automated PR packaging) in Phase B (Implementing).
+1. M0 through M11 are complete (50 tasks delivered, 100% roadmap completion).
+2. Release v1.8.0 tagged and cross-platform release binaries built.
+3. Next milestone / parking lot tasks or user-directed enhancements.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-20 | Release v1.8.0: multi-platform static binaries (darwin, linux, windows), template version 2.1.0, CI failure ingestion, universal CI templates, task PR packaging, prompt cache optimization, and compact handover |
+| 2026-11-19 | T-047: Remote CI failure ingestion, diagnostic auto-repair loop, and secret sanitization done |
+| 2026-11-19 | T-046: Universal CI workflows and automated PR packaging (sdd task pr) done |
 | 2026-11-19 | T-049: Prompt cache boundary optimization, compact handover, and brownfield README proposal done |
 | 2026-11-18 | T-049: Prompt cache boundary optimization, compact handover, and brownfield README proposal awaiting review |
 | 2026-11-16 | T-048: Multi-agent coordinator contract and handover prompt template alignment done |

@@ -851,7 +851,7 @@ func TestUpgradeContractToV2(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	v190Claude := strings.Replace(string(existingClaude), "templates=2.0.0", "templates=1.9.0", 1)
+	v190Claude := strings.Replace(string(existingClaude), "templates="+templates.Version, "templates=1.9.0", 1)
 	v190Claude = strings.Replace(v190Claude, "Coordinator & Subagent Actions", "What the agent does", 1)
 	v190Claude = strings.Replace(v190Claude, "Two-tier agent hierarchy & role dispatch", "Two-tier agent hierarchy", 1)
 	humanNote := "\n\n## Custom User Guidelines\n- Always use deterministic timestamps.\n"
@@ -904,8 +904,8 @@ func TestUpgradeContractToV2(t *testing.T) {
 	}
 	upgradedStr := string(upgradedBytes)
 
-	if !strings.Contains(upgradedStr, "templates=2.0.0") {
-		t.Errorf("expected CLAUDE.md to have templates=2.0.0, got:\n%s", upgradedStr)
+	if !strings.Contains(upgradedStr, "templates="+templates.Version) {
+		t.Errorf("expected CLAUDE.md to have templates=%s, got:\n%s", templates.Version, upgradedStr)
 	}
 	if !strings.Contains(upgradedStr, "Coordinator & Subagent Actions") {
 		t.Errorf("expected CLAUDE.md to have Coordinator & Subagent Actions, got:\n%s", upgradedStr)
@@ -917,13 +917,13 @@ func TestUpgradeContractToV2(t *testing.T) {
 		t.Errorf("custom human text outside managed block was lost!\n%s", upgradedStr)
 	}
 
-	// Verify manifest was updated to 2.0.0
+	// Verify manifest was updated to templates.Version
 	upgradedManifestBytes, err := os.ReadFile(manifestPath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(upgradedManifestBytes), `"version": "2.0.0"`) {
-		t.Errorf("expected manifest to be updated to 2.0.0, got:\n%s", string(upgradedManifestBytes))
+	if !strings.Contains(string(upgradedManifestBytes), `"version": "`+templates.Version+`"`) {
+		t.Errorf("expected manifest to be updated to %s, got:\n%s", templates.Version, string(upgradedManifestBytes))
 	}
 	_ = rep
 }

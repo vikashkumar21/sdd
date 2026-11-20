@@ -5,7 +5,7 @@
     "version": "0.1.0"
   },
   "templates": {
-    "version": "2.0.0"
+    "version": "2.1.0"
   },
   "generated": "2026-10-26",
   "answers": {
@@ -88,19 +88,19 @@
       "path": "tasks/features/_templates/requirements.md",
       "kind": "file",
       "state": "created",
-      "sha256": "fdca3003938a0da3aae3be9b13b17df81f2b6dde4f33808feba590fc399b23cd"
+      "sha256": "af9f952655bafe489ef2ecaf19745ad8de4f9daafc8b8e8bc4caed08f22194ac"
     },
     {
       "path": "tasks/features/_templates/plan.md",
       "kind": "file",
       "state": "created",
-      "sha256": "fa2e1cf0c720b5cc9f9983e72761da6ef6891c5b90359428b026a5b50580c5eb"
+      "sha256": "4e437485cdd1da6febefe57207b651e742e3f9c2c2f85db2d15d2ceb669235d4"
     },
     {
       "path": "tasks/features/_templates/validation.md",
       "kind": "file",
       "state": "created",
-      "sha256": "f658580deb7575664d38ac419dc8948caeeb1e3fd7d8bd696e087022cc9995f5"
+      "sha256": "ea68d768fa0d5a1471903f035bf219c97f93b081dfe57001db49bea8f8e6adb1"
     }
   ]
 }

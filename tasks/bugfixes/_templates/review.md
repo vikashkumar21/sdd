@@ -1,3 +1,6 @@
+---
+status: draft
+---
 # Code Review — T-xxx <title>
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
@@ -32,7 +35,7 @@ Commit / Diff Ref: <HEAD / diff summary>
 
 ### Severity Guidelines:
 - 🔴 **Blocker (Developer Attention Needed):** Regression, unverified fix, plan drift. MUST be resolved before GATE 2 commit.
-- 🟡 **Warning (Attention Suggested):** Sub-optimal pattern, missing boundary test, doc omission.
+- 🟡 **Warning (Attention Suggested):** Sub-optimal pattern, edge case risk, missing doc or comment.
 - 🟢 **Minor (Safe / Informational):** Style, minor naming or micro-optimization.
 
 ## 3. Reusable Knowledge & Feedback Synthesis

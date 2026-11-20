@@ -1,3 +1,6 @@
+---
+status: draft
+---
 # Hotfix Incident Assessment — T-xxx <title>
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
