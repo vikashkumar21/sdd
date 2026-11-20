@@ -43,7 +43,8 @@ Prebuilt static binaries for macOS, Linux, and Windows are available in `dist/` 
 ### 3. From source (needs Go)
 
 ```bash
-cd /Users/vikash/projects/sdd
+git clone https://github.com/vikashkumar21/sdd.git
+cd sdd
 make install        # installs `sdd` into $(go env GOBIN) or $(go env GOPATH)/bin; put that on your PATH
 which sdd           # check that no other `sdd` shadows it
 sdd version
