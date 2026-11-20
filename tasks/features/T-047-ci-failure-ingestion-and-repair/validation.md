@@ -118,4 +118,4 @@ $ ./bin/sdd check --strict
 
 ## 9. Sign-off
 Suggested commit message: `feat(cilog): add CI failure ingestion, secret sanitization, bugfix reproduction seeding, and sdd prompt repair`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-047`
+Reviewed by: Vikash   Date: 2026-11-20   Reply received: `COMMITTED T-047`
