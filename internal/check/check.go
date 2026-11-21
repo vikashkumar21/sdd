@@ -246,6 +246,7 @@ func (c *checker) run() {
 		c.checkFences(rel, text)
 		c.checkTables(rel, text)
 		c.checkLifecycle(rel, text)
+		c.checkPathHygiene(rel, text)
 	}
 	c.checkReferences(docs)
 	c.checkParity(agents)

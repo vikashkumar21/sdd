@@ -4,7 +4,7 @@
 
 **Reviewer:** Independent Senior Go Engineer & Reviewer  
 **Host Environment Verified:** Darwin arm64, `go version go1.27.3 darwin/arm64`, `golangci-lint v2.15.0`, `GNU Make 3.81`  
-**Target Codebase:** `/Users/vikash/projects/sdd` (Commit `d91c9c2`)  
+**Target Codebase:** `github.com/vikashkumar21/sdd` (Commit `d91c9c2`)  
 **Status:** Complete (Awaiting GATE 2 review)
 
 ---

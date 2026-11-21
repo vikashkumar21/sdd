@@ -193,6 +193,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-19 | Universal CI workflow generation (GitHub, GitLab, Bitbucket, Azure DevOps, GCP, AWS) with compile/build step and publish placeholders, sdd task pr packaging engine across 4 typologies, Review Triad blocker qualification, and JSON PR bundles verified | Run in internal/ci, internal/taskpr, and internal/cli tests (T-046) | M12 |
 | 2026-11-19 | CI failure log ingestion (sdd ingest --ci-log), ANSI stripping, secret sanitization (AWS, GitHub tokens, Bearer, private keys), bugfix reproduction seeding (sdd bugfix new --from-ci), and sdd prompt repair with configurable loop ceiling (--max-loops) and circuit breaker halt verified | Run in internal/cilog, internal/cli, internal/feature tests (T-047) | M12 |
 | 2026-11-20 | Release v1.8.0 cross-platform static binaries (darwin, linux, windows), template version 2.1.0, and SHA256SUMS verified | Build, tests, and make dist | M12 |
+| 2026-11-21 | Path hygiene validator (rule path-hygiene / F-002), linear-time RE2 home directory scanner, deconflict header matching fix, and zero personal paths across tracked docs verified | Run in internal/check, internal/deconflict, and sdd check --strict (T-050) | M12 |
 
 ## 8. Dependency register
 

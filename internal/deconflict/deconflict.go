@@ -63,14 +63,17 @@ func ExtractPlanFiles(content string) []string {
 			break
 		}
 		if inFilesSection && strings.HasPrefix(line, "|") {
-			// Skip markdown table separator and header lines
-			if strings.Contains(line, "---") || strings.Contains(strings.ToLower(line), "action") || strings.Contains(strings.ToLower(line), "path") {
+			// Skip markdown table separator lines
+			if strings.Contains(line, "---") {
 				continue
 			}
 			parts := strings.Split(line, "|")
 			if len(parts) >= 2 {
-				rawPath := strings.TrimSpace(parts[1])
-				rawPath = strings.Trim(rawPath, "` \t\r\n")
+				rawPath := strings.Trim(strings.TrimSpace(parts[1]), "` \t\r\n")
+				lower := strings.ToLower(rawPath)
+				if lower == "path" || lower == "file" || lower == "files" || lower == "action" {
+					continue
+				}
 				normPath := filepath.ToSlash(filepath.Clean(rawPath))
 				normPath = strings.TrimPrefix(normPath, "./")
 

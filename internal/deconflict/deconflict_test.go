@@ -43,6 +43,36 @@ Standard library only.
 	}
 }
 
+func TestExtractPlanFiles_PathNames(t *testing.T) {
+	planContent := `# Plan — T-050 Path hygiene validator
+## 5. Files to create or modify
+
+| Path | Action | Reason |
+|---|---|---|
+| ` + "`" + `internal/check/paths.go` + "`" + ` | create | Path hygiene checking logic |
+| ` + "`" + `internal/check/paths_test.go` + "`" + ` | create | Unit tests for path validator |
+| internal/deconflict/deconflict.go | modify | Update action table parser |
+
+## 6. Dependencies
+Standard library only.
+`
+	files := ExtractPlanFiles(planContent)
+	expected := []string{
+		"internal/check/paths.go",
+		"internal/check/paths_test.go",
+		"internal/deconflict/deconflict.go",
+	}
+
+	if len(files) != len(expected) {
+		t.Fatalf("expected %d files, got %d: %+v", len(expected), len(files), files)
+	}
+	for i := range expected {
+		if files[i] != expected[i] {
+			t.Errorf("at index %d: expected %s, got %s", i, expected[i], files[i])
+		}
+	}
+}
+
 func TestDisjointTasksParallel(t *testing.T) {
 	t1 := TaskPlan{
 		TaskID: "T-001",
