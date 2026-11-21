@@ -323,8 +323,16 @@ type RecordTokensResult struct {
 	Totals    state.TokenTelemetry `json:"totals"`
 }
 
+func runRecordTokens(args []string, env IO) int {
+	return doRecordTokens("record-tokens", args, env)
+}
+
 func runTaskStateRecordTokens(args []string, env IO) int {
-	fs := newFlagSet("task state record-tokens", env)
+	return doRecordTokens("task state record-tokens", args, env)
+}
+
+func doRecordTokens(cmdName string, args []string, env IO) int {
+	fs := newFlagSet(cmdName, env)
 	dir := fs.String("dir", ".", "project root")
 	inputFlag := fs.Int64("input", 0, "input token delta")
 	cacheFlag := fs.Int64("cache", 0, "cache read token delta")
@@ -337,13 +345,13 @@ func runTaskStateRecordTokens(args []string, env IO) int {
 		return parseExit(err)
 	}
 	if len(pos) != 1 {
-		fprintln(env.Err, "usage: sdd task state record-tokens <T-xxx> [--input <N>] [--cache <N>] [--output <N>] [--stdin] [--json] [--dir <project>]")
+		fprintf(env.Err, "usage: sdd %s <T-xxx> [--input <N>] [--cache <N>] [--output <N>] [--stdin] [--json] [--dir <project>]\n", cmdName)
 		return 2
 	}
 
 	normID, err := state.ValidateTaskID(pos[0])
 	if err != nil {
-		fprintf(env.Err, "sdd task state record-tokens: %v\n", err)
+		fprintf(env.Err, "sdd %s: %v\n", cmdName, err)
 		return 1
 	}
 
@@ -354,7 +362,7 @@ func runTaskStateRecordTokens(args []string, env IO) int {
 	if *stdinFlag {
 		data, err := state.ReadBounded(env.In, state.MaxStdinEventBytes)
 		if err != nil {
-			fprintf(env.Err, "sdd task state record-tokens: read stdin: %v\n", err)
+			fprintf(env.Err, "sdd %s: read stdin: %v\n", cmdName, err)
 			return 1
 		}
 		var parsed struct {
@@ -366,7 +374,7 @@ func runTaskStateRecordTokens(args []string, env IO) int {
 			OutputToks int64 `json:"output_tokens"`
 		}
 		if err := json.Unmarshal(data, &parsed); err != nil {
-			fprintf(env.Err, "sdd task state record-tokens: invalid JSON from stdin: %v\n", err)
+			fprintf(env.Err, "sdd %s: invalid JSON from stdin: %v\n", cmdName, err)
 			return 1
 		}
 		if parsed.Input != 0 {
@@ -387,19 +395,19 @@ func runTaskStateRecordTokens(args []string, env IO) int {
 	}
 
 	if input < 0 || cache < 0 || output < 0 {
-		fprintf(env.Err, "sdd task state record-tokens: token values cannot be negative\n")
+		fprintf(env.Err, "sdd %s: token values cannot be negative\n", cmdName)
 		return 1
 	}
 
 	root, err := filepath.Abs(*dir)
 	if err != nil {
-		fprintf(env.Err, "sdd task state record-tokens: %v\n", err)
+		fprintf(env.Err, "sdd %s: %v\n", cmdName, err)
 		return 1
 	}
 
 	res, totals, err := state.RecordTokens(root, normID, input, cache, output, env.now())
 	if err != nil {
-		fprintf(env.Err, "sdd task state record-tokens: %v\n", err)
+		fprintf(env.Err, "sdd %s: %v\n", cmdName, err)
 		return 1
 	}
 
@@ -421,7 +429,7 @@ func runTaskStateRecordTokens(args []string, env IO) int {
 		}
 		data, err := json.MarshalIndent(outObj, "", "  ")
 		if err != nil {
-			fprintf(env.Err, "sdd task state record-tokens: encode json: %v\n", err)
+			fprintf(env.Err, "sdd %s: encode json: %v\n", cmdName, err)
 			return 1
 		}
 		fprintln(env.Out, string(data))

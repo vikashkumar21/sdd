@@ -27,11 +27,24 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 	var reviewStatus string
 	var reviewer string
 	var reviewerLine int
+	inFrontmatter := false
 
 	for scanner.Scan() {
 		lineNum++
 		line := scanner.Text()
 		trimmed := strings.TrimSpace(line)
+
+		// Skip YAML frontmatter if present
+		if lineNum == 1 && trimmed == "---" {
+			inFrontmatter = true
+			continue
+		}
+		if inFrontmatter {
+			if trimmed == "---" {
+				inFrontmatter = false
+			}
+			continue
+		}
 
 		// 1. Check review status header
 		if reviewStatus == "" && reviewStatusRe.MatchString(trimmed) {

@@ -150,6 +150,7 @@ internal/version/     build version (set with -ldflags)
 | D-044 | Stateless reviewer context isolation and mechanical audit runner | **Approved** 2026-11-21 | n/a | Option A: Native tabula-rasa context staging for all 4 reviewers (.sdd/review/<TASK_ID>/) by default in sdd prompt plan-review and review, and sdd task audit executing validation commands mechanically for outside verification |
 | D-045 | Adversarial discovery ensemble protocol and challenger role | **Approved** 2026-11-21 | n/a | Option A: Canonical discovery-challenger role in .sdd/roles.json, stateless review bundle in .sdd/review/<TASK_ID>/discovery/, sdd prompt discovery --ensemble, 7 blind-spot vectors, and deterministic reconciliation protocol |
 | D-046 | Domain flow scaffolding and Mermaid diagram standards | Proposed | T-054 | Option A: docs/architecture/ and docs/business_flows/ generation with automated Mermaid topology, ER, and sequence diagrams / Option B: Plain markdown files without diagrams |
+| D-047 | Default task token telemetry, record-tokens command, and template integration | **Approved** 2026-11-21 | n/a | Option A: Default token metrics sections in all task templates (features, bugfixes, hotfixes, spikes), contract enforcement for record-tokens before Gate 2, top-level sdd record-tokens command alias, PR body token section, and templates.Version bumped to 2.2.0 |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 
@@ -196,6 +197,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-21 | Path hygiene validator (rule path-hygiene / F-002), linear-time RE2 home directory scanner, deconflict header matching fix, and zero personal paths across tracked docs verified | Run in internal/check, internal/deconflict, and sdd check --strict (T-050) | M12 |
 | 2026-11-21 | Stateless review context isolation (.sdd/review/<TASK_ID>/), default tabula-rasa bundles for 4 reviewer roles, outside validation runner (sdd task audit), command safety whitelist, and dangerous flag rejection verified | Run in internal/audit, internal/cli tests, and sdd task audit T-052 (T-052) | M12 |
 | 2026-11-21 | Adversarial discovery ensemble protocol (sdd prompt discovery --ensemble), discovery-challenger canonical role skill, 7 blind-spot vectors, stateless review bundle (.sdd/review/<TASK_ID>/discovery/), and write-path os.Root confinement verified | Run in internal/audit, internal/cli, internal/upgrade tests, and sdd task audit T-053 (T-053) | M12 |
+| 2026-11-21 | Default task token telemetry across all 4 typologies in starter templates, agent contract mandate for record-tokens before Gate 2, top-level sdd record-tokens command alias, PR body token section, review frontmatter immunity, and template version 2.2.0 verified | Run in internal/templates, internal/cli, internal/taskpr, internal/check, and internal/upgrade tests (T-055) | M12 |
 
 ## 8. Dependency register
 

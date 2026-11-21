@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/vikashkumar21/sdd/internal/deconflict"
+	"github.com/vikashkumar21/sdd/internal/state"
 	"github.com/vikashkumar21/sdd/internal/worktree"
 )
 
@@ -31,18 +32,19 @@ type PROptions struct {
 
 // PRBundle contains all synthesized pull request metadata and contents.
 type PRBundle struct {
-	TaskID         string   `json:"task_id"`
-	Typology       string   `json:"typology"`
-	Title          string   `json:"title"`
-	Summary        string   `json:"summary"`
-	Body           string   `json:"body"`
-	BaseBranch     string   `json:"base_branch"`
-	HeadBranch     string   `json:"head_branch"`
-	ChangedFiles   []string `json:"changed_files"`
-	ReviewStatus   string   `json:"review_status"`
-	ReviewBlockers int      `json:"review_blockers"`
-	QualifiesForPR bool     `json:"qualifies_for_pr"`
-	Warnings       []string `json:"warnings,omitempty"`
+	TaskID         string                `json:"task_id"`
+	Typology       string                `json:"typology"`
+	Title          string                `json:"title"`
+	Summary        string                `json:"summary"`
+	Body           string                `json:"body"`
+	BaseBranch     string                `json:"base_branch"`
+	HeadBranch     string                `json:"head_branch"`
+	ChangedFiles   []string              `json:"changed_files"`
+	Tokens         *state.TokenTelemetry `json:"tokens,omitempty"`
+	ReviewStatus   string                `json:"review_status"`
+	ReviewBlockers int                   `json:"review_blockers"`
+	QualifiesForPR bool                  `json:"qualifies_for_pr"`
+	Warnings       []string              `json:"warnings,omitempty"`
 }
 
 // PackageTaskPR reads task documents in root and packages a structured PRBundle.
@@ -110,7 +112,14 @@ func PackageTaskPR(root string, opts PROptions) (*PRBundle, error) {
 	// 4. Review Triad qualification audit
 	auditReview(taskDir, loc.Typology, opts.AllowUnreviewed, bundle)
 
-	// 5. Render PR Markdown Body
+	// 5. Token telemetry extraction from task state store
+	if st, exists, err := state.ReadState(root, bundle.TaskID); err == nil && exists {
+		if toks, ok := state.ExtractTokens(st); ok && toks.TotalTokens > 0 {
+			bundle.Tokens = &toks
+		}
+	}
+
+	// 6. Render PR Markdown Body
 	bundle.Body = FormatPRMarkdown(bundle, valEvidence)
 
 	return bundle, nil
@@ -378,6 +387,14 @@ func FormatPRMarkdown(bundle *PRBundle, valEvidence string) string {
 		sb.WriteString("\n\n")
 	} else {
 		sb.WriteString("Verified per task validation matrix.\n\n")
+	}
+
+	if bundle.Tokens != nil && bundle.Tokens.TotalTokens > 0 {
+		sb.WriteString("## Token Telemetry\n")
+		fmt.Fprintf(&sb, "- **Input Tokens:** %d\n", bundle.Tokens.InputTokens)
+		fmt.Fprintf(&sb, "- **Cache Read Tokens:** %d\n", bundle.Tokens.CacheReadTokens)
+		fmt.Fprintf(&sb, "- **Output Tokens:** %d\n", bundle.Tokens.OutputTokens)
+		fmt.Fprintf(&sb, "- **Total Task Tokens:** %d\n\n", bundle.Tokens.TotalTokens)
 	}
 
 	sb.WriteString("## Review Triad Audit Certification\n")

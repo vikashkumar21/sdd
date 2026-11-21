@@ -108,6 +108,7 @@ Human feedback is how this playbook improves. The rules registered below are **b
 |---|---|---|---|---|---|---|
 | F-001 | 2026-11-10 | Worker agents must resolve all findings (Blockers, Warnings, and Minors) reported during review before presenting to human at GATE 2; any retained finding not remediated must be explicitly justified in review.md | All tasks (code review, plan review, GATE 2) | Human feedback at T-033 / T-035 (D-032) | sdd check review validation, subagent review triad, GATE 2 checklist | Active |
 | F-002 | 2026-11-20 | Public documentation, examples, and generated templates must never contain developer-specific local absolute filesystem paths (/Users/..., /home/...); all commands and paths must use repository-relative paths or generic clone URLs | Public documentation, examples, templates, scripts, living docs | Human feedback / External agent review | Path hygiene check, inspection, sdd check | Active |
+| F-003 | 2026-11-21 | Task Coordinators and worker agents must track session token consumption, record telemetry via `sdd task state record-tokens <T-xxx>`, document metrics in `validation.md`, and report token usage at GATE 2 | All tasks (task completion, validation.md, GATE 2) | Human feedback after T-053 | sdd task state show, validation.md token table, GATE 2 checklist | Active |
 
 ## 9. Agent Skill Authoring and Refinement Standard (agentskills.io)
 

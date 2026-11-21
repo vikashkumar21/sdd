@@ -1,6 +1,6 @@
 # AGENTS.md — sdd agent contract (all agents)
 
-<!-- sdd:begin contract templates=2.1.0 -->
+<!-- sdd:begin contract templates=2.2.0 -->
 > **ANTHEM: ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**
 
 This is the operating contract for AI agents working on `sdd`. The rules are identical in every agent file (CLAUDE.md, GEMINI.md, AGENTS.md); only the title line differs. If you change a rule in one file, mirror it in the others in the same change set (§9). `sdd check` verifies that they match.
@@ -26,7 +26,7 @@ Start every session by stating: the active task (or "none"), the files you read,
 | B. Implement | Coordinator provisions isolated worktree (`sdd task start T-xxx`) and dispatches `implementer` subagent (and conditional `devops` subagent per `.sdd/roles.json`). Execute `plan.md` step by step. Touch only files listed in the plan. | Code and unit tests | none |
 | C.1 Verify | Coordinator dispatches `qa` subagent to execute every check in `validation.md`, boundary/fuzz cases, race detection (`-race`), and determinism verification (`-count=2`); record real commands and outputs. | Filled `validation.md` | none |
 | C.2 Independent Audit (Review Triad) | Coordinator spawns 3 parallel subagent reviewers across specialized lenses: Spec Auditor (`spec-auditor`), AppSec Specialist (`appsec-specialist`), Pattern Auditor (`pattern-auditor`) via `sdd prompt review T-xxx --lens <lens>`. Primary worker agent remediates findings in unified fix batch (max 3 loops). Reviewers are strictly read-only auditors; author agent is strictly forbidden from self-approving `review.md`. | Approved `review.md` (0 Blockers, all findings resolved per F-001) | none |
-| D. Close | Coordinator qualifies pre-merge (`sdd task merge T-xxx --dry-run`), merges task branch into main, updates living docs (§6), sets ROADMAP status to `Awaiting review`, and prepares diff summary with suggested commit message. | Doc updates and summary | **GATE 2** |
+| D. Close | Coordinator qualifies pre-merge (`sdd task merge T-xxx --dry-run`), merges task branch into main, records session token telemetry (`sdd record-tokens T-xxx` / `sdd task state record-tokens`), updates living docs (§6), sets ROADMAP status to `Awaiting review`, and prepares diff summary with token metrics and suggested commit message. | Doc updates and summary | **GATE 2** |
 
 `T-000` (the bootstrap scaffolding) is the only task exempt from the `tasks/` document quartet. Every other task follows the table above.
 
@@ -53,7 +53,7 @@ Start every session by stating: the active task (or "none"), the files you read,
 
 ### GATE 2 — review and commit (the human commits)
 
-- The agent presents: what changed (file list and summary), validation evidence, subagent review sign-off (0 Blockers and all findings resolved per F-001), deviations from the plan (should be none), and a suggested commit message.
+- The agent presents: what changed (file list and summary), validation evidence, subagent review sign-off (0 Blockers and all findings resolved per F-001), session token consumption metrics (from `sdd task state show` or `record-tokens`), deviations from the plan (should be none), and a suggested commit message.
 - The **human** reviews the diff and runs the commit. Afterwards the human replies `COMMITTED T-xxx`; only then does the agent set the task to `Done` in `ROADMAP.md`.
 - The agent never runs `git add`, `commit`, `push`, `tag`, `reset`, `rebase`, `stash`, `checkout --`, or any other command that writes git state. Read-only git (`status`, `diff`, `log`, `show`) is allowed.
 
@@ -128,6 +128,7 @@ The plan (its "Living docs to update" section) must list which of these change; 
 4. **Decisions needed** — in the §3 format (or "none")
 5. **Risks / deviations** — or "none"
 6. **Exact reply expected** — e.g. `APPROVED T-001`
+7. **Token telemetry** — session consumption (input, cache read, output, total) via `sdd record-tokens` / `sdd task state record-tokens` (at Gate 2)
 
 Keep it short and checkable. No marketing language.
 
@@ -141,6 +142,7 @@ Keep it short and checkable. No marketing language.
 - [ ] Independent subagent audit completed in review.md with 0 Blockers; all findings (Blockers, Warnings, Minors) resolved or explicitly justified per Rule F-001
 - [ ] Living docs updated per §6
 - [ ] Complies with every active rule in `SKILLS.md` "Human feedback rules" (compliance recorded in `validation.md`)
+- [ ] Token telemetry recorded via `sdd record-tokens` / `sdd task state record-tokens` and documented in `validation.md` (Rule F-003)
 - [ ] Suggested commit message provided
 
 ## 9. Keeping the agent files in sync

@@ -27,3 +27,13 @@ Roadmap ref: `ROADMAP.md` T-xxx
 
 ## 5. Prototype Disposal Confirmation
 - [ ] Confirmed: Spike prototype code in `spike/` is discarded and NOT merged into `main`.
+- [ ] Token telemetry recorded via sdd task state record-tokens (or sdd record-tokens) and documented below (Rule F-003)
+
+## 6. Token Metrics
+
+| Agent / Role | Model | Input Tokens | Cache Read Tokens | Output Tokens | Total Tokens |
+|---|---|---|---|---|---|
+| Task Coordinator | <model> | <input> | <cache> | <output> | <total> |
+| <Worker / Reviewer> | <model> | <input> | <cache> | <output> | <total> |
+| **Total for T-xxx** | | **<input>** | **<cache>** | **<output>** | **<total>** |
+| **Cumulative Project Total** | | **<input>** | **<cache>** | **<output>** | **<total>** |

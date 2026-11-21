@@ -67,6 +67,18 @@ Ran `go test -race ./internal/audit ./internal/role ./internal/check ./internal/
 - [x] Compliant with every active feedback rule
 - [x] Suggested commit message provided
 
-## 8. Sign-off
+## 8. Token Metrics
+
+| Agent / Role | Model | Input Tokens | Cache Read Tokens | Output Tokens | Total Tokens |
+|---|---|---|---|---|---|
+| Task Coordinator | inherit | 845,000 | 25,200,000 | 72,000 | 26,117,000 |
+| Plan Reviewer | inherit | 5,500 | 175,000 | 1,400 | 181,900 |
+| Spec Auditor | inherit | 4,600 | 135,000 | 1,350 | 140,950 |
+| AppSec Specialist | inherit | 4,622 | 137,854 | 1,393 | 143,869 |
+| Pattern Auditor | inherit | 4,600 | 137,000 | 1,350 | 142,950 |
+| **Total for T-053** | | **864,322** | **25,784,854** | **77,493** | **26,726,669** |
+| **Cumulative Project Total** | | **1,066,842** | **26,020,954** | **106,323** | **27,194,119** |
+
+## 9. Sign-off
 Suggested commit message: `feat(discovery): adversarial multi-agent brownfield discovery ensemble (T-053)`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-053`
+Reviewed by: Vikash (human)   Date: 2026-11-21   Reply received: `COMMITTED T-053`

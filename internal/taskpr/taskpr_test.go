@@ -5,6 +5,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"github.com/vikashkumar21/sdd/internal/state"
 )
 
 func setupTestTask(t *testing.T, typology, taskID, slug string, reviewStatus string, blockers int) string {
@@ -286,5 +289,55 @@ func TestFormatPRMarkdown_BypassedQualification(t *testing.T) {
 	md := FormatPRMarkdown(bundle, "Evidence")
 	if !strings.Contains(md, "QUALIFIED (Bypassed via --allow-unreviewed)") {
 		t.Errorf("expected markdown to indicate bypassed qualification, got:\n%s", md)
+	}
+}
+
+func TestPackageTaskPR_TokenTelemetry(t *testing.T) {
+	root := setupTestTask(t, "feature", "T-055", "token-pr-test", "Approved", 0)
+
+	// Record token telemetry in task state store
+	now := time.Date(2026, 11, 21, 10, 0, 0, 0, time.UTC)
+	_, _, err := state.RecordTokens(root, "T-055", 1200, 5000, 300, now)
+	if err != nil {
+		t.Fatalf("failed to record tokens: %v", err)
+	}
+
+	bundle, err := PackageTaskPR(root, PROptions{
+		TaskID: "T-055",
+	})
+	if err != nil {
+		t.Fatalf("PackageTaskPR failed: %v", err)
+	}
+
+	if bundle.Tokens == nil {
+		t.Fatalf("expected bundle.Tokens to be populated, got nil")
+	}
+	if bundle.Tokens.InputTokens != 1200 || bundle.Tokens.CacheReadTokens != 5000 || bundle.Tokens.OutputTokens != 300 || bundle.Tokens.TotalTokens != 6500 {
+		t.Errorf("unexpected bundle.Tokens: %+v", bundle.Tokens)
+	}
+
+	if !strings.Contains(bundle.Body, "## Token Telemetry") {
+		t.Errorf("expected body to contain ## Token Telemetry, got:\n%s", bundle.Body)
+	}
+	if !strings.Contains(bundle.Body, "- **Input Tokens:** 1200") || !strings.Contains(bundle.Body, "- **Total Task Tokens:** 6500") {
+		t.Errorf("expected formatted token metrics, got:\n%s", bundle.Body)
+	}
+}
+
+func TestPackageTaskPR_WithoutTokenTelemetry(t *testing.T) {
+	root := setupTestTask(t, "feature", "T-055", "no-token-test", "Approved", 0)
+
+	bundle, err := PackageTaskPR(root, PROptions{
+		TaskID: "T-055",
+	})
+	if err != nil {
+		t.Fatalf("PackageTaskPR failed: %v", err)
+	}
+
+	if bundle.Tokens != nil {
+		t.Errorf("expected bundle.Tokens to be nil, got: %+v", bundle.Tokens)
+	}
+	if strings.Contains(bundle.Body, "## Token Telemetry") {
+		t.Errorf("expected body to NOT contain ## Token Telemetry when absent, got:\n%s", bundle.Body)
 	}
 }

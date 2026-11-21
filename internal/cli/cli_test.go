@@ -1913,3 +1913,14 @@ func TestSelfUpdate_InvalidVersionTag(t *testing.T) {
 		t.Errorf("expected invalid version tag error, got %q", r.err)
 	}
 }
+
+func TestRecordTokensDispatch(t *testing.T) {
+	dir := t.TempDir()
+	r := exec(t, "", false, "", "record-tokens", "T-055", "--input", "100", "--cache", "200", "--output", "50", "--dir", dir)
+	if r.code != 0 {
+		t.Fatalf("expected code 0 from top-level record-tokens, got %d (err: %s)", r.code, r.err)
+	}
+	if !strings.Contains(r.out, "Recorded tokens for T-055: input=+100, cache=+200, output=+50") {
+		t.Errorf("unexpected output: %s", r.out)
+	}
+}

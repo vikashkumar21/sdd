@@ -330,6 +330,55 @@ func TestTaskStateRecordTokens(t *testing.T) {
 	}
 }
 
+func TestTopLevelRecordTokens(t *testing.T) {
+	dir := t.TempDir()
+	taskID := "T-055"
+
+	// 1. Record tokens via top-level record-tokens shorthand
+	r1 := exec(t, "", false, "", "record-tokens", taskID, "--input", "1000", "--cache", "5000", "--output", "250", "--dir", dir)
+	if r1.code != 0 {
+		t.Fatalf("record-tokens text mode failed: %s (err: %s)", r1.out, r1.err)
+	}
+	if !strings.Contains(r1.out, "Recorded tokens for T-055: input=+1000, cache=+5000, output=+250") || !strings.Contains(r1.out, "total=6250") {
+		t.Errorf("unexpected output from record-tokens:\n%s", r1.out)
+	}
+
+	// 2. Accumulate tokens via top-level record-tokens with --json
+	r2 := exec(t, "", false, "", "record-tokens", taskID, "--input", "500", "--cache", "1500", "--output", "100", "--json", "--dir", dir)
+	if r2.code != 0 {
+		t.Fatalf("record-tokens --json failed: %s (err: %s)", r2.out, r2.err)
+	}
+	var res RecordTokensResult
+	if err := json.Unmarshal([]byte(r2.out), &res); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v\nOutput: %s", err, r2.out)
+	}
+	if !res.Saved || res.TaskID != "T-055" {
+		t.Errorf("unexpected RecordTokensResult: %+v", res)
+	}
+	if res.Delta.InputTokens != 500 || res.Delta.CacheReadTokens != 1500 || res.Delta.OutputTokens != 100 {
+		t.Errorf("unexpected delta: %+v", res.Delta)
+	}
+	if res.Totals.InputTokens != 1500 || res.Totals.CacheReadTokens != 6500 || res.Totals.OutputTokens != 350 || res.Totals.TotalTokens != 8350 {
+		t.Errorf("unexpected totals: %+v", res.Totals)
+	}
+
+	// 3. Stdin JSON mode
+	stdinData := `{"input": 200, "cache": 300, "output": 50}`
+	r3 := exec(t, stdinData, false, "", "record-tokens", taskID, "--stdin", "--json", "--dir", dir)
+	if r3.code != 0 {
+		t.Fatalf("record-tokens --stdin failed: %s (err: %s)", r3.out, r3.err)
+	}
+
+	// 4. Usage error when task ID missing
+	rNoID := exec(t, "", false, "", "record-tokens", "--dir", dir)
+	if rNoID.code != 2 {
+		t.Fatalf("expected exit code 2 when missing task ID, got %d", rNoID.code)
+	}
+	if !strings.Contains(rNoID.err, "usage: sdd record-tokens <T-xxx>") {
+		t.Errorf("expected usage message, got:\n%s", rNoID.err)
+	}
+}
+
 func TestTaskStateShowTokens(t *testing.T) {
 	dir := t.TempDir()
 	taskID := "T-049"

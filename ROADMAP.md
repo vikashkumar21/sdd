@@ -39,7 +39,7 @@ Status: living document · Last updated: 2026-10-26
 | M9 | Multi-Agent Workspace Ergonomics and Review Ensemble | T-034 – T-038 | 15 | Unified tasks folder hierarchy, plan review, rule F-001, document lifecycle frontmatter, and native self-update |
 | M10 | Autonomous Multi-Agent Architecture, Roles, and State Persistence | T-039 – T-042 | 17 | Task state persistence, event journaling, role-based agentskills.io skills, and cross-project dependency register |
 | M11 | Codebase Discovery & Remote CI/PR Orchestration | T-043 – T-049 | 26 | codebase-analyst role skill, sdd prompt discovery, multi-agent coordinator contract alignment, prompt cache boundary optimization, multi-platform CI workflows, sdd task pr packaging, and CI log ingestion |
-| M12 | Adversarial Discovery, Hard Git Gating & Stateless Review Isolation | T-050 – T-054 | 22 | Path hygiene check, sdd hook install hard git gate, stateless review isolation harness, adversarial discovery challenger, and visual domain flow diagrams |
+| M12 | Adversarial Discovery, Hard Git Gating & Stateless Review Isolation | T-050 – T-055 | 25 | Path hygiene check, sdd hook install hard git gate, stateless review isolation harness, adversarial discovery challenger, visual domain flow diagrams, and default token telemetry |
 
 ## 4. Tasks
 
@@ -160,8 +160,9 @@ Status: living document · Last updated: 2026-10-26
 | T-050 | Path hygiene validator and zero-personal-path enforcement | S | T-048 | Mechanical check in sdd check flagging local home paths in tracked files and templates; rule F-002 automated | none | Done |
 | T-051 | Hard Git commit gate and pre-commit hook enforcement | M | T-050 | sdd hook install command provisioning .git/hooks/pre-commit with TTY confirmation and SDD_HUMAN_APPROVED token | D-043 | Not started |
 | T-052 | Stateless review isolation and outside validation audit runner | M | T-048 | Default tabula-rasa context staging for all 4 reviewers (plan review & review triad) and sdd task audit mechanical execution verifier | D-044 | Done |
-| T-053 | Adversarial multi-agent brownfield discovery ensemble | M | T-045 | discovery-challenger role skill in .sdd/roles.json, sdd prompt discovery --ensemble, and blind-spot reconciliation | D-045 | Awaiting review |
+| T-053 | Adversarial multi-agent brownfield discovery ensemble | M | T-045 | discovery-challenger role skill in .sdd/roles.json, sdd prompt discovery --ensemble, and blind-spot reconciliation | D-045 | Done |
 | T-054 | Deep domain flow documentation and visual Mermaid diagrams | M | T-053 | Scaffold docs/architecture/ and docs/business_flows/ with automated Mermaid topology, ER, and sequence diagrams | D-046 | Not started |
+| T-055 | Default task token telemetry and template integration | S | T-049, T-053 | All task templates contain ## Token Metrics, contract templates mandate sdd task state record-tokens before Gate 2, sdd record-tokens command alias, templates.Version bumped to 2.2.0, and upgrade verified | D-047 | Done |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -188,14 +189,16 @@ Unfamiliar technology derails projects. To prevent that:
 
 1. M0 through M11 are complete (50 tasks delivered, 100% roadmap completion).
 2. Release v1.8.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 12: Adversarial Discovery, Hard Git Gating & Stateless Review Isolation (T-050 – T-054; 2/5 complete).
-4. Active task: T-053 (Adversarial multi-agent brownfield discovery ensemble) awaiting review (Phase D).
+3. Active milestone: Milestone 12: Adversarial Discovery, Hard Git Gating & Stateless Review Isolation (T-050 – T-055; 4/6 complete, 67%).
+4. Active task: none. Next available tasks: T-051 (Hard Git commit gate) or T-054 (Deep domain flow documentation).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
-| 2026-11-21 | T-053: Adversarial multi-agent brownfield discovery ensemble, discovery-challenger role skill, and 7 blind-spot vectors awaiting review |
+| 2026-11-22 | T-055: Default task token telemetry, starter template metrics, top-level sdd record-tokens command, and template version 2.2.0 done |
+| 2026-11-21 | T-055: Default task token telemetry, starter template metrics, top-level sdd record-tokens command, and template version 2.2.0 awaiting review |
+| 2026-11-21 | T-053: Adversarial multi-agent brownfield discovery ensemble, discovery-challenger role skill, and 7 blind-spot vectors done |
 | 2026-11-21 | T-052: Stateless review context isolation, Review Triad tabula-rasa bundles, outside validation audit runner (sdd task audit) done |
 | 2026-11-21 | T-050: Path hygiene validator (rule F-002), deconflict header matching fix, and zero personal paths done |
 | 2026-11-20 | Release v1.8.0: multi-platform static binaries (darwin, linux, windows), template version 2.1.0, CI failure ingestion, universal CI templates, task PR packaging, prompt cache optimization, and compact handover |

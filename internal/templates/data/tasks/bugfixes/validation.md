@@ -33,8 +33,18 @@ Ran test suite twice; outputs identical: yes / no.
 - [ ] Full regression suite passes with 0 failures
 - [ ] No files modified outside approved plan
 - [ ] Living docs updated
+- [ ] Token telemetry recorded via sdd task state record-tokens (or sdd record-tokens) and documented below (Rule F-003)
 - [ ] Suggested commit message provided
 
-## 6. Sign-off
+## 6. Token Metrics
+
+| Agent / Role | Model | Input Tokens | Cache Read Tokens | Output Tokens | Total Tokens |
+|---|---|---|---|---|---|
+| Task Coordinator | <model> | <input> | <cache> | <output> | <total> |
+| <Worker / Reviewer> | <model> | <input> | <cache> | <output> | <total> |
+| **Total for T-xxx** | | **<input>** | **<cache>** | **<output>** | **<total>** |
+| **Cumulative Project Total** | | **<input>** | **<cache>** | **<output>** | **<total>** |
+
+## 7. Sign-off
 Suggested commit message: `fix(<scope>): <summary> (T-xxx)`
 Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-xxx`

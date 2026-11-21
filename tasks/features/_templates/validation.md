@@ -45,8 +45,18 @@ Feedback-rule compliance (SKILLS.md, "Human feedback rules"): <F-xxx: pass / fai
 - [ ] No files changed outside the plan; no unapproved dependencies
 - [ ] Living docs updated
 - [ ] Compliant with every active feedback rule
+- [ ] Token telemetry recorded via sdd task state record-tokens (or sdd record-tokens) and documented below (Rule F-003)
 - [ ] Suggested commit message provided
 
-## 8. Sign-off
+## 8. Token Metrics
+
+| Agent / Role | Model | Input Tokens | Cache Read Tokens | Output Tokens | Total Tokens |
+|---|---|---|---|---|---|
+| Task Coordinator | <model> | <input> | <cache> | <output> | <total> |
+| <Worker / Reviewer> | <model> | <input> | <cache> | <output> | <total> |
+| **Total for T-xxx** | | **<input>** | **<cache>** | **<output>** | **<total>** |
+| **Cumulative Project Total** | | **<input>** | **<cache>** | **<output>** | **<total>** |
+
+## 9. Sign-off
 Suggested commit message: `<type>(<scope>): <summary>`
 Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-xxx`
