@@ -63,6 +63,7 @@ commands:
   task deconflict [tasks...] analyze plan file collisions and schedule parallel batches
   task merge <T-xxx>         qualify pre-merge matrix and merge task into target branch
   task state <cmd>           manage deterministic task state, events, and token telemetry
+  task audit <T-xxx>         run outside validation audit executing validation.md commands (--json, --verbose)
   feature new <T-xxx> <slug> create tasks/features/T-xxx-<slug>/ from project templates
   bugfix new <T-xxx> <slug>  create tasks/bugfixes/T-xxx-<slug>/ with reproduction test template
   hotfix new <T-xxx> <slug>  create tasks/hotfixes/T-xxx-<slug>/ with incident patch template
@@ -118,6 +119,8 @@ func Run(args []string, env IO) int {
 		return runSpike(args[1:], env)
 	case "skill":
 		return runSkill(args[1:], env)
+	case "review":
+		return runReview(args[1:], env)
 	case "prompt":
 		return runPrompt(args[1:], env)
 	case "ingest":
@@ -144,6 +147,20 @@ func Run(args []string, env IO) int {
 		return 0
 	default:
 		fprintf(env.Err, "sdd: unknown command %q\n\n%s", args[0], usageText)
+		return 2
+	}
+}
+
+func runReview(args []string, env IO) int {
+	if len(args) == 0 {
+		fprintln(env.Err, "usage: sdd review audit <T-xxx> [flags]\n\nrun 'sdd task audit <T-xxx>' for outside validation auditing")
+		return 2
+	}
+	switch args[0] {
+	case "audit":
+		return runTaskAudit(args[1:], env)
+	default:
+		fprintf(env.Err, "sdd review: unknown command %q\n\nusage: sdd review audit <T-xxx> [flags]\n", args[0])
 		return 2
 	}
 }

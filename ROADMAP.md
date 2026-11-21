@@ -39,7 +39,7 @@ Status: living document · Last updated: 2026-10-26
 | M9 | Multi-Agent Workspace Ergonomics and Review Ensemble | T-034 – T-038 | 15 | Unified tasks folder hierarchy, plan review, rule F-001, document lifecycle frontmatter, and native self-update |
 | M10 | Autonomous Multi-Agent Architecture, Roles, and State Persistence | T-039 – T-042 | 17 | Task state persistence, event journaling, role-based agentskills.io skills, and cross-project dependency register |
 | M11 | Codebase Discovery & Remote CI/PR Orchestration | T-043 – T-049 | 26 | codebase-analyst role skill, sdd prompt discovery, multi-agent coordinator contract alignment, prompt cache boundary optimization, multi-platform CI workflows, sdd task pr packaging, and CI log ingestion |
-| M12 | Adversarial Discovery, Hard Git Gating & Stateless EGM Isolation | T-050 – T-054 | 22 | Path hygiene check, sdd hook install hard git gate, EGM stateless review harness, adversarial discovery challenger, and visual domain flow diagrams |
+| M12 | Adversarial Discovery, Hard Git Gating & Stateless Review Isolation | T-050 – T-054 | 22 | Path hygiene check, sdd hook install hard git gate, stateless review isolation harness, adversarial discovery challenger, and visual domain flow diagrams |
 
 ## 4. Tasks
 
@@ -153,13 +153,13 @@ Status: living document · Last updated: 2026-10-26
 | T-048 | Multi-agent coordinator contract and handover prompt template alignment | S | T-044, T-045 | Embedded contract and prompt templates updated with coordinator role and multi-subagent dispatches, template version 2.0.0, sdd upgrade parity verified | D-041 | Done |
 | T-049 | Prompt cache boundary optimization, compact handover, and brownfield README proposal | M | T-048 | Static-first prefix pinning, sdd prompt --compact, task state token tracking, and sdd init README proposal | D-042 | Done |
 
-### M12 — Adversarial Discovery, Hard Git Gating & Stateless EGM Isolation
+### M12 — Adversarial Discovery, Hard Git Gating & Stateless Review Isolation
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
 | T-050 | Path hygiene validator and zero-personal-path enforcement | S | T-048 | Mechanical check in sdd check flagging local home paths in tracked files and templates; rule F-002 automated | none | Done |
 | T-051 | Hard Git commit gate and pre-commit hook enforcement | M | T-050 | sdd hook install command provisioning .git/hooks/pre-commit with TTY confirmation and SDD_HUMAN_APPROVED token | D-043 | Not started |
-| T-052 | Elephant-Goldfish Model (EGM) stateless review and verification harness | M | T-048 | sdd prompt review --egm tabula-rasa context staging and sdd review audit mechanical execution verifier | D-044 | Not started |
+| T-052 | Stateless review isolation and outside validation audit runner | M | T-048 | Default tabula-rasa context staging for all 4 reviewers (plan review & review triad) and sdd task audit mechanical execution verifier | D-044 | Awaiting review |
 | T-053 | Adversarial multi-agent brownfield discovery ensemble | M | T-045 | discovery-challenger role skill in .sdd/roles.json, sdd prompt discovery --ensemble, and blind-spot reconciliation | D-045 | Not started |
 | T-054 | Deep domain flow documentation and visual Mermaid diagrams | M | T-053 | Scaffold docs/architecture/ and docs/business_flows/ with automated Mermaid topology, ER, and sequence diagrams | D-046 | Not started |
 
@@ -188,13 +188,14 @@ Unfamiliar technology derails projects. To prevent that:
 
 1. M0 through M11 are complete (50 tasks delivered, 100% roadmap completion).
 2. Release v1.8.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 12: Adversarial Discovery, Hard Git Gating & Stateless EGM Isolation (T-050 – T-054; 1/5 complete).
-4. Next task: T-051 (Hard Git commit gate and pre-commit hook enforcement) ready to specify (Phase A).
+3. Active milestone: Milestone 12: Adversarial Discovery, Hard Git Gating & Stateless Review Isolation (T-050 – T-054; 1/5 complete).
+4. Active task: T-052 (Stateless review isolation and outside validation audit runner) awaiting review (GATE 2).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-21 | T-052: Stateless review context isolation, Review Triad tabula-rasa bundles, outside validation audit runner (sdd task audit) awaiting review |
 | 2026-11-21 | T-050: Path hygiene validator (rule F-002), deconflict header matching fix, and zero personal paths done |
 | 2026-11-20 | Release v1.8.0: multi-platform static binaries (darwin, linux, windows), template version 2.1.0, CI failure ingestion, universal CI templates, task PR packaging, prompt cache optimization, and compact handover |
 | 2026-11-19 | T-047: Remote CI failure ingestion, diagnostic auto-repair loop, and secret sanitization done |

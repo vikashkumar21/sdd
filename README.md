@@ -88,6 +88,8 @@ sdd task deconflict                           # analyze plan file collisions acr
 sdd task deconflict T-003 T-004               # analyze collisions between specific tasks (--json, --all)
 sdd task merge T-003 --dry-run                # qualify pre-merge matrix, blast radius, flake guard, and simulate merge
 sdd task merge T-003                          # merge task branch into main after 0 blockers & regression sweeps
+sdd task audit T-003                          # mechanically execute verification commands outside agent narrative (--json, --verbose)
+sdd review audit T-003                        # backwards-compatible alias for sdd task audit
 sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements from Jira and stage into context
 sdd feature new T-003 upgrade-command --from-doc spec.pdf    # stage reference PDF/document and link in requirements
 sdd bugfix new T-003 auth-failure --from-ci failure.log      # seed bugfix reproduction.md from raw or staged CI failure log
@@ -198,6 +200,18 @@ sdd self-update --yes                     # proceed without interactive confirma
 - **Explicit Compile & Release Stages:** Pipelines enforce linting, explicit compile/build steps before test execution, test suites, determinism flake guards, and include placeholder release stages for publishing application binaries and Docker container images.
 - **Automated PR Packaging:** `sdd task pr <T-xxx>` parses task quartet documents across all work typologies (features, bugfixes, hotfixes, spikes), extracts requirements, planned changes, validation matrices, and Review Triad certifications, and synthesizes a standardized PR title (`feat(T-xxx): ...`) and Markdown body.
 - **Pre-PR Qualification Gate:** Validates that tasks have 0 unresolved 🔴 Blockers in `review.md` before packaging (or exits code 1 unless `--allow-unreviewed` is specified). Supports `--json` exporting a machine-readable `PRBundle` for GitHub CLI (`gh pr create`), GitLab CLI (`glab mr create`), or Agent SDKs.
+
+### Stateless review context isolation and outside validation
+
+SDD eliminates author agent self-approval bias and conversational anchoring through native tabula-rasa reviewer isolation and mechanical validation auditing:
+- **Stateless Review Isolation by Default:**
+  - `sdd prompt plan-review <T-xxx>` freezes requirements and implementation plan into `.sdd/review/<T-xxx>/plan/spec.md`, stages canonical plan-reviewer instructions into `rubric.md`, and outputs an isolated, tabula-rasa prompt stripped of historical conversational baggage.
+  - `sdd prompt review <T-xxx> [--lens <lens>]` extracts working tree diffs and newly created untracked files into `.sdd/review/<T-xxx>/code/diff.patch`, stages frozen specifications in `spec.md`, and sets up isolated bundles for each Review Triad auditor (Spec Auditor, AppSec Specialist, Pattern Auditor).
+  - Transient review bundles are stored in `.sdd/review/` and automatically excluded from version control and RAG indexing.
+- **Outside Validation Audit Runner:**
+  - `sdd task audit <T-xxx>` (and alias `sdd review audit <T-xxx>`) mechanically parses verification commands from `validation.md`, executes them outside the author agent's narrative, and measures true exit codes, durations, and output streams.
+  - **Strict Security Whitelisting:** Permits only recognized build, test, lint, and verification binaries (`go test`, `go vet`, `make`, `sdd check`, `sdd status`, `git grep`, `git diff`, `git status`) while strictly rejecting shell redirection, pipes, semicolons, backgrounding, and dangerous flags (`-exec`, `--output`, `make -f`, `make -C`).
+  - Supports `--json` output for CI pipeline gate verification and Task Coordinator orchestration.
 
 ## What `sdd check` verifies
 

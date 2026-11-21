@@ -12,6 +12,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/vikashkumar21/sdd/internal/audit"
 	"github.com/vikashkumar21/sdd/internal/deconflict"
 	"github.com/vikashkumar21/sdd/internal/role"
 )
@@ -32,6 +33,8 @@ type ReviewPromptContext struct {
 	Review        string   `json:"review,omitempty"`
 	ChangedFiles  []string `json:"changedFiles"`
 	FeedbackRules string   `json:"feedbackRules"`
+	BundleDir     string   `json:"bundleDir,omitempty"`
+	BundleFiles   []string `json:"bundleFiles,omitempty"`
 	Prompt        string   `json:"prompt"`
 }
 
@@ -48,6 +51,8 @@ type PlanReviewPromptContext struct {
 	FeedbackRules string   `json:"feedbackRules"`
 	Decisions     []string `json:"decisions"`
 	Rubric        []string `json:"rubric"`
+	BundleDir     string   `json:"bundleDir,omitempty"`
+	BundleFiles   []string `json:"bundleFiles,omitempty"`
 	Prompt        string   `json:"prompt"`
 }
 
@@ -124,8 +129,21 @@ func runPromptPlanReview(args []string, env IO) int {
 
 	roleSkill, _ := role.ResolveSkill(root, "plan-reviewer", nil)
 
+	// Stage isolated, frozen review bundle by default (D-044)
+	bundle, bErr := audit.StagePlanBundle(root, rawTaskID, env.now())
+	if bErr != nil {
+		fprintf(env.Err, "sdd prompt plan-review: warning: could not stage review bundle: %v\n", bErr)
+	}
+
 	rubric := getPlanReviewRubric()
-	promptText := buildPlanReviewPrompt(rawTaskID, taskDirRel, typology, plannedFiles, feedbackRules, decisions, rubric, roleSkill)
+	promptText := buildPlanReviewPrompt(rawTaskID, taskDirRel, typology, plannedFiles, feedbackRules, decisions, rubric, roleSkill, bundle)
+
+	var bundleDir string
+	var bundleFiles []string
+	if bundle != nil {
+		bundleDir = bundle.BundleDir
+		bundleFiles = bundle.Files
+	}
 
 	ctx := PlanReviewPromptContext{
 		TaskID:        rawTaskID,
@@ -139,6 +157,8 @@ func runPromptPlanReview(args []string, env IO) int {
 		FeedbackRules: feedbackRules,
 		Decisions:     decisions,
 		Rubric:        rubric,
+		BundleDir:     bundleDir,
+		BundleFiles:   bundleFiles,
 		Prompt:        promptText,
 	}
 
@@ -190,7 +210,7 @@ func extractApprovedDecisions(root string) []string {
 	return decisions
 }
 
-func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []string, feedbackRules string, decisions, rubric []string, roleSkill string) string {
+func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []string, feedbackRules string, decisions, rubric []string, roleSkill string, bundle *audit.PlanBundle) string {
 	var sb strings.Builder
 
 	fmt.Fprintf(&sb, "# Handover: Independent Pre-GATE 1 Plan Review for %s\n\n", taskID)
@@ -200,6 +220,16 @@ func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []stri
 
 	sb.WriteString("## SDD Anthem & Principles\n")
 	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
+
+	if bundle != nil {
+		sb.WriteString("## Stateless Review Bundle (.sdd/review/)\n")
+		sb.WriteString("An isolated, frozen review bundle has been staged for tabula-rasa evaluation with zero conversational history:\n")
+		fmt.Fprintf(&sb, "- **Bundle Directory:** `%s/`\n", bundle.BundleDir)
+		fmt.Fprintf(&sb, "- **Frozen Specification:** `%s/spec.md` (frozen requirements and plan)\n", bundle.BundleDir)
+		fmt.Fprintf(&sb, "- **Review Rubric:** `%s/rubric.md` (canonical plan-reviewer role skill)\n", bundle.BundleDir)
+		fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n\n", bundle.BundleDir)
+		sb.WriteString("**You are an independent reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
+	}
 
 	sb.WriteString("## Plan Review Rubric\n")
 	for _, item := range rubric {
@@ -240,7 +270,11 @@ func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []stri
 	sb.WriteString("\n\n")
 
 	sb.WriteString("## Plan Review Instructions\n")
-	fmt.Fprintf(&sb, "1. Read `%s/requirements.md`, `%s/plan.md`, and `%s/validation.md`.\n", taskDir, taskDir, taskDir)
+	if bundle != nil {
+		fmt.Fprintf(&sb, "1. Read `%s/spec.md` (or `%s/requirements.md` and `%s/plan.md`) and audit against the **Plan Review Rubric** above.\n", bundle.BundleDir, taskDir, taskDir)
+	} else {
+		fmt.Fprintf(&sb, "1. Read `%s/requirements.md`, `%s/plan.md`, and `%s/validation.md`.\n", taskDir, taskDir, taskDir)
+	}
 	sb.WriteString("2. Audit against the **Plan Review Rubric** above.\n")
 	sb.WriteString("3. Report any 🔴 Blocker (missing step, boundary hole, untestable assertion, unapproved dependency) or 🟡 Warning.\n")
 	sb.WriteString("4. Verify that the `Open questions` section in `requirements.md` is empty.\n")
@@ -521,8 +555,21 @@ func runPromptReview(args []string, env IO) int {
 		roleSkill = strings.Join(parts, "\n\n---\n\n")
 	}
 
+	// Stage isolated, frozen review bundle by default (D-044)
+	bundle, bErr := audit.StageReviewBundle(root, rawTaskID, normLens, env.now())
+	if bErr != nil {
+		fprintf(env.Err, "sdd prompt review: warning: could not stage review bundle: %v\n", bErr)
+	}
+
 	lensFocus := getLensFocusItems(normLens)
-	promptText := buildReviewPromptWithLens(rawTaskID, taskDirRel, normLens, changedFiles, feedbackRules, lensFocus, roleSkill)
+	promptText := buildReviewPromptWithLens(rawTaskID, taskDirRel, normLens, changedFiles, feedbackRules, lensFocus, roleSkill, bundle)
+
+	var bundleDir string
+	var bundleFiles []string
+	if bundle != nil {
+		bundleDir = bundle.BundleDir
+		bundleFiles = bundle.Files
+	}
 
 	ctx := ReviewPromptContext{
 		TaskID:        rawTaskID,
@@ -537,6 +584,8 @@ func runPromptReview(args []string, env IO) int {
 		Review:        review,
 		ChangedFiles:  changedFiles,
 		FeedbackRules: feedbackRules,
+		BundleDir:     bundleDir,
+		BundleFiles:   bundleFiles,
 		Prompt:        promptText,
 	}
 
@@ -758,7 +807,7 @@ func extractActiveFeedbackRules(root string) string {
 	return strings.Join(ruleLines, "\n")
 }
 
-func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, feedbackRules string, focusItems []string, roleSkill string) string {
+func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, feedbackRules string, focusItems []string, roleSkill string, bundle *audit.ReviewBundle) string {
 	var sb strings.Builder
 
 	lensTitle := "Ensemble Review Triad"
@@ -782,6 +831,17 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 
 	sb.WriteString("## SDD Anthem & Principles\n")
 	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
+
+	if bundle != nil {
+		sb.WriteString("## Stateless Review Bundle (.sdd/review/)\n")
+		sb.WriteString("An isolated, frozen review bundle has been staged for tabula-rasa evaluation with zero conversational history:\n")
+		fmt.Fprintf(&sb, "- **Bundle Directory:** `%s/`\n", bundle.BundleDir)
+		fmt.Fprintf(&sb, "- **Frozen Specification:** `%s/spec.md` (frozen requirements and plan)\n", bundle.BundleDir)
+		fmt.Fprintf(&sb, "- **Git Diff Patch:** `%s/diff.patch` (working tree changes and untracked files)\n", bundle.BundleDir)
+		fmt.Fprintf(&sb, "- **Review Rubric:** `%s/rubric.md` (canonical role skill instructions for %s)\n", bundle.BundleDir, bundle.Lens)
+		fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n\n", bundle.BundleDir)
+		sb.WriteString("**You are an independent reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
+	}
 
 	sb.WriteString("## Review Rubric (3-Tier Severity)\n")
 	sb.WriteString("- 🔴 **Blocker (Developer Attention Needed):** Spec violation (`requirements.md` not met), plan drift (files touched outside `plan.md`), security hazard (secrets/unvalidated inputs), test gaps, unapproved dependency. MUST BE RESOLVED before commit.\n")
@@ -826,7 +886,11 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 	}
 
 	sb.WriteString("## Review Instructions\n")
-	fmt.Fprintf(&sb, "1. Inspect the git diff and changed files against `%s/requirements.md` and `%s/plan.md`.\n", taskDir, taskDir)
+	if bundle != nil {
+		fmt.Fprintf(&sb, "1. Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md` (or inspect changed files against `%s/requirements.md` and `%s/plan.md`).\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir, taskDir, taskDir)
+	} else {
+		fmt.Fprintf(&sb, "1. Inspect the git diff and changed files against `%s/requirements.md` and `%s/plan.md`.\n", taskDir, taskDir)
+	}
 	fmt.Fprintf(&sb, "2. Verify each point listed under **Lens Focus & Verification Questions**.\n")
 	fmt.Fprintf(&sb, "3. Record all findings and sign-off in `%s/review.md`.\n", taskDir)
 	sb.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")

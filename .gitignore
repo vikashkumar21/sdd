@@ -16,3 +16,6 @@ coverage.html
 
 # SDD worktrees
 .sdd/worktrees/
+
+# SDD stateless review bundles
+.sdd/review/

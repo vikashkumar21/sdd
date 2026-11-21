@@ -33,7 +33,7 @@ func runSpike(args []string, env IO) int {
 
 func runTask(args []string, env IO) int {
 	if len(args) == 0 {
-		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees\n  deconflict [tasks...]  analyze plan file collisions and schedule parallel batches\n  merge <T-xxx>          qualify pre-merge matrix and merge task into target branch\n  state <command>        manage deterministic task state and events (show|save|append-event|record-tokens|purge)\n  pr <T-xxx>             package task quartet into a standardized Pull Request bundle (--json, --dry-run)")
+		fprintln(env.Err, "usage: sdd task <command> [flags]\n\ncommands:\n  new <T-xxx> <slug>     create a task folder (--type feature|bugfix|hotfix|spike)\n  start <T-xxx>          provision an isolated Git worktree for the task\n  clean <T-xxx>          safely remove a task's worktree with backup\n  list                   list active task worktrees\n  deconflict [tasks...]  analyze plan file collisions and schedule parallel batches\n  merge <T-xxx>          qualify pre-merge matrix and merge task into target branch\n  state <command>        manage deterministic task state and events (show|save|append-event|record-tokens|purge)\n  pr <T-xxx>             package task quartet into a standardized Pull Request bundle (--json, --dry-run)\n  audit <T-xxx>          mechanically execute verification commands outside agent narrative (--json, --verbose)")
 		return 2
 	}
 	switch args[0] {
@@ -53,8 +53,10 @@ func runTask(args []string, env IO) int {
 		return runTaskState(args[1:], env)
 	case "pr":
 		return runTaskPR(args[1:], env)
+	case "audit":
+		return runTaskAudit(args[1:], env)
 	default:
-		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new|start|clean|list|deconflict|merge|state|pr> [flags]\n", args[0])
+		fprintf(env.Err, "sdd task: unknown command %q\n\nusage: sdd task <new|start|clean|list|deconflict|merge|state|pr|audit> [flags]\n", args[0])
 		return 2
 	}
 }
