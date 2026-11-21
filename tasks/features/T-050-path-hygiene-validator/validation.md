@@ -68,4 +68,4 @@ Evidence:
 
 ## 8. Sign-off
 Suggested commit message: `feat(check): add path hygiene validator and enforce zero personal paths (T-050)`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-050`
+Reviewed by: Vikash (human)   Date: 2026-11-21   Reply received: `COMMITTED T-050`

@@ -157,7 +157,7 @@ Status: living document · Last updated: 2026-10-26
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
-| T-050 | Path hygiene validator and zero-personal-path enforcement | S | T-048 | Mechanical check in sdd check flagging local home paths in tracked files and templates; rule F-002 automated | none | Awaiting review |
+| T-050 | Path hygiene validator and zero-personal-path enforcement | S | T-048 | Mechanical check in sdd check flagging local home paths in tracked files and templates; rule F-002 automated | none | Done |
 | T-051 | Hard Git commit gate and pre-commit hook enforcement | M | T-050 | sdd hook install command provisioning .git/hooks/pre-commit with TTY confirmation and SDD_HUMAN_APPROVED token | D-043 | Not started |
 | T-052 | Elephant-Goldfish Model (EGM) stateless review and verification harness | M | T-048 | sdd prompt review --egm tabula-rasa context staging and sdd review audit mechanical execution verifier | D-044 | Not started |
 | T-053 | Adversarial multi-agent brownfield discovery ensemble | M | T-045 | discovery-challenger role skill in .sdd/roles.json, sdd prompt discovery --ensemble, and blind-spot reconciliation | D-045 | Not started |
@@ -188,14 +188,14 @@ Unfamiliar technology derails projects. To prevent that:
 
 1. M0 through M11 are complete (50 tasks delivered, 100% roadmap completion).
 2. Release v1.8.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 12: Adversarial Discovery, Hard Git Gating & Stateless EGM Isolation (T-050 – T-054; 0/5 complete).
-4. Current task: T-050 (Path hygiene validator and zero-personal-path enforcement) awaiting review (Phase D).
+3. Active milestone: Milestone 12: Adversarial Discovery, Hard Git Gating & Stateless EGM Isolation (T-050 – T-054; 1/5 complete).
+4. Next task: T-051 (Hard Git commit gate and pre-commit hook enforcement) ready to specify (Phase A).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
-| 2026-11-21 | T-050: Path hygiene validator (rule F-002), deconflict header matching fix, and zero personal paths awaiting review |
+| 2026-11-21 | T-050: Path hygiene validator (rule F-002), deconflict header matching fix, and zero personal paths done |
 | 2026-11-20 | Release v1.8.0: multi-platform static binaries (darwin, linux, windows), template version 2.1.0, CI failure ingestion, universal CI templates, task PR packaging, prompt cache optimization, and compact handover |
 | 2026-11-19 | T-047: Remote CI failure ingestion, diagnostic auto-repair loop, and secret sanitization done |
 | 2026-11-19 | T-046: Universal CI workflows and automated PR packaging (sdd task pr) done |
