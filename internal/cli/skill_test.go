@@ -466,8 +466,8 @@ func TestSkillExport_AllTenRoles(t *testing.T) {
 	}
 
 	names := role.CanonicalRoleNames()
-	if len(names) != 10 {
-		t.Fatalf("expected 10 canonical roles, got %d", len(names))
+	if len(names) != 11 {
+		t.Fatalf("expected 11 canonical roles, got %d", len(names))
 	}
 	for _, name := range names {
 		p := filepath.Join(tmp, "skills", name, "SKILL.md")
@@ -498,6 +498,37 @@ func TestSkillExport_CodebaseAnalyst(t *testing.T) {
 		t.Fatalf("missing exported codebase-analyst skill: %v", err)
 	}
 	if !strings.Contains(string(data), "name: codebase-analyst") {
+		t.Errorf("exported skill missing expected frontmatter name")
+	}
+
+	// Verify other roles were NOT exported
+	otherFile := filepath.Join(tmp, "skills", "coordinator", "SKILL.md")
+	if _, err := os.Stat(otherFile); err == nil {
+		t.Errorf("coordinator skill should not have been exported")
+	}
+}
+
+func TestSkillExport_DiscoveryChallenger(t *testing.T) {
+	tmp := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	code := runSkillExport([]string{"--dir", tmp, "--role", "discovery-challenger"}, env)
+	if code != 0 {
+		t.Fatalf("runSkillExport --role discovery-challenger failed with code %d: %s", code, stderr.String())
+	}
+
+	skillFile := filepath.Join(tmp, "skills", "discovery-challenger", "SKILL.md")
+	data, err := os.ReadFile(skillFile)
+	if err != nil {
+		t.Fatalf("missing exported discovery-challenger skill: %v", err)
+	}
+	if !strings.Contains(string(data), "name: discovery-challenger") {
 		t.Errorf("exported skill missing expected frontmatter name")
 	}
 

@@ -789,7 +789,7 @@ func TestUpgradeExtendedRolesJson(t *testing.T) {
 		t.Fatalf("missing .sdd/roles.json file on disk: %v", err)
 	}
 	s := string(content)
-	for _, r := range []string{"implementer", "qa", "devops", "codebase-analyst"} {
+	for _, r := range []string{"implementer", "qa", "devops", "codebase-analyst", "discovery-challenger"} {
 		if !strings.Contains(s, `"`+r+`"`) {
 			t.Errorf("expected role %s in upgraded .sdd/roles.json", r)
 		}
@@ -800,8 +800,172 @@ func TestUpgradeExtendedRolesJson(t *testing.T) {
 	if !strings.Contains(s, `"phase-discovery"`) {
 		t.Errorf("expected phase-discovery in upgraded .sdd/roles.json")
 	}
+	if !strings.Contains(s, `"discovery-challenger"`) {
+		t.Errorf("expected discovery-challenger in upgraded .sdd/roles.json")
+	}
 	if !strings.Contains(s, `"operations"`) {
 		t.Errorf("expected operations in upgraded .sdd/roles.json")
+	}
+}
+
+func TestUpgradeExistingRolesJson_AddsDiscoveryChallenger(t *testing.T) {
+	root := generateKit(t)
+	rolesPath := filepath.Join(root, ".sdd", "roles.json")
+
+	// Write a pre-T-053 roles.json with a custom role and missing discovery-challenger
+	legacyJSON := `{
+  "schema": 1,
+  "roles": {
+    "custom-agent": {
+      "skill": "custom-skill",
+      "description": "My custom specialist"
+    },
+    "codebase-analyst": {
+      "skill": "codebase-analyst",
+      "description": "Original analyst"
+    }
+  },
+  "phases": {
+    "phase-discovery": {
+      "analyst": "codebase-analyst"
+    }
+  }
+}`
+	if err := os.WriteFile(rolesPath, []byte(legacyJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatalf("BuildPlan failed: %v", err)
+	}
+
+	var rolesItem *Item
+	for i := range plan.Items {
+		if plan.Items[i].Path == ".sdd/roles.json" {
+			rolesItem = &plan.Items[i]
+			break
+		}
+	}
+	if rolesItem == nil {
+		t.Fatal("expected .sdd/roles.json in upgrade plan")
+	}
+	if rolesItem.Action != ActionUpdate {
+		t.Fatalf("expected ActionUpdate for legacy roles.json, got %v", rolesItem.Action)
+	}
+
+	rep, err := Apply(plan, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+
+	foundUpdated := false
+	for _, u := range rep.Updated {
+		if u == ".sdd/roles.json" {
+			foundUpdated = true
+			break
+		}
+	}
+	if !foundUpdated {
+		t.Errorf("expected .sdd/roles.json in rep.Updated: %+v", rep.Updated)
+	}
+
+	content, err := os.ReadFile(rolesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(content)
+	// Must have discovery-challenger
+	if !strings.Contains(s, `"discovery-challenger"`) {
+		t.Errorf("expected discovery-challenger in upgraded roles.json:\n%s", s)
+	}
+	// Must preserve custom-agent
+	if !strings.Contains(s, `"custom-agent"`) || !strings.Contains(s, `"My custom specialist"`) {
+		t.Errorf("expected custom-agent preserved in upgraded roles.json:\n%s", s)
+	}
+	// Must update phase-discovery with challenger
+	if !strings.Contains(s, `"challenger": "discovery-challenger"`) {
+		t.Errorf("expected challenger mapping in phase-discovery:\n%s", s)
+	}
+}
+
+func TestUpgradeExistingRolesJson_PreservesCustomChallengerAndDescription(t *testing.T) {
+	root := generateKit(t)
+	rolesPath := filepath.Join(root, ".sdd", "roles.json")
+
+	// Custom description and custom challenger mapping
+	customJSON := `{
+  "schema": 1,
+  "roles": {
+    "discovery-challenger": {
+      "skill": "custom-challenger-skill",
+      "description": "User customized discovery challenger description"
+    }
+  },
+  "phases": {
+    "phase-discovery": {
+      "analyst": "codebase-analyst",
+      "challenger": "my-custom-challenger"
+    }
+  }
+}
+`
+	if err := os.WriteFile(rolesPath, []byte(customJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatalf("BuildPlan failed: %v", err)
+	}
+
+	var rolesItem *Item
+	for i := range plan.Items {
+		if plan.Items[i].Path == ".sdd/roles.json" {
+			rolesItem = &plan.Items[i]
+			break
+		}
+	}
+	if rolesItem == nil {
+		t.Fatal("expected .sdd/roles.json in upgrade plan")
+	}
+	if rolesItem.Action != ActionUnchanged {
+		t.Fatalf("expected ActionUnchanged when custom challenger already present, got %v", rolesItem.Action)
+	}
+
+	content, err := os.ReadFile(rolesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(content)
+	if !strings.Contains(s, "User customized discovery challenger description") {
+		t.Errorf("expected custom description preserved:\n%s", s)
+	}
+	if !strings.Contains(s, `"challenger": "my-custom-challenger"`) {
+		t.Errorf("expected custom challenger mapping preserved:\n%s", s)
+	}
+}
+
+func TestUpgradeExistingRolesJson_MalformedAndUnsupportedSchema(t *testing.T) {
+	root := generateKit(t)
+	rolesPath := filepath.Join(root, ".sdd", "roles.json")
+
+	// 1. Malformed JSON
+	if err := os.WriteFile(rolesPath, []byte(`{ invalid json `), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := BuildPlan(root, Options{Now: fixedNow})
+	if err == nil || !strings.Contains(err.Error(), "parsing .sdd/roles.json") {
+		t.Fatalf("expected malformed JSON error for .sdd/roles.json, got: %v", err)
+	}
+
+	// 2. Unsupported schema
+	if err := os.WriteFile(rolesPath, []byte(`{"schema": 99}`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	_, err = BuildPlan(root, Options{Now: fixedNow})
+	if err == nil || !strings.Contains(err.Error(), "unsupported .sdd/roles.json schema") {
+		t.Fatalf("expected unsupported schema error for .sdd/roles.json, got: %v", err)
 	}
 }
 

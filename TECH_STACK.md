@@ -148,7 +148,7 @@ internal/version/     build version (set with -ldflags)
 | D-042 | Prompt cache prefix pinning, compact handover, task token tracking, and brownfield README proposal | **Approved** 2026-11-18 | n/a | Option A: Static-first prompt prefix ordering, sdd prompt --compact flag, token telemetry in .sdd/state/<TASK_ID>/, and README.md.sdd-new proposal generation in sdd init |
 | D-043 | Hard git commit gate architecture and pre-commit hook token protocol | Proposed | T-051 | Option A: sdd hook install command provisioning .git/hooks/pre-commit and prepare-commit-msg hooks requiring interactive TTY confirmation or SDD_HUMAN_APPROVED token / Option B: Shell alias or git wrapper script |
 | D-044 | Stateless reviewer context isolation and mechanical audit runner | **Approved** 2026-11-21 | n/a | Option A: Native tabula-rasa context staging for all 4 reviewers (.sdd/review/<TASK_ID>/) by default in sdd prompt plan-review and review, and sdd task audit executing validation commands mechanically for outside verification |
-| D-045 | Adversarial discovery ensemble protocol and challenger role | Proposed | T-053 | Option A: discovery-challenger role in .sdd/roles.json and sdd prompt discovery --ensemble / Option B: Single-agent prompt enhancement |
+| D-045 | Adversarial discovery ensemble protocol and challenger role | **Approved** 2026-11-21 | n/a | Option A: Canonical discovery-challenger role in .sdd/roles.json, stateless review bundle in .sdd/review/<TASK_ID>/discovery/, sdd prompt discovery --ensemble, 7 blind-spot vectors, and deterministic reconciliation protocol |
 | D-046 | Domain flow scaffolding and Mermaid diagram standards | Proposed | T-054 | Option A: docs/architecture/ and docs/business_flows/ generation with automated Mermaid topology, ER, and sequence diagrams / Option B: Plain markdown files without diagrams |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
@@ -195,6 +195,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-20 | Release v1.8.0 cross-platform static binaries (darwin, linux, windows), template version 2.1.0, and SHA256SUMS verified | Build, tests, and make dist | M12 |
 | 2026-11-21 | Path hygiene validator (rule path-hygiene / F-002), linear-time RE2 home directory scanner, deconflict header matching fix, and zero personal paths across tracked docs verified | Run in internal/check, internal/deconflict, and sdd check --strict (T-050) | M12 |
 | 2026-11-21 | Stateless review context isolation (.sdd/review/<TASK_ID>/), default tabula-rasa bundles for 4 reviewer roles, outside validation runner (sdd task audit), command safety whitelist, and dangerous flag rejection verified | Run in internal/audit, internal/cli tests, and sdd task audit T-052 (T-052) | M12 |
+| 2026-11-21 | Adversarial discovery ensemble protocol (sdd prompt discovery --ensemble), discovery-challenger canonical role skill, 7 blind-spot vectors, stateless review bundle (.sdd/review/<TASK_ID>/discovery/), and write-path os.Root confinement verified | Run in internal/audit, internal/cli, internal/upgrade tests, and sdd task audit T-053 (T-053) | M12 |
 
 ## 8. Dependency register
 

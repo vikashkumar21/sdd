@@ -84,6 +84,7 @@ Use this to decide where a spike is needed (see the ROADMAP's unknown-technology
 | 2026-10-26 | Running init on a hand-made kit with no manifest would append a duplicate contract to agent files that have no managed block; found by a dry run on the real dbguard kit; init now refuses | Found by a dry run; T-001 |
 | 2026-10-26 | Table cells must not contain a literal pipe character (even inside backticks); validate user-supplied values (names, commands) before rendering them into tables | Design; T-001 |
 | 2026-11-02 | In T-008, markdown parser now supports escaped pipes and pipes inside inline code spans without breaking table column validation | Robust parser; T-008 |
+| 2026-11-21 | Single-agent brownfield discovery suffers from confirmation bias and misses unreferenced entrypoints or ambient dependencies; dispatching an adversarial discovery-challenger under tabula-rasa isolation uncovers hidden blind spots | Brownfield discovery; T-053 |
 
 ## 8. Human feedback rules (binding; grows over time)
 
@@ -182,6 +183,33 @@ Review audits are conducted through three specialized lenses:
 - **Independent Auditor Required:** The primary author agent is strictly forbidden from self-approving its own `review.md`. An independent subagent reviewer must certify `review.md` with 0 Blockers before Phase D close.
 - **3-Loop Circuit Breaker:** At most 3 review-fix iterations (1 initial audit + up to 2 fix attempts) between author and reviewer. If Blockers persist after 3 iterations, the agent MUST halt, mark the task `Blocked`, and escalate to the human.
 - **Review Artifact (`review.md`):** Review findings are recorded in `tasks/features/T-xxx-<slug>/review.md` (or typology equivalent under `tasks/`). If any unresolved 🔴 Blocker remains, `sdd check` flags an error and the task CANNOT proceed to GATE 2 commit.
+
+## 11. Adversarial Brownfield Discovery Ensemble Standard
+
+When exploring an existing or unfamiliar codebase, single-agent analysis suffers from cognitive anchoring and confirmation bias—overlooking ambient dependencies, hidden background routines, or schema mismatches. SDD enforces an adversarial multi-agent discovery ensemble protocol (`T-053`, `D-045`):
+
+### 1. Two-Tier Role Dispatch & Review Isolation
+- **Primary Analyst (`codebase-analyst`):** Conducts 4-pillar forensic extraction (AST/topology, UI/styling, data/state models, and technical debt), synthesizing initial drafts of `TECH_STACK.md`, `ROADMAP.md` Parking lot, and `SKILLS.md`.
+- **Adversarial Challenger (`discovery-challenger`):** Dispatched tabula-rasa into a fresh context backed by an isolated review bundle in `.sdd/review/<TASK_ID>/discovery/` containing `findings.md`, `rubric.md`, and `manifest.json`. The challenger operates without conversational anchoring to the primary analyst.
+
+### 2. 7 Blind-Spot Audit Vectors
+The discovery challenger systematically interrogates the codebase against 7 comprehensive vectors:
+1. **Vector 1: Hidden Entry Points & Triggers:** CLI flags/subcommands, background daemon loops, cron/schedulers, queue workers, webhooks, and event consumers unreferenced in primary entrypoints.
+2. **Vector 2: Concurrency, Lifecycle & Shutdown Invariants:** Unbounded goroutines/threads, missing cancellation propagation, SIGINT/SIGTERM drain hooks, package-level mutable state, race conditions in init.
+3. **Vector 3: Data Boundary Invariants & Schema Drift:** Unhandled database errors, uncommitted/unrolled-back transactions, raw queries bypassing ORM/query builders, schema migration mismatches, in-memory cache desync.
+4. **Vector 4: Dynamic Dispatch & Runtime Feature Flags:** Reflection-based routing, plugin systems, runtime feature flags, environment-conditional code paths invisible to static call graphs.
+5. **Vector 5: Orphan & Dead Code:** Dangling configurations, abandoned routes/endpoints, unexported/unreferenced symbols, unused dependencies.
+6. **Vector 6: Implicit External & Ambient Dependencies:** Undocumented env vars, ambient binaries/system tools assumed to exist on the host, undeclared cloud SDK defaults, unrecorded third-party APIs.
+7. **Vector 7: Architectural & Documentation Contradictions:** Direct discrepancies between existing README/architecture docs and actual runtime code behavior, stale comments, unverified assumptions.
+
+### 3. Deterministic Reconciliation Protocol (Gate 1 Prerequisite)
+Before presenting specifications to the human at Gate 1:
+1. Cross-reference primary analyst AST map with challenger-discovered entry points and async event consumers.
+2. Reconcile database models and data flows against migration history and raw queries.
+3. Ensure all implicit external dependencies, tools, and env vars are registered in `TECH_STACK.md` §8 and configuration schemas.
+4. Sweep codebase for dead code, abandoned endpoints, and dangling config keys, logging candidates into `ROADMAP.md` §7 Parking Lot.
+5. Verify that existing documentation discrepancies are resolved in living documents prior to Gate 1 approval.
+
 
 
 

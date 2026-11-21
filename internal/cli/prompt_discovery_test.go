@@ -394,3 +394,249 @@ func TestPromptDispatch_Discovery(t *testing.T) {
 		t.Errorf("prompt discovery dispatch missing expected content")
 	}
 }
+
+func TestPromptDiscovery_EnsembleFlag(t *testing.T) {
+	tmp := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module testmod\n\ngo 1.27\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	code := runPromptDiscovery([]string{"--dir", tmp, "--ensemble"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery --ensemble failed with code %d: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	for _, expected := range []string{
+		"Handover: Adversarial Discovery Ensemble",
+		"Primary Analyst Briefing (codebase-analyst)",
+		"Adversarial Challenger Rubric (discovery-challenger)",
+		"Vector 1: Hidden Entry Points & Triggers",
+		"Vector 2: Concurrency, Lifecycle & Shutdown Invariants",
+		"Vector 3: Data Boundary Invariants & Schema Drift",
+		"Vector 4: Dynamic Dispatch & Runtime Feature Flags",
+		"Vector 5: Orphan & Dead Code",
+		"Vector 6: Implicit External & Ambient Dependencies",
+		"Vector 7: Architectural & Documentation Contradictions",
+		"Deterministic Reconciliation Protocol",
+		"name: codebase-analyst",
+		"name: discovery-challenger",
+	} {
+		if !strings.Contains(out, expected) {
+			t.Errorf("expected ensemble prompt to contain %q, but was missing", expected)
+		}
+	}
+}
+
+func TestPromptDiscovery_EnsembleJSON(t *testing.T) {
+	tmp := t.TempDir()
+
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module testmod\n\ngo 1.27\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	code := runPromptDiscovery([]string{"--dir", tmp, "--ensemble", "--json"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery --ensemble --json failed with code %d: %s", code, stderr.String())
+	}
+
+	var ctx DiscoveryPromptContext
+	if err := json.Unmarshal(stdout.Bytes(), &ctx); err != nil {
+		t.Fatalf("failed to unmarshal JSON discovery context: %v", err)
+	}
+
+	if !ctx.Ensemble {
+		t.Errorf("expected Ensemble to be true")
+	}
+	if len(ctx.BlindSpotVectors) != 7 {
+		t.Errorf("expected 7 blind spot vectors, got %d", len(ctx.BlindSpotVectors))
+	}
+	if len(ctx.ReconciliationChecklist) != 5 {
+		t.Errorf("expected 5 reconciliation checklist items, got %d", len(ctx.ReconciliationChecklist))
+	}
+	if !strings.Contains(ctx.RoleSkill, "name: codebase-analyst") {
+		t.Errorf("expected RoleSkill to contain codebase-analyst")
+	}
+	if !strings.Contains(ctx.ChallengerRoleSkill, "name: discovery-challenger") {
+		t.Errorf("expected ChallengerRoleSkill to contain discovery-challenger")
+	}
+}
+
+func TestPromptDiscovery_EnsembleBundleStaging(t *testing.T) {
+	tmp := t.TempDir()
+	fixedNow := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+
+	taskDir := filepath.Join(tmp, "tasks", "features", "T-001-codebase-discovery")
+	if err := os.MkdirAll(taskDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(taskDir, "requirements.md"), []byte("# Requirements\nDiscovery requirements\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(taskDir, "plan.md"), []byte("# Plan\nDiscovery plan\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: func() time.Time { return fixedNow },
+	}
+
+	code := runPromptDiscovery([]string{"--dir", tmp, "T-001", "--ensemble"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery T-001 --ensemble failed with code %d: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "Stateless Review Bundle (.sdd/review/)") {
+		t.Errorf("expected prompt to reference stateless review bundle:\n%s", out)
+	}
+	if !strings.Contains(out, ".sdd/review/T-001/discovery") {
+		t.Errorf("expected prompt to reference bundle directory:\n%s", out)
+	}
+
+	// Verify files exist in .sdd/review/T-001/discovery
+	bundleDir := filepath.Join(tmp, ".sdd", "review", "T-001", "discovery")
+	for _, f := range []string{"findings.md", "rubric.md", "manifest.json"} {
+		p := filepath.Join(bundleDir, f)
+		if _, err := os.Stat(p); err != nil {
+			t.Errorf("missing staged bundle file %s: %v", f, err)
+		}
+	}
+
+	// Verify --json output populates bundleDir
+	stdout.Reset()
+	stderr.Reset()
+	jsonCode := runPromptDiscovery([]string{"--dir", tmp, "T-001", "--ensemble", "--json"}, env)
+	if jsonCode != 0 {
+		t.Fatalf("runPromptDiscovery T-001 --ensemble --json failed with code %d: %s", jsonCode, stderr.String())
+	}
+	var ctx DiscoveryPromptContext
+	if err := json.Unmarshal(stdout.Bytes(), &ctx); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if !ctx.Ensemble {
+		t.Errorf("expected ctx.Ensemble to be true")
+	}
+	if ctx.BundleDir != ".sdd/review/T-001/discovery" {
+		t.Errorf("expected ctx.BundleDir to be .sdd/review/T-001/discovery, got %q", ctx.BundleDir)
+	}
+}
+
+func TestPromptDiscovery_LegacySingle(t *testing.T) {
+	tmp := t.TempDir()
+
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	code := runPromptDiscovery([]string{"--dir", tmp, "--json"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery legacy single failed with code %d: %s", code, stderr.String())
+	}
+
+	var ctx DiscoveryPromptContext
+	if err := json.Unmarshal(stdout.Bytes(), &ctx); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+
+	if ctx.Ensemble {
+		t.Errorf("expected Ensemble to be false for legacy single prompt")
+	}
+	if ctx.ChallengerRoleSkill != "" {
+		t.Errorf("expected empty ChallengerRoleSkill for legacy single prompt")
+	}
+	if len(ctx.BlindSpotVectors) != 0 {
+		t.Errorf("expected empty BlindSpotVectors for legacy single prompt")
+	}
+	if ctx.BundleDir != "" {
+		t.Errorf("expected empty BundleDir for legacy single prompt")
+	}
+}
+
+func TestPromptDiscovery_EnsembleTwoTierSkillOverride(t *testing.T) {
+	tmp := t.TempDir()
+
+	skillDir := filepath.Join(tmp, "skills", "discovery-challenger")
+	if err := os.MkdirAll(skillDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+	overrideContent := "---\nname: discovery-challenger\ndescription: Custom project challenger override\n---\n# Custom Challenger Skill\n"
+	if err := os.WriteFile(filepath.Join(skillDir, "SKILL.md"), []byte(overrideContent), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	code := runPromptDiscovery([]string{"--dir", tmp, "--ensemble"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery --ensemble failed: %s", stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "Custom Challenger Skill") {
+		t.Errorf("expected prompt to use custom discovery-challenger override:\n%s", out)
+	}
+}
+
+func TestPromptDiscovery_EnsembleErrors(t *testing.T) {
+	tmp := t.TempDir()
+
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	// 1. Multiple positional task arguments
+	code := runPromptDiscovery([]string{"--dir", tmp, "T-001", "T-002", "--ensemble"}, env)
+	if code != 2 {
+		t.Errorf("expected exit code 2 for multiple tasks, got %d", code)
+	}
+
+	// 2. Conflicting positional vs flag task ID
+	stderr.Reset()
+	code = runPromptDiscovery([]string{"--dir", tmp, "T-001", "--task", "T-002", "--ensemble"}, env)
+	if code != 2 {
+		t.Errorf("expected exit code 2 for conflicting task IDs, got %d", code)
+	}
+
+	// 3. Invalid task ID format
+	stderr.Reset()
+	code = runPromptDiscovery([]string{"--dir", tmp, "INVALID", "--ensemble"}, env)
+	if code != 1 {
+		t.Errorf("expected exit code 1 for invalid task ID format, got %d", code)
+	}
+}

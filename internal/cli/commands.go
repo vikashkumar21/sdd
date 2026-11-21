@@ -291,7 +291,7 @@ func runPrompt(args []string, env IO) int {
 		return parseExit(err)
 	}
 	if len(pos) != 1 {
-		fprintln(env.Err, "usage: sdd prompt <agent> [--task T-xxx] [--compact] [--dir <project>]   (agent: claude, gemini, agents, or any name)\n   or: sdd prompt discovery [T-xxx] [--dir <project>] [--json]\n   or: sdd prompt plan-review <T-xxx> [--dir <project>] [--json]\n   or: sdd prompt implement <T-xxx> [--role <role>] [--dir <project>] [--json]\n   or: sdd prompt review <T-xxx> [--lens <lens>] [--dir <project>] [--json]\n   or: sdd prompt repair <T-xxx> [--max-loops <N>] [--dir <project>] [--json]")
+		fprintln(env.Err, "usage: sdd prompt <agent> [--task T-xxx] [--compact] [--dir <project>]   (agent: claude, gemini, agents, or any name)\n   or: sdd prompt discovery [T-xxx] [--ensemble] [--dir <project>] [--json]\n   or: sdd prompt plan-review <T-xxx> [--dir <project>] [--json]\n   or: sdd prompt implement <T-xxx> [--role <role>] [--dir <project>] [--json]\n   or: sdd prompt review <T-xxx> [--lens <lens>] [--dir <project>] [--json]\n   or: sdd prompt repair <T-xxx> [--max-loops <N>] [--dir <project>] [--json]")
 		return 2
 	}
 	fail := func(format string, a ...any) int {

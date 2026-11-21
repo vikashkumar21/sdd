@@ -159,8 +159,8 @@ Status: living document · Last updated: 2026-10-26
 |---|---|---|---|---|---|---|
 | T-050 | Path hygiene validator and zero-personal-path enforcement | S | T-048 | Mechanical check in sdd check flagging local home paths in tracked files and templates; rule F-002 automated | none | Done |
 | T-051 | Hard Git commit gate and pre-commit hook enforcement | M | T-050 | sdd hook install command provisioning .git/hooks/pre-commit with TTY confirmation and SDD_HUMAN_APPROVED token | D-043 | Not started |
-| T-052 | Stateless review isolation and outside validation audit runner | M | T-048 | Default tabula-rasa context staging for all 4 reviewers (plan review & review triad) and sdd task audit mechanical execution verifier | D-044 | Awaiting review |
-| T-053 | Adversarial multi-agent brownfield discovery ensemble | M | T-045 | discovery-challenger role skill in .sdd/roles.json, sdd prompt discovery --ensemble, and blind-spot reconciliation | D-045 | Not started |
+| T-052 | Stateless review isolation and outside validation audit runner | M | T-048 | Default tabula-rasa context staging for all 4 reviewers (plan review & review triad) and sdd task audit mechanical execution verifier | D-044 | Done |
+| T-053 | Adversarial multi-agent brownfield discovery ensemble | M | T-045 | discovery-challenger role skill in .sdd/roles.json, sdd prompt discovery --ensemble, and blind-spot reconciliation | D-045 | Awaiting review |
 | T-054 | Deep domain flow documentation and visual Mermaid diagrams | M | T-053 | Scaffold docs/architecture/ and docs/business_flows/ with automated Mermaid topology, ER, and sequence diagrams | D-046 | Not started |
 
 ## 5. Unknown-technology protocol (spikes)
@@ -188,14 +188,15 @@ Unfamiliar technology derails projects. To prevent that:
 
 1. M0 through M11 are complete (50 tasks delivered, 100% roadmap completion).
 2. Release v1.8.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 12: Adversarial Discovery, Hard Git Gating & Stateless Review Isolation (T-050 – T-054; 1/5 complete).
-4. Active task: T-052 (Stateless review isolation and outside validation audit runner) awaiting review (GATE 2).
+3. Active milestone: Milestone 12: Adversarial Discovery, Hard Git Gating & Stateless Review Isolation (T-050 – T-054; 2/5 complete).
+4. Active task: T-053 (Adversarial multi-agent brownfield discovery ensemble) awaiting review (Phase D).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
-| 2026-11-21 | T-052: Stateless review context isolation, Review Triad tabula-rasa bundles, outside validation audit runner (sdd task audit) awaiting review |
+| 2026-11-21 | T-053: Adversarial multi-agent brownfield discovery ensemble, discovery-challenger role skill, and 7 blind-spot vectors awaiting review |
+| 2026-11-21 | T-052: Stateless review context isolation, Review Triad tabula-rasa bundles, outside validation audit runner (sdd task audit) done |
 | 2026-11-21 | T-050: Path hygiene validator (rule F-002), deconflict header matching fix, and zero personal paths done |
 | 2026-11-20 | Release v1.8.0: multi-platform static binaries (darwin, linux, windows), template version 2.1.0, CI failure ingestion, universal CI templates, task PR packaging, prompt cache optimization, and compact handover |
 | 2026-11-19 | T-047: Remote CI failure ingestion, diagnostic auto-repair loop, and secret sanitization done |

@@ -513,7 +513,7 @@ func TestInitExtendedRolesJson(t *testing.T) {
 		t.Fatalf("failed to read created .sdd/roles.json: %v", err)
 	}
 	content := string(data)
-	for _, r := range []string{"implementer", "qa", "devops", "codebase-analyst"} {
+	for _, r := range []string{"implementer", "qa", "devops", "codebase-analyst", "discovery-challenger"} {
 		if !strings.Contains(content, `"`+r+`"`) {
 			t.Errorf(".sdd/roles.json missing role %s", r)
 		}

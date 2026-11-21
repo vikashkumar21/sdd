@@ -175,7 +175,7 @@ func runSkillExport(args []string, env IO) int {
 	dir := fs.String("dir", ".", "project root")
 	target := fs.String("target", "", "custom destination directory for exported skill")
 	skillName := fs.String("skill", "all", "canonical skill to export: sdd-protocol, code-review, task-coordinator, or all")
-	rolesFlag := fs.Bool("roles", false, "export all canonical role skills (appsec-specialist, architect, codebase-analyst, coordinator, devops, implementer, pattern-auditor, plan-reviewer, qa, spec-auditor)")
+	rolesFlag := fs.Bool("roles", false, "export all canonical role skills (appsec-specialist, architect, codebase-analyst, coordinator, devops, discovery-challenger, implementer, pattern-auditor, plan-reviewer, qa, spec-auditor)")
 	roleFlag := fs.String("role", "", "export a specific canonical role skill by name")
 	global := fs.Bool("global", false, "export to user's global agent skill directory")
 	force := fs.Bool("force", false, "overwrite existing skill (backs up previous version to .sdd/backup/)")

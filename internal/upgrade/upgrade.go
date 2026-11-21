@@ -380,28 +380,78 @@ func BuildPlan(root string, opts Options) (*Plan, error) {
 	// 2b. Process roles manifest (.sdd/roles.json)
 	rolesDefault := role.DefaultRoleConfig()
 	rolesJSON, rolesErr := json.MarshalIndent(rolesDefault, "", "  ")
-	if rolesErr == nil {
-		rolesJSON = append(rolesJSON, '\n')
-		rolesContent := string(rolesJSON)
-		rolesHash := sum(rolesContent)
-		rolesPath := ".sdd/roles.json"
-		rawRoles, readRolesErr := rootHandle.ReadFile(filepath.FromSlash(rolesPath))
-		if errors.Is(readRolesErr, fs.ErrNotExist) {
+	if rolesErr != nil {
+		return nil, fmt.Errorf("upgrade: marshaling default roles: %w", rolesErr)
+	}
+	rolesJSON = append(rolesJSON, '\n')
+	rolesContent := string(rolesJSON)
+	rolesHash := sum(rolesContent)
+	rolesPath := ".sdd/roles.json"
+	rawRoles, readRolesErr := rootHandle.ReadFile(filepath.FromSlash(rolesPath))
+	if errors.Is(readRolesErr, fs.ErrNotExist) {
+		plan.Items = append(plan.Items, Item{
+			Path:            rolesPath,
+			Kind:            "file",
+			Action:          ActionCreate,
+			Reason:          "missing roles manifest seeded",
+			ProposedContent: rolesContent,
+			NewHash:         rolesHash,
+		})
+	} else if readRolesErr != nil {
+		return nil, fmt.Errorf("upgrade: reading %s: %w", rolesPath, readRolesErr)
+	} else {
+		var existingCfg role.RoleConfig
+		if err := json.Unmarshal(rawRoles, &existingCfg); err != nil {
+			return nil, fmt.Errorf("upgrade: parsing %s: %w", rolesPath, err)
+		}
+		if existingCfg.Schema != role.CurrentSchema {
+			return nil, fmt.Errorf("upgrade: unsupported %s schema %d (expected %d)", rolesPath, existingCfg.Schema, role.CurrentSchema)
+		}
+
+		needsUpdate := false
+		if existingCfg.Roles == nil {
+			existingCfg.Roles = make(map[string]role.RoleInfo)
+		}
+		if _, ok := existingCfg.Roles["discovery-challenger"]; !ok {
+			existingCfg.Roles["discovery-challenger"] = rolesDefault.Roles["discovery-challenger"]
+			needsUpdate = true
+		}
+		if existingCfg.Phases == nil {
+			existingCfg.Phases = make(map[string]role.PhaseMapping)
+		}
+		pDisc, hasDisc := existingCfg.Phases["phase-discovery"]
+		if !hasDisc {
+			existingCfg.Phases["phase-discovery"] = rolesDefault.Phases["phase-discovery"]
+			needsUpdate = true
+		} else if pDisc.Challenger == "" {
+			pDisc.Challenger = "discovery-challenger"
+			existingCfg.Phases["phase-discovery"] = pDisc
+			needsUpdate = true
+		}
+
+		if needsUpdate {
+			upgradedJSON, err := json.MarshalIndent(&existingCfg, "", "  ")
+			if err != nil {
+				return nil, fmt.Errorf("upgrade: formatting %s: %w", rolesPath, err)
+			}
+			upgradedJSON = append(upgradedJSON, '\n')
 			plan.Items = append(plan.Items, Item{
 				Path:            rolesPath,
 				Kind:            "file",
-				Action:          ActionCreate,
-				Reason:          "missing roles manifest seeded",
-				ProposedContent: rolesContent,
-				NewHash:         rolesHash,
+				Action:          ActionUpdate,
+				Reason:          "roles manifest updated with discovery-challenger",
+				OriginalContent: string(rawRoles),
+				ProposedContent: string(upgradedJSON),
+				NewHash:         sum(string(upgradedJSON)),
 			})
-		} else if readRolesErr == nil {
+		} else {
 			plan.Items = append(plan.Items, Item{
 				Path:            rolesPath,
 				Kind:            "file",
 				Action:          ActionUnchanged,
 				Reason:          "roles manifest preserved",
 				OriginalContent: string(rawRoles),
+				ProposedContent: string(rawRoles),
 				NewHash:         sum(string(rawRoles)),
 			})
 		}

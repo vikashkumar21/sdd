@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/vikashkumar21/sdd/internal/audit"
 	"github.com/vikashkumar21/sdd/internal/context"
 	"github.com/vikashkumar21/sdd/internal/detect"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
@@ -16,18 +17,23 @@ import (
 
 // DiscoveryPromptContext represents the structured context bundle emitted with --json.
 type DiscoveryPromptContext struct {
-	TaskID            string   `json:"taskId,omitempty"`
-	TaskDir           string   `json:"taskDir,omitempty"`
-	Typology          string   `json:"typology,omitempty"`
-	ProjectRoot       string   `json:"projectRoot"`
-	RoleSkill         string   `json:"roleSkill"`
-	DetectedLanguages []string `json:"detectedLanguages"`
-	LivingDocs        []string `json:"livingDocs"`
-	Checklist         []string `json:"checklist"`
-	StagedContext     []string `json:"stagedContext,omitempty"`
-	Requirements      string   `json:"requirements,omitempty"`
-	Plan              string   `json:"plan,omitempty"`
-	Prompt            string   `json:"prompt"`
+	TaskID                  string   `json:"taskId,omitempty"`
+	TaskDir                 string   `json:"taskDir,omitempty"`
+	Typology                string   `json:"typology,omitempty"`
+	ProjectRoot             string   `json:"projectRoot"`
+	RoleSkill               string   `json:"roleSkill"`
+	Ensemble                bool     `json:"ensemble,omitempty"`
+	BundleDir               string   `json:"bundleDir,omitempty"`
+	ChallengerRoleSkill     string   `json:"challengerRoleSkill,omitempty"`
+	BlindSpotVectors        []string `json:"blindSpotVectors,omitempty"`
+	ReconciliationChecklist []string `json:"reconciliationChecklist,omitempty"`
+	DetectedLanguages       []string `json:"detectedLanguages"`
+	LivingDocs              []string `json:"livingDocs"`
+	Checklist               []string `json:"checklist"`
+	StagedContext           []string `json:"stagedContext,omitempty"`
+	Requirements            string   `json:"requirements,omitempty"`
+	Plan                    string   `json:"plan,omitempty"`
+	Prompt                  string   `json:"prompt"`
 }
 
 func getDiscoveryLivingDocs() []string {
@@ -47,6 +53,28 @@ func getDiscoveryChecklist() []string {
 	}
 }
 
+func getDiscoveryBlindSpotVectors() []string {
+	return []string{
+		"Vector 1: Hidden Entry Points & Triggers (CLI flags/subcommands, background daemon loops, cron/schedulers, queue workers, webhooks, and event consumers unreferenced in primary entrypoints)",
+		"Vector 2: Concurrency, Lifecycle & Shutdown Invariants (unbounded goroutines/threads, missing cancellation propagation, SIGINT/SIGTERM drain hooks, package-level mutable state, race conditions in init)",
+		"Vector 3: Data Boundary Invariants & Schema Drift (unhandled database errors, uncommitted/unrolled-back transactions, raw SQL queries bypassing the ORM, schema migration mismatches, in-memory cache desync)",
+		"Vector 4: Dynamic Dispatch & Runtime Feature Flags (reflection-based routing, plugin systems, runtime feature flags, environment-conditional code paths invisible to static call graphs)",
+		"Vector 5: Orphan & Dead Code (dangling configurations, abandoned routes/endpoints, unexported/unreferenced symbols, unused dependencies)",
+		"Vector 6: Implicit External & Ambient Dependencies (undocumented env vars, ambient binaries/system tools assumed to exist on the host, undeclared cloud SDK defaults, unrecorded third-party APIs)",
+		"Vector 7: Architectural & Documentation Contradictions (direct discrepancies between existing README/architecture docs and actual runtime code behavior, stale comments, unverified assumptions)",
+	}
+}
+
+func getDiscoveryReconciliationChecklist() []string {
+	return []string{
+		"1. Cross-reference primary analyst AST map with challenger-discovered entry points and async event consumers.",
+		"2. Reconcile database models and data flows against migration history and raw queries.",
+		"3. Ensure all implicit external dependencies, tools, and env vars are registered in TECH_STACK.md §8 and configuration schemas.",
+		"4. Sweep codebase for dead code, abandoned endpoints, and dangling config keys, logging candidates into ROADMAP.md §7 Parking Lot.",
+		"5. Verify that existing documentation discrepancies are resolved in living documents prior to Gate 1 approval.",
+	}
+}
+
 func readTaskPlan(taskDirAbs string) string {
 	plan := readTaskDoc(taskDirAbs, "plan.md")
 	if plan == "" {
@@ -59,6 +87,7 @@ func runPromptDiscovery(args []string, env IO) int {
 	fs := newFlagSet("prompt discovery", env)
 	dir := fs.String("dir", ".", "project root")
 	taskFlag := fs.String("task", "", "focus task, for example T-001 (default: discovery or first open task)")
+	ensembleFlag := fs.Bool("ensemble", false, "output multi-agent adversarial discovery ensemble brief")
 	jsonFlag := fs.Bool("json", false, "output machine-readable discovery context bundle as JSON")
 
 	pos, err := parseInterspersed(fs, args)
@@ -67,7 +96,7 @@ func runPromptDiscovery(args []string, env IO) int {
 	}
 
 	if len(pos) > 1 {
-		fprintln(env.Err, "usage: sdd prompt discovery [T-xxx] [--task T-xxx] [--dir <project>] [--json]")
+		fprintln(env.Err, "usage: sdd prompt discovery [T-xxx] [--task T-xxx] [--ensemble] [--dir <project>] [--json]")
 		return 2
 	}
 
@@ -149,29 +178,69 @@ func runPromptDiscovery(args []string, env IO) int {
 		sort.Strings(stagedList)
 	}
 
-	// 3. Resolve codebase-analyst role skill via two-tier storage
+	// 3. Resolve role skills via two-tier storage
 	roleSkill, err := role.ResolveSkill(root, "codebase-analyst", nil)
 	if err != nil {
 		fprintf(env.Err, "sdd prompt discovery: failed to resolve codebase-analyst role skill: %v\n", err)
 		return 1
 	}
 
+	var challengerSkill string
+	var bundleDir string
+	if *ensembleFlag {
+		challengerSkill, err = role.ResolveSkill(root, "discovery-challenger", nil)
+		if err != nil {
+			fprintf(env.Err, "sdd prompt discovery: failed to resolve discovery-challenger role skill: %v\n", err)
+			return 1
+		}
+
+		if rawTaskID != "" {
+			bundle, stageErr := audit.StageDiscoveryBundle(root, rawTaskID, "", challengerSkill, env.now())
+			if stageErr != nil {
+				fprintf(env.Err, "sdd prompt discovery: warning: could not stage review bundle: %v\n", stageErr)
+			} else if bundle != nil {
+				bundleDir = bundle.BundleDir
+			}
+		}
+	}
+
 	// 4. Assemble prompt text
-	promptText := buildDiscoveryPrompt(
-		rawTaskID,
-		taskDirRel,
-		typology,
-		root,
-		detectedLangs,
-		manifests,
-		detResult.Build,
-		detResult.Test,
-		detResult.Lint,
-		stagedList,
-		roleSkill,
-		reqs,
-		plan,
-	)
+	var promptText string
+	if *ensembleFlag {
+		promptText = buildDiscoveryEnsemblePrompt(
+			rawTaskID,
+			taskDirRel,
+			typology,
+			root,
+			detectedLangs,
+			manifests,
+			detResult.Build,
+			detResult.Test,
+			detResult.Lint,
+			stagedList,
+			roleSkill,
+			challengerSkill,
+			bundleDir,
+			reqs,
+			plan,
+		)
+	} else {
+		promptText = buildDiscoveryPrompt(
+			rawTaskID,
+			taskDirRel,
+			typology,
+			root,
+			detectedLangs,
+			manifests,
+			detResult.Build,
+			detResult.Test,
+			detResult.Lint,
+			stagedList,
+			roleSkill,
+			reqs,
+			plan,
+		)
+	}
 
 	// 5. Emit JSON or human-readable markdown
 	if *jsonFlag {
@@ -188,6 +257,13 @@ func runPromptDiscovery(args []string, env IO) int {
 			Requirements:      reqs,
 			Plan:              plan,
 			Prompt:            promptText,
+		}
+		if *ensembleFlag {
+			ctx.Ensemble = true
+			ctx.BundleDir = bundleDir
+			ctx.ChallengerRoleSkill = challengerSkill
+			ctx.BlindSpotVectors = getDiscoveryBlindSpotVectors()
+			ctx.ReconciliationChecklist = getDiscoveryReconciliationChecklist()
 		}
 		data, err := json.MarshalIndent(ctx, "", "  ")
 		if err != nil {
@@ -273,37 +349,119 @@ func buildDiscoveryPrompt(
 	sb.WriteString("3. **`ROADMAP.md`:**\n")
 	sb.WriteString("   - Discovered technical debt, unmapped subsystems, and remediation items -> Parking Lot (§7)\n\n")
 
+	appendDiscoveryContextAndTask(&sb, root, detectedLangs, manifests, buildCmd, testCmd, lintCmd, stagedContext, taskID, taskDir, typology, reqs, plan)
+
+	return sb.String()
+}
+
+func buildDiscoveryEnsemblePrompt(
+	taskID, taskDir, typology, root string,
+	detectedLangs []string,
+	manifests []string,
+	buildCmd, testCmd, lintCmd string,
+	stagedContext []string,
+	roleSkill, challengerSkill, bundleDir, reqs, plan string,
+) string {
+	var sb strings.Builder
+
+	targetHeader := filepath.Base(root)
+	if taskID != "" {
+		targetHeader = fmt.Sprintf("Task %s (%s)", taskID, taskDir)
+	}
+
+	fmt.Fprintf(&sb, "# Handover: Adversarial Discovery Ensemble for %s\n\n", targetHeader)
+	sb.WriteString("You are orchestrating an **Adversarial Multi-Agent Discovery Ensemble** for brownfield exploration.\n")
+	sb.WriteString("To eliminate single-agent blind spots, discovery is partitioned into two specialized roles:\n")
+	sb.WriteString("1. **Primary Analyst (`codebase-analyst`):** Conducts 4-pillar forensic extraction and living document drafting.\n")
+	sb.WriteString("2. **Adversarial Challenger (`discovery-challenger`):** Operates under stateless reviewer isolation to audit findings across 7 blind-spot vectors.\n\n")
+
+	sb.WriteString("## SDD Anthem & Principles\n")
+	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
+
+	sb.WriteString("1. **Strictly Read-Only:** Neither agent mutates application source code during Phase Discovery.\n")
+	sb.WriteString("2. **Stateless Reviewer Isolation:** The `discovery-challenger` is dispatched in a fresh, isolated context (tabula rasa) without conversational anchoring to the analyst.\n")
+	sb.WriteString("3. **Evidence-Based Grounding:** Every discovery claim and adversarial challenge must cite exact repository-relative file paths and line numbers.\n")
+	sb.WriteString("4. **Deterministic Reconciliation:** Discrepancies between analyst and challenger findings are reconciled before Gate 1 approval.\n\n")
+
+	if bundleDir != "" {
+		sb.WriteString("## Stateless Review Bundle (.sdd/review/)\n")
+		sb.WriteString("An isolated, frozen review bundle has been staged for the challenger with zero conversational history:\n")
+		fmt.Fprintf(&sb, "- **Bundle Directory:** `%s`\n", filepath.ToSlash(bundleDir))
+		fmt.Fprintf(&sb, "- **Staged Findings:** `%s/findings.md`\n", filepath.ToSlash(bundleDir))
+		fmt.Fprintf(&sb, "- **Challenger Rubric:** `%s/rubric.md`\n", filepath.ToSlash(bundleDir))
+		fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n\n", filepath.ToSlash(bundleDir))
+	}
+
+	sb.WriteString("## 1. Primary Analyst Briefing (codebase-analyst)\n")
+	sb.WriteString("The primary analyst executes the 4-pillar progressive extraction checklist:\n")
+	for _, item := range getDiscoveryChecklist() {
+		fmt.Fprintf(&sb, "- %s\n", item)
+	}
+	sb.WriteString("\n### Canonical Role Skill: Codebase Analyst\n")
+	sb.WriteString(strings.TrimSpace(roleSkill))
+	sb.WriteString("\n\n")
+
+	sb.WriteString("## 2. Adversarial Challenger Rubric (discovery-challenger)\n")
+	sb.WriteString("The discovery challenger interrogates the draft findings against 7 comprehensive blind-spot vectors:\n")
+	for _, v := range getDiscoveryBlindSpotVectors() {
+		fmt.Fprintf(&sb, "- %s\n", v)
+	}
+	sb.WriteString("\n### Canonical Role Skill: Discovery Challenger\n")
+	sb.WriteString(strings.TrimSpace(challengerSkill))
+	sb.WriteString("\n\n")
+
+	sb.WriteString("## 3. Deterministic Reconciliation Protocol (Gate 1 Exit Criteria)\n")
+	sb.WriteString("Before presenting the brownfield discovery specifications to the human at Gate 1, the Task Coordinator executes this reconciliation:\n")
+	for _, r := range getDiscoveryReconciliationChecklist() {
+		fmt.Fprintf(&sb, "- [ ] %s\n", r)
+	}
+	sb.WriteString("\n")
+
+	appendDiscoveryContextAndTask(&sb, root, detectedLangs, manifests, buildCmd, testCmd, lintCmd, stagedContext, taskID, taskDir, typology, reqs, plan)
+
+	return sb.String()
+}
+
+func appendDiscoveryContextAndTask(
+	sb *strings.Builder,
+	root string,
+	detectedLangs []string,
+	manifests []string,
+	buildCmd, testCmd, lintCmd string,
+	stagedContext []string,
+	taskID, taskDir, typology, reqs, plan string,
+) {
 	sb.WriteString("## Project Context & Metadata\n")
-	fmt.Fprintf(&sb, "- **Project Root:** `%s`\n", filepath.ToSlash(root))
+	fmt.Fprintf(sb, "- **Project Root:** `%s`\n", filepath.ToSlash(root))
 	if len(detectedLangs) > 0 {
-		fmt.Fprintf(&sb, "- **Detected Languages:** %s\n", strings.Join(detectedLangs, ", "))
+		fmt.Fprintf(sb, "- **Detected Languages:** %s\n", strings.Join(detectedLangs, ", "))
 	}
 	if len(manifests) > 0 {
-		fmt.Fprintf(&sb, "- **Detected Manifests:** %s\n", strings.Join(manifests, ", "))
+		fmt.Fprintf(sb, "- **Detected Manifests:** %s\n", strings.Join(manifests, ", "))
 	}
 	if buildCmd != "" {
-		fmt.Fprintf(&sb, "- **Suggested Build:** `%s`\n", buildCmd)
+		fmt.Fprintf(sb, "- **Suggested Build:** `%s`\n", buildCmd)
 	}
 	if testCmd != "" {
-		fmt.Fprintf(&sb, "- **Suggested Test:** `%s`\n", testCmd)
+		fmt.Fprintf(sb, "- **Suggested Test:** `%s`\n", testCmd)
 	}
 	if lintCmd != "" {
-		fmt.Fprintf(&sb, "- **Suggested Lint:** `%s`\n", lintCmd)
+		fmt.Fprintf(sb, "- **Suggested Lint:** `%s`\n", lintCmd)
 	}
 	if len(stagedContext) > 0 {
 		sb.WriteString("- **Staged Context Artifacts:**\n")
 		for _, s := range stagedContext {
-			fmt.Fprintf(&sb, "  - `%s`\n", s)
+			fmt.Fprintf(sb, "  - `%s`\n", s)
 		}
 	}
 	sb.WriteString("\n")
 
 	if taskID != "" {
 		sb.WriteString("## Discovery Task Details\n")
-		fmt.Fprintf(&sb, "- **Task ID:** %s\n", taskID)
-		fmt.Fprintf(&sb, "- **Task Directory:** %s\n", taskDir)
+		fmt.Fprintf(sb, "- **Task ID:** %s\n", taskID)
+		fmt.Fprintf(sb, "- **Task Directory:** %s\n", taskDir)
 		if typology != "" {
-			fmt.Fprintf(&sb, "- **Typology:** %s\n", typology)
+			fmt.Fprintf(sb, "- **Typology:** %s\n", typology)
 		}
 		if reqs != "" {
 			sb.WriteString("\n### Requirements (`requirements.md`)\n")
@@ -316,6 +474,4 @@ func buildDiscoveryPrompt(
 			sb.WriteString("\n")
 		}
 	}
-
-	return sb.String()
 }

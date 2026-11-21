@@ -35,6 +35,7 @@ type PhaseMapping struct {
 	QA          string   `json:"qa,omitempty"`
 	DevOps      string   `json:"devops,omitempty"`
 	Analyst     string   `json:"analyst,omitempty"`
+	Challenger  string   `json:"challenger,omitempty"`
 }
 
 // RoleConfig represents the configuration stored in .sdd/roles.json.
@@ -52,6 +53,7 @@ func CanonicalRoleNames() []string {
 		"codebase-analyst",
 		"coordinator",
 		"devops",
+		"discovery-challenger",
 		"implementer",
 		"pattern-auditor",
 		"plan-reviewer",
@@ -76,6 +78,10 @@ func DefaultRoleConfig() *RoleConfig {
 			"codebase-analyst": {
 				Skill:       "codebase-analyst",
 				Description: "Forensic codebase analysis, design system & CSS/font extraction, backend architecture mapping, schema discovery, and tech debt auditing",
+			},
+			"discovery-challenger": {
+				Skill:       "discovery-challenger",
+				Description: "Adversarial codebase challenger: audits discovery findings, uncovers hidden entry points, implicit fallbacks, orphan code, and unreferenced architecture",
 			},
 			"plan-reviewer": {
 				Skill:       "plan-reviewer",
@@ -108,8 +114,9 @@ func DefaultRoleConfig() *RoleConfig {
 		},
 		Phases: map[string]PhaseMapping{
 			"phase-discovery": {
-				Analyst: "codebase-analyst",
-				Planner: "architect",
+				Analyst:    "codebase-analyst",
+				Challenger: "discovery-challenger",
+				Planner:    "architect",
 			},
 			"phase-a": {
 				Planner:  "architect",

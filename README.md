@@ -98,7 +98,9 @@ sdd ingest --ci-log --seed-bugfix --task T-003 --file log    # stage sanitized C
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
 sdd prompt gemini --compact # generate high-density micro-context prompt (< 400 tokens)
 sdd prompt discovery                        # generate turnkey brownfield exploration prompt (codebase-analyst role, --json)
+sdd prompt discovery --ensemble             # generate adversarial multi-agent discovery brief (analyst + challenger, 7 vectors)
 sdd prompt discovery T-003                  # generate discovery prompt linked to specific task requirements and plan
+sdd prompt discovery T-003 --ensemble       # stage stateless review bundle (.sdd/review/T-003/discovery/) and output ensemble brief
 sdd prompt plan-review T-003                  # generate turnkey pre-GATE 1 plan review prompt (--json supported)
 sdd prompt implement T-003                    # generate turnkey Phase B implementation prompt (implementer role, --json supported)
 sdd prompt implement T-003 --role qa          # generate implementation prompt enriched with QA automation skill
@@ -132,7 +134,7 @@ sdd skill new quick-fix --from-text "run make verify"            # import raw in
 sdd skill list                                # list available skills with scope, status, and descriptions
 sdd skill list --json                         # output skill catalog as structured JSON
 sdd skill export                                  # export canonical skills (sdd-protocol, code-review, task-coordinator) to skills/
-sdd skill export --roles                          # export all 10 canonical role skills (governance, execution, operations, discovery)
+sdd skill export --roles                          # export all 11 canonical role skills (governance, execution, operations, discovery)
 sdd skill export --role codebase-analyst          # export specific canonical discovery role skill
 sdd skill export --role implementer               # export specific canonical execution role skill (e.g. implementer, qa, devops)
 sdd skill export --role appsec-specialist         # export specific canonical governance role skill

@@ -21,6 +21,10 @@
       "skill": "devops",
       "description": "Senior DevOps / SRE engineer; build automation; CI/CD recipes; packaging; distribution"
     },
+    "discovery-challenger": {
+      "skill": "discovery-challenger",
+      "description": "Adversarial codebase challenger: audits discovery findings, uncovers hidden entry points, implicit fallbacks, orphan code, and unreferenced architecture"
+    },
     "implementer": {
       "skill": "implementer",
       "description": "Phase B step-by-step implementation, strict plan boundary enforcement, and determinism"
@@ -45,6 +49,7 @@
   "phases": {
     "phase-discovery": {
       "analyst": "codebase-analyst",
+      "challenger": "discovery-challenger",
       "planner": "architect"
     },
     "governance": {

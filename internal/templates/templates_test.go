@@ -163,6 +163,7 @@ func TestEmbeddedRoleSkills(t *testing.T) {
 		"coordinator",
 		"architect",
 		"codebase-analyst",
+		"discovery-challenger",
 		"plan-reviewer",
 		"spec-auditor",
 		"appsec-specialist",

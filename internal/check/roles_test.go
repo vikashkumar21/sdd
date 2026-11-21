@@ -352,6 +352,17 @@ func TestRolesCheck_ExtendedPhaseMappingsUnresolved(t *testing.T) {
 			phase:   "phase-discovery",
 			missing: "ghost-analyst",
 		},
+		{
+			name: "unresolved challenger in phase-discovery",
+			mutate: func(cfg *role.RoleConfig) {
+				cfg.Phases["phase-discovery"] = role.PhaseMapping{
+					Analyst:    "codebase-analyst",
+					Challenger: "ghost-challenger",
+				}
+			},
+			phase:   "phase-discovery",
+			missing: "ghost-challenger",
+		},
 	}
 
 	for _, tc := range cases {

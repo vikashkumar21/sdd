@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,15 +14,26 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vikashkumar21/sdd/internal/fsutil"
 	"github.com/vikashkumar21/sdd/internal/role"
 )
 
 const maxUntrackedFileSize = 1024 * 1024 // 1MB limit for untracked files in diffs
+const maxDocSize = 1024 * 1024           // 1MB limit for task documents
 
 var taskIDPattern = regexp.MustCompile(`^T-\d{3,}$`)
 
 // PlanBundle contains staged metadata for an isolated plan review.
 type PlanBundle struct {
+	TaskID    string    `json:"task_id"`
+	TaskDir   string    `json:"task_dir"`
+	BundleDir string    `json:"bundle_dir"`
+	CreatedAt time.Time `json:"created_at"`
+	Files     []string  `json:"files"`
+}
+
+// DiscoveryBundle contains staged metadata for an isolated brownfield discovery review.
+type DiscoveryBundle struct {
 	TaskID    string    `json:"task_id"`
 	TaskDir   string    `json:"task_dir"`
 	BundleDir string    `json:"bundle_dir"`
@@ -40,9 +53,14 @@ type ReviewBundle struct {
 
 // EnsureGitignoreReview ensures .sdd/review/ is ignored in the root .gitignore.
 func EnsureGitignoreReview(root string) error {
-	gitIgnorePath := filepath.Join(root, ".gitignore")
-	content, err := os.ReadFile(gitIgnorePath)
-	if err != nil && !os.IsNotExist(err) {
+	rootHandle, err := os.OpenRoot(root)
+	if err != nil {
+		return fmt.Errorf("opening root: %w", err)
+	}
+	defer func() { _ = rootHandle.Close() }()
+
+	content, err := rootHandle.ReadFile(".gitignore")
+	if err != nil && !os.IsNotExist(err) && !errors.Is(err, fs.ErrNotExist) {
 		return err
 	}
 
@@ -58,7 +76,7 @@ func EnsureGitignoreReview(root string) error {
 	}
 	buf.WriteString("\n# SDD stateless review bundles\n.sdd/review/\n")
 
-	return os.WriteFile(gitIgnorePath, buf.Bytes(), 0o644)
+	return fsutil.WriteAtomicRoot(rootHandle, ".gitignore", buf.Bytes(), 0o644)
 }
 
 // StagePlanBundle stages an isolated, frozen review bundle for Phase A plan review.
@@ -77,17 +95,22 @@ func StagePlanBundle(root, taskID string, now ...time.Time) (*PlanBundle, error)
 		return nil, fmt.Errorf("ensuring .gitignore review entry: %w", err)
 	}
 
-	bundleDirRel := filepath.Join(".sdd", "review", normTaskID, "plan")
-	bundleDirAbs := filepath.Join(root, bundleDirRel)
-	if err := os.MkdirAll(bundleDirAbs, 0o755); err != nil {
-		return nil, fmt.Errorf("creating plan review bundle dir: %w", err)
+	rootHandle, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, fmt.Errorf("opening root: %w", err)
 	}
+	defer func() { _ = rootHandle.Close() }()
 
-	taskDirAbs := filepath.Join(root, filepath.FromSlash(taskRelDir))
-	reqContent := readDoc(taskDirAbs, "requirements.md")
-	planContent := readDoc(taskDirAbs, "plan.md")
+	bundleDirRel := filepath.Join(".sdd", "review", normTaskID, "plan")
+
+	fi, statErr := rootHandle.Lstat(filepath.FromSlash(taskRelDir))
+	if statErr != nil || !fi.IsDir() || (fi.Mode()&os.ModeSymlink != 0) {
+		return nil, fmt.Errorf("task directory is invalid or symlink: %s", taskRelDir)
+	}
+	reqContent := readDoc(taskRelDir, "requirements.md", rootHandle)
+	planContent := readDoc(taskRelDir, "plan.md", rootHandle)
 	if planContent == "" {
-		planContent = readDoc(taskDirAbs, "patch.md")
+		planContent = readDoc(taskRelDir, "patch.md", rootHandle)
 	}
 
 	// 1. spec.md: combines requirements and plan
@@ -99,15 +122,18 @@ func StagePlanBundle(root, taskID string, now ...time.Time) (*PlanBundle, error)
 	specBuf.WriteString(strings.TrimSpace(planContent))
 	specBuf.WriteString("\n")
 
-	specPath := filepath.Join(bundleDirAbs, "spec.md")
-	if err := os.WriteFile(specPath, specBuf.Bytes(), 0o644); err != nil {
+	specRel := filepath.Join(bundleDirRel, "spec.md")
+	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(specRel), specBuf.Bytes(), 0o644); err != nil {
 		return nil, fmt.Errorf("writing spec.md: %w", err)
 	}
 
 	// 2. rubric.md: plan-reviewer role skill
-	roleSkill, _ := role.ResolveSkill(root, "plan-reviewer", nil)
-	rubricPath := filepath.Join(bundleDirAbs, "rubric.md")
-	if err := os.WriteFile(rubricPath, []byte(strings.TrimSpace(roleSkill)+"\n"), 0o644); err != nil {
+	roleSkill, err := role.ResolveSkill(root, "plan-reviewer", nil)
+	if err != nil {
+		return nil, fmt.Errorf("resolving plan-reviewer skill: %w", err)
+	}
+	rubricRel := filepath.Join(bundleDirRel, "rubric.md")
+	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(rubricRel), []byte(strings.TrimSpace(roleSkill)+"\n"), 0o644); err != nil {
 		return nil, fmt.Errorf("writing rubric.md: %w", err)
 	}
 
@@ -134,8 +160,112 @@ func StagePlanBundle(root, taskID string, now ...time.Time) (*PlanBundle, error)
 	if err != nil {
 		return nil, fmt.Errorf("marshaling plan manifest: %w", err)
 	}
-	manifestPath := filepath.Join(bundleDirAbs, "manifest.json")
-	if err := os.WriteFile(manifestPath, manifestData, 0o644); err != nil {
+	manifestRel := filepath.Join(bundleDirRel, "manifest.json")
+	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(manifestRel), manifestData, 0o644); err != nil {
+		return nil, fmt.Errorf("writing manifest.json: %w", err)
+	}
+	bundle.Files = append(bundle.Files, filepath.ToSlash(filepath.Join(bundleDirRel, "manifest.json")))
+
+	return bundle, nil
+}
+
+// StageDiscoveryBundle stages an isolated, frozen review bundle for Phase Discovery challenger audit.
+func StageDiscoveryBundle(root, taskID, findingsContent, rubricContent string, now ...time.Time) (*DiscoveryBundle, error) {
+	normTaskID := strings.ToUpper(strings.TrimSpace(taskID))
+	if !taskIDPattern.MatchString(normTaskID) {
+		return nil, fmt.Errorf("invalid task ID format %q (expected format like T-001)", taskID)
+	}
+
+	taskRelDir, _, err := findTaskDirectory(root, normTaskID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := EnsureGitignoreReview(root); err != nil {
+		return nil, fmt.Errorf("ensuring .gitignore review entry: %w", err)
+	}
+
+	rootHandle, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, fmt.Errorf("opening root: %w", err)
+	}
+	defer func() { _ = rootHandle.Close() }()
+
+	bundleDirRel := filepath.Join(".sdd", "review", normTaskID, "discovery")
+
+	fi, statErr := rootHandle.Lstat(filepath.FromSlash(taskRelDir))
+	if statErr != nil || !fi.IsDir() || (fi.Mode()&os.ModeSymlink != 0) {
+		return nil, fmt.Errorf("task directory is invalid or symlink: %s", taskRelDir)
+	}
+	reqContent := readDoc(taskRelDir, "requirements.md", rootHandle)
+	planContent := readDoc(taskRelDir, "plan.md", rootHandle)
+	if planContent == "" {
+		planContent = readDoc(taskRelDir, "patch.md", rootHandle)
+	}
+
+	// 1. findings.md: combines findingsContent, requirements, and plan
+	var findingsBuf bytes.Buffer
+	fmt.Fprintf(&findingsBuf, "# Discovery Findings Bundle: %s\n\n", normTaskID)
+	if strings.TrimSpace(findingsContent) != "" {
+		findingsBuf.WriteString("## Discovery Report & Synthesis\n\n")
+		findingsBuf.WriteString(strings.TrimSpace(findingsContent))
+		findingsBuf.WriteString("\n\n---\n\n")
+	}
+	if strings.TrimSpace(reqContent) != "" {
+		findingsBuf.WriteString("## Requirements (requirements.md)\n\n")
+		findingsBuf.WriteString(strings.TrimSpace(reqContent))
+		findingsBuf.WriteString("\n\n---\n\n")
+	}
+	if strings.TrimSpace(planContent) != "" {
+		findingsBuf.WriteString("## Implementation Plan (plan.md)\n\n")
+		findingsBuf.WriteString(strings.TrimSpace(planContent))
+		findingsBuf.WriteString("\n")
+	}
+
+	findingsRel := filepath.Join(bundleDirRel, "findings.md")
+	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(findingsRel), findingsBuf.Bytes(), 0o644); err != nil {
+		return nil, fmt.Errorf("writing findings.md: %w", err)
+	}
+
+	// 2. rubric.md: discovery-challenger role skill
+	resolvedRubric := strings.TrimSpace(rubricContent)
+	if resolvedRubric == "" {
+		skill, err := role.ResolveSkill(root, "discovery-challenger", nil)
+		if err != nil {
+			return nil, fmt.Errorf("resolving discovery-challenger skill: %w", err)
+		}
+		resolvedRubric = skill
+	}
+	rubricRel := filepath.Join(bundleDirRel, "rubric.md")
+	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(rubricRel), []byte(strings.TrimSpace(resolvedRubric)+"\n"), 0o644); err != nil {
+		return nil, fmt.Errorf("writing rubric.md: %w", err)
+	}
+
+	stagedFiles := []string{
+		filepath.ToSlash(filepath.Join(bundleDirRel, "findings.md")),
+		filepath.ToSlash(filepath.Join(bundleDirRel, "rubric.md")),
+	}
+
+	createdAt := time.Now().UTC()
+	if len(now) > 0 && !now[0].IsZero() {
+		createdAt = now[0].UTC()
+	}
+
+	// 3. manifest.json
+	bundle := &DiscoveryBundle{
+		TaskID:    normTaskID,
+		TaskDir:   taskRelDir,
+		BundleDir: filepath.ToSlash(bundleDirRel),
+		CreatedAt: createdAt,
+		Files:     stagedFiles,
+	}
+
+	manifestData, err := json.MarshalIndent(bundle, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshaling discovery manifest: %w", err)
+	}
+	manifestRel := filepath.Join(bundleDirRel, "manifest.json")
+	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(manifestRel), manifestData, 0o644); err != nil {
 		return nil, fmt.Errorf("writing manifest.json: %w", err)
 	}
 	bundle.Files = append(bundle.Files, filepath.ToSlash(filepath.Join(bundleDirRel, "manifest.json")))
@@ -164,17 +294,22 @@ func StageReviewBundle(root, taskID, lens string, now ...time.Time) (*ReviewBund
 		return nil, fmt.Errorf("ensuring .gitignore review entry: %w", err)
 	}
 
-	bundleDirRel := filepath.Join(".sdd", "review", normTaskID, "code")
-	bundleDirAbs := filepath.Join(root, bundleDirRel)
-	if err := os.MkdirAll(bundleDirAbs, 0o755); err != nil {
-		return nil, fmt.Errorf("creating code review bundle dir: %w", err)
+	rootHandle, err := os.OpenRoot(root)
+	if err != nil {
+		return nil, fmt.Errorf("opening root: %w", err)
 	}
+	defer func() { _ = rootHandle.Close() }()
 
-	taskDirAbs := filepath.Join(root, filepath.FromSlash(taskRelDir))
-	reqContent := readDoc(taskDirAbs, "requirements.md")
-	planContent := readDoc(taskDirAbs, "plan.md")
+	bundleDirRel := filepath.Join(".sdd", "review", normTaskID, "code")
+
+	fi, statErr := rootHandle.Lstat(filepath.FromSlash(taskRelDir))
+	if statErr != nil || !fi.IsDir() || (fi.Mode()&os.ModeSymlink != 0) {
+		return nil, fmt.Errorf("task directory is invalid or symlink: %s", taskRelDir)
+	}
+	reqContent := readDoc(taskRelDir, "requirements.md", rootHandle)
+	planContent := readDoc(taskRelDir, "plan.md", rootHandle)
 	if planContent == "" {
-		planContent = readDoc(taskDirAbs, "patch.md")
+		planContent = readDoc(taskRelDir, "patch.md", rootHandle)
 	}
 
 	// 1. spec.md
@@ -186,8 +321,8 @@ func StageReviewBundle(root, taskID, lens string, now ...time.Time) (*ReviewBund
 	specBuf.WriteString(strings.TrimSpace(planContent))
 	specBuf.WriteString("\n")
 
-	specPath := filepath.Join(bundleDirAbs, "spec.md")
-	if err := os.WriteFile(specPath, specBuf.Bytes(), 0o644); err != nil {
+	specRel := filepath.Join(bundleDirRel, "spec.md")
+	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(specRel), specBuf.Bytes(), 0o644); err != nil {
 		return nil, fmt.Errorf("writing spec.md: %w", err)
 	}
 
@@ -196,15 +331,15 @@ func StageReviewBundle(root, taskID, lens string, now ...time.Time) (*ReviewBund
 	if err != nil {
 		diffText = fmt.Sprintf("# Note: could not extract git diff: %v\n", err)
 	}
-	diffPath := filepath.Join(bundleDirAbs, "diff.patch")
-	if err := os.WriteFile(diffPath, []byte(diffText), 0o644); err != nil {
+	diffRel := filepath.Join(bundleDirRel, "diff.patch")
+	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(diffRel), []byte(diffText), 0o644); err != nil {
 		return nil, fmt.Errorf("writing diff.patch: %w", err)
 	}
 
 	// 3. rubric.md: role skill for lens
 	roleSkill := resolveReviewRubric(root, normLens)
-	rubricPath := filepath.Join(bundleDirAbs, "rubric.md")
-	if err := os.WriteFile(rubricPath, []byte(strings.TrimSpace(roleSkill)+"\n"), 0o644); err != nil {
+	rubricRel := filepath.Join(bundleDirRel, "rubric.md")
+	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(rubricRel), []byte(strings.TrimSpace(roleSkill)+"\n"), 0o644); err != nil {
 		return nil, fmt.Errorf("writing rubric.md: %w", err)
 	}
 
@@ -233,8 +368,8 @@ func StageReviewBundle(root, taskID, lens string, now ...time.Time) (*ReviewBund
 	if err != nil {
 		return nil, fmt.Errorf("marshaling review manifest: %w", err)
 	}
-	manifestPath := filepath.Join(bundleDirAbs, "manifest.json")
-	if err := os.WriteFile(manifestPath, manifestData, 0o644); err != nil {
+	manifestRel := filepath.Join(bundleDirRel, "manifest.json")
+	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(manifestRel), manifestData, 0o644); err != nil {
 		return nil, fmt.Errorf("writing manifest.json: %w", err)
 	}
 	bundle.Files = append(bundle.Files, filepath.ToSlash(filepath.Join(bundleDirRel, "manifest.json")))
@@ -443,8 +578,25 @@ func extractGitDiff(root string) (string, error) {
 	return res, nil
 }
 
-func readDoc(dir, name string) string {
-	b, err := os.ReadFile(filepath.Join(dir, name))
+func readDoc(dir, name string, rootHandle ...*os.Root) string {
+	if len(rootHandle) > 0 && rootHandle[0] != nil {
+		relPath := filepath.Join(filepath.FromSlash(dir), name)
+		fi, err := rootHandle[0].Lstat(relPath)
+		if err != nil || fi.IsDir() || (fi.Mode()&os.ModeSymlink != 0) || fi.Size() > maxDocSize {
+			return ""
+		}
+		b, err := rootHandle[0].ReadFile(relPath)
+		if err != nil {
+			return ""
+		}
+		return string(b)
+	}
+	target := filepath.Join(dir, name)
+	fi, err := os.Lstat(target)
+	if err != nil || fi.IsDir() || (fi.Mode()&os.ModeSymlink != 0) || fi.Size() > maxDocSize {
+		return ""
+	}
+	b, err := os.ReadFile(target)
 	if err != nil {
 		return ""
 	}
@@ -474,7 +626,7 @@ func findTaskDirectory(root, taskID string) (relDir, typology string, err error)
 			continue
 		}
 		for _, e := range entries {
-			if e.IsDir() && (e.Name() == taskID || strings.HasPrefix(e.Name(), prefix)) {
+			if (e.IsDir() || e.Type()&fs.ModeSymlink != 0) && (e.Name() == taskID || strings.HasPrefix(e.Name(), prefix)) {
 				return filepath.ToSlash(filepath.Join(t.dir, e.Name())), t.name, nil
 			}
 		}
