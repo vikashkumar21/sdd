@@ -161,7 +161,7 @@ Status: living document · Last updated: 2026-10-26
 | T-051 | Hard Git commit gate and pre-commit hook enforcement | M | T-050 | sdd hook install command provisioning .git/hooks/pre-commit with TTY confirmation and SDD_HUMAN_APPROVED token | D-043 | Not started |
 | T-052 | Stateless review isolation and outside validation audit runner | M | T-048 | Default tabula-rasa context staging for all 4 reviewers (plan review & review triad) and sdd task audit mechanical execution verifier | D-044 | Done |
 | T-053 | Adversarial multi-agent brownfield discovery ensemble | M | T-045 | discovery-challenger role skill in .sdd/roles.json, sdd prompt discovery --ensemble, and blind-spot reconciliation | D-045 | Done |
-| T-054 | Deep domain flow documentation and visual Mermaid diagrams | M | T-053 | Scaffold docs/architecture/ and docs/business_flows/ with automated Mermaid topology, ER, and sequence diagrams | D-046 | Not started |
+| T-054 | Deep domain flow documentation and visual Mermaid diagrams | M | T-053 | Scaffold docs/architecture/ and docs/business_flows/ with automated Mermaid topology, ER, and sequence diagrams | D-046 | Awaiting review |
 | T-055 | Default task token telemetry and template integration | S | T-049, T-053 | All task templates contain ## Token Metrics, contract templates mandate sdd task state record-tokens before Gate 2, sdd record-tokens command alias, templates.Version bumped to 2.2.0, and upgrade verified | D-047 | Done |
 
 ## 5. Unknown-technology protocol (spikes)
@@ -184,18 +184,20 @@ Unfamiliar technology derails projects. To prevent that:
 - Language packs for Rust, Kotlin, C#
 - Optional shell completion
 - Enhance table markdown parser to treat backslashes inside inline code spans as non-escaping backticks
+- Align internal/coordinator/qualify.go blocker parsing with internal/taskpr/taskpr.go to respect resolved status
 
 ## 8. Next action
 
 1. M0 through M11 are complete (50 tasks delivered, 100% roadmap completion).
 2. Release v1.8.0 tagged and cross-platform release binaries built.
 3. Active milestone: Milestone 12: Adversarial Discovery, Hard Git Gating & Stateless Review Isolation (T-050 – T-055; 4/6 complete, 67%).
-4. Active task: none. Next available tasks: T-051 (Hard Git commit gate) or T-054 (Deep domain flow documentation).
+4. Active task: T-054 (Deep domain flow documentation and visual Mermaid diagrams, Awaiting review). Next available task: T-051 (Hard Git commit gate and pre-commit hook enforcement).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-22 | T-054: Deep domain flow documentation, automated Mermaid diagrams, sdd doc commands, and template version 2.3.0 awaiting review |
 | 2026-11-22 | T-055: Default task token telemetry, starter template metrics, top-level sdd record-tokens command, and template version 2.2.0 done |
 | 2026-11-21 | T-055: Default task token telemetry, starter template metrics, top-level sdd record-tokens command, and template version 2.2.0 awaiting review |
 | 2026-11-21 | T-053: Adversarial multi-agent brownfield discovery ensemble, discovery-challenger role skill, and 7 blind-spot vectors done |

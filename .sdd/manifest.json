@@ -5,7 +5,7 @@
     "version": "0.1.0"
   },
   "templates": {
-    "version": "2.2.0"
+    "version": "2.3.0"
   },
   "generated": "2026-10-26",
   "answers": {
@@ -101,6 +101,36 @@
       "kind": "file",
       "state": "created",
       "sha256": "ea68d768fa0d5a1471903f035bf219c97f93b081dfe57001db49bea8f8e6adb1"
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "8151239ef081f3fb72a896d3a5179222f9274216ddde63fc0fc6b2e85d14910a"
+    },
+    {
+      "path": "docs/architecture/data_model.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "e893688b914c2db4d3cf2f72974e21a6dcf80ba0be3a6adff4fddd14b6df73e0"
+    },
+    {
+      "path": "docs/business_flows/overview.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "814538eb70ced80161577c29bbbade2b4745e30cfa4fc83640ae4f5b2135b39a"
+    },
+    {
+      "path": "docs/business_flows/sample_flow.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "a5cd2bf53a5bde8ab599668bc410b3af20bdc199d7c2da6bd570d03063d8723d"
+    },
+    {
+      "path": "docs/business_flows/task_lifecycle.md",
+      "kind": "file",
+      "state": "created",
+      "sha256": "7ea0e2c12e698bed0bf0727c3ccf355659b7048cfe612d606154b1e63a4ec186"
     }
   ]
 }

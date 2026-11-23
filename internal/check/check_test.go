@@ -1756,3 +1756,90 @@ func TestCrossProjectDependencies_BackwardCompatibility(t *testing.T) {
 		}
 	}
 }
+
+func TestCheckMermaid(t *testing.T) {
+	root := generate(t)
+
+	// 1. Valid Mermaid diagram produces 0 findings
+	docsDir := filepath.Join(root, "docs", "architecture")
+	if err := os.MkdirAll(docsDir, 0755); err != nil {
+		t.Fatalf("creating docs dir: %v", err)
+	}
+	validMD := `---
+status: active
+---
+# Architecture Overview
+
+` + "```mermaid" + `
+flowchart TD
+    A[Start] --> B([Stadium])
+    B --> C[(Database)]
+` + "```" + `
+`
+	if err := os.WriteFile(filepath.Join(docsDir, "overview.md"), []byte(validMD), 0644); err != nil {
+		t.Fatalf("writing overview.md: %v", err)
+	}
+
+	r := run(t, root)
+	for _, f := range r.Findings {
+		if f.Rule == "mermaid-syntax" {
+			t.Errorf("unexpected mermaid-syntax finding on valid diagram: %+v", f)
+		}
+	}
+
+	// 2. Invalid Mermaid diagram (unclosed bracket) produces Error finding
+	invalidMD := `---
+status: active
+---
+# Broken Flow
+
+` + "```mermaid" + `
+flowchart TD
+    A[Broken Node
+    B --> C
+` + "```" + `
+`
+	if err := os.WriteFile(filepath.Join(docsDir, "broken.md"), []byte(invalidMD), 0644); err != nil {
+		t.Fatalf("writing broken.md: %v", err)
+	}
+
+	r2 := run(t, root)
+	found := false
+	for _, f := range r2.Findings {
+		if f.Rule == "mermaid-syntax" && strings.Contains(f.File, "broken.md") {
+			found = true
+			if f.Severity != Error {
+				t.Errorf("expected mermaid-syntax to have Error severity, got %v", f.Severity)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("expected mermaid-syntax error on broken.md, got findings: %+v", r2.Findings)
+	}
+}
+
+func TestCheckDocsDirectoryScanned(t *testing.T) {
+	root := generate(t)
+	bfDir := filepath.Join(root, "docs", "business_flows")
+	if err := os.MkdirAll(bfDir, 0755); err != nil {
+		t.Fatalf("creating business flows dir: %v", err)
+	}
+
+	// Broken fence in docs/business_flows/flow.md
+	brokenFenceMD := "# Business Flow\n\n```\nunclosed code block\n"
+	if err := os.WriteFile(filepath.Join(bfDir, "flow.md"), []byte(brokenFenceMD), 0644); err != nil {
+		t.Fatalf("writing flow.md: %v", err)
+	}
+
+	r := run(t, root)
+	found := false
+	for _, f := range r.Findings {
+		if f.Rule == "code-fence" && strings.Contains(f.File, "docs/business_flows/flow.md") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected code-fence error on docs/business_flows/flow.md, got findings: %+v", r.Findings)
+	}
+}

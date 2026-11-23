@@ -1,0 +1,33 @@
+---
+status: active
+last_reviewed: {{.Date}}
+---
+# Business & Domain Flows Catalog — {{.ProjectName}}
+
+> **ALWAYS BE DETERMINISTIC. Human approval resolves every decision.**
+
+## 1. Domain Flow Overview
+
+This directory documents the core domain workflows, business transactions, and lifecycle state machines of {{.ProjectName}}.
+
+```mermaid
+flowchart LR
+    A["Discovery & Forensics"] --> B["Specification & Plan"]
+    B --> C["Isolated Implementation"]
+    C --> D["Ensemble Audit & Verification"]
+    D --> E["Pre-Merge Qualification"]
+    E --> F["Human Review & Commit"]
+```
+
+## 2. Core Flows Catalog
+
+| Flow Name | Document | Primary Actors | Critical Path | State Transitions |
+|---|---|---|---|---|
+| Sample Flow | [sample_flow.md](sample_flow.md) | User, System | Core Execution Loop | Pending → Completed |
+
+## 3. Creating a New Flow
+
+To scaffold a new domain flow:
+```bash
+sdd doc flow <name> --title "<Human Readable Title>"
+```

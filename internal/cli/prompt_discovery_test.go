@@ -640,3 +640,32 @@ func TestPromptDiscovery_EnsembleErrors(t *testing.T) {
 		t.Errorf("expected exit code 1 for invalid task ID format, got %d", code)
 	}
 }
+
+func TestPromptDiscovery_DomainFlowGuidance(t *testing.T) {
+	tmp := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	code := runPromptDiscovery([]string{"--dir", tmp}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery failed: %s", stderr.String())
+	}
+	out := stdout.String()
+	for _, expected := range []string{
+		"docs/architecture/",
+		"docs/business_flows/",
+		"sdd doc init",
+		"sdd doc flow",
+		"Mermaid `flowchart TD`",
+		"Mermaid `erDiagram`",
+	} {
+		if !strings.Contains(out, expected) {
+			t.Errorf("expected %q in discovery prompt output", expected)
+		}
+	}
+}

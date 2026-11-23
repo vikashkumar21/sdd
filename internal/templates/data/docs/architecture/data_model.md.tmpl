@@ -1,0 +1,66 @@
+---
+status: active
+last_reviewed: {{.Date}}
+---
+# Data Model & Entity Relationships — {{.ProjectName}}
+
+> **ALWAYS BE DETERMINISTIC. Human approval resolves every decision.**
+
+## 1. Entity-Relationship Diagram
+
+```mermaid
+erDiagram
+    PROJECT ||--o{ TASK : contains
+    TASK ||--o{ EVENT : records
+    TASK ||--|| STATE : maintains
+    TASK ||--o{ ARTIFACT : produces
+
+    PROJECT {
+        string name PK
+        string root_path
+        string version
+    }
+
+    TASK {
+        string id PK
+        string title
+        string typology
+        string status
+        date created_at
+    }
+
+    STATE {
+        string task_id PK, FK
+        string branch
+        string worktree_path
+        int input_tokens
+        int cache_tokens
+        int output_tokens
+    }
+
+    EVENT {
+        string event_id PK
+        string task_id FK
+        string event_type
+        timestamp timestamp
+        string payload
+    }
+
+    ARTIFACT {
+        string path PK
+        string task_id FK
+        string artifact_type
+        string hash
+    }
+```
+
+## 2. Entity Dictionary & Lifecycle
+
+### Task
+- **Identity:** Unique identifier formatted `T-xxx`.
+- **Status Transitions:** `Not started` → `Specifying` → `Awaiting plan approval` → `Implementing` → `Awaiting review` → `Done`.
+- **Invariants:** Every task belongs to exactly one typology (`features`, `bugfixes`, `hotfixes`, `spikes`).
+
+### State Snapshot
+- **Persistence:** Saved in `.sdd/state/<TASK_ID>/state.json`.
+- **Concurrency:** Single-writer atomic file replacement.

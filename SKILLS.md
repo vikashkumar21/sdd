@@ -211,7 +211,19 @@ Before presenting specifications to the human at Gate 1:
 4. Sweep codebase for dead code, abandoned endpoints, and dangling config keys, logging candidates into `ROADMAP.md` §7 Parking Lot.
 5. Verify that existing documentation discrepancies are resolved in living documents prior to Gate 1 approval.
 
+## 12. Visual Mermaid Diagram and Domain Flow Documentation Standard
 
+Visual architecture and domain flows make software topologies, data schemas, and state transitions immediately comprehensible to human maintainers and AI agents alike. SDD codifies native Mermaid documentation standards (`T-054`, `D-046`):
 
+### 1. Document Structure & Scaffolding
+- **Architecture Overview (`docs/architecture/overview.md`):** System topology, component boundaries, entry points, and storage layers documented via Mermaid `flowchart TD` / `flowchart LR`.
+- **Data Models (`docs/architecture/data_model.md`):** Entity relationship diagrams via Mermaid `erDiagram`, detailing primary/foreign keys, attributes, and cardinality (`||--o{`, `||--||`, etc.).
+- **Domain Flow Catalog (`docs/business_flows/overview.md`):** Table mapping core business capabilities to dedicated flow documents.
+- **Specific Domain Flows (`docs/business_flows/<name>.md`):** Detailed transaction flows containing sequence diagrams (`sequenceDiagram`) with `autonumber`, activation bars, alt/opt error branches, and entity state lifecycles (`stateDiagram-v2`).
+- **Scaffolding Ergonomics:** Use `sdd doc init` to scaffold standard architecture and domain flow directories, and `sdd doc flow <name> [--title <title>]` to add new domain flows.
 
-
+### 2. Mermaid Formatting Rules
+- **Header Declarations:** The first non-comment line inside a ` ```mermaid ` fence must declare a recognized diagram type (`flowchart`, `graph`, `sequenceDiagram`, `erDiagram`, `stateDiagram-v2`, `classDiagram`, etc.).
+- **Special Characters in Labels:** Always quote node labels containing parentheses, brackets, or special characters (e.g. `id["Label (extra info)"]`, `db[("User Store [PostgreSQL]")]`).
+- **Comments & Cleanliness:** Use `%%` for inline comments. Keep diagrams focused on single bounded contexts or primary flows; decompose oversized flows into child diagrams.
+- **Mechanical Validation:** `sdd check` enforces `mermaid-syntax` verification across all repository markdown files, validating diagram headers, non-empty blocks, and delimiter balancing.

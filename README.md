@@ -123,6 +123,12 @@ sdd ci init --platform aws                # generate AWS CodeBuild specification
 sdd ci init --dry-run                     # preview planned CI workflows without writing to disk
 sdd ci init --force                       # overwrite existing CI workflow files
 
+sdd doc init                              # scaffold docs/architecture/ and docs/business_flows/ with Mermaid diagrams
+sdd doc init --dry-run                    # preview planned architecture and flow docs without writing
+sdd doc init --force                      # overwrite existing doc files (creates backups in .sdd/backup/docs/)
+sdd doc flow user-login                   # scaffold docs/business_flows/user-login.md with sequence & state diagrams
+sdd doc flow user-login --title "User Login" # specify human-readable flow title
+
 sdd task pr T-003                         # synthesize task quartet into a Pull Request title and description
 sdd task pr T-003 --dry-run               # preview PR title and body on stdout
 sdd task pr T-003 --output pr.md          # write generated PR description to a file

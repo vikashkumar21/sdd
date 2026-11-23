@@ -347,7 +347,12 @@ func buildDiscoveryPrompt(
 	sb.WriteString("   - Discovered language standards, naming conventions, and idioms (§1)\n")
 	sb.WriteString("   - Discovered quirks, gotchas, and architectural traps -> Pitfalls Log (§7)\n")
 	sb.WriteString("3. **`ROADMAP.md`:**\n")
-	sb.WriteString("   - Discovered technical debt, unmapped subsystems, and remediation items -> Parking Lot (§7)\n\n")
+	sb.WriteString("   - Discovered technical debt, unmapped subsystems, and remediation items -> Parking Lot (§7)\n")
+	sb.WriteString("4. **`docs/architecture/` & `docs/business_flows/`:**\n")
+	sb.WriteString("   - Scaffold visual architecture & domain flows via `sdd doc init` and `sdd doc flow <name>`\n")
+	sb.WriteString("   - Document system topology using Mermaid `flowchart TD` in `docs/architecture/overview.md`\n")
+	sb.WriteString("   - Document entity relationships using Mermaid `erDiagram` in `docs/architecture/data_model.md`\n")
+	sb.WriteString("   - Document critical domain flows and state transitions in `docs/business_flows/`\n\n")
 
 	appendDiscoveryContextAndTask(&sb, root, detectedLangs, manifests, buildCmd, testCmd, lintCmd, stagedContext, taskID, taskDir, typology, reqs, plan)
 

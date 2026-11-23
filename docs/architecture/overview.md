@@ -1,0 +1,54 @@
+---
+status: active
+last_reviewed: 2026-11-22
+---
+# System Architecture Overview — sdd
+
+> **ALWAYS BE DETERMINISTIC. Human approval resolves every decision.**
+
+## 1. System Topology
+
+```mermaid
+flowchart TD
+    subgraph Clients["Clients & Entry Points"]
+        CLI["CLI / Terminal"]
+        API["API Consumers"]
+    end
+
+    subgraph Core["Core Application"]
+        Router["Command Router / Dispatcher"]
+        Engine["Domain Engine"]
+        Validator["Input & Spec Validator"]
+    end
+
+    subgraph Storage["Persistence & State"]
+        StateStore["Task & Session State"]
+        Filesystem["Repository Filesystem"]
+    end
+
+    subgraph External["External Integrations"]
+        Upstream["Upstream Services"]
+    end
+
+    CLI --> Router
+    API --> Router
+    Router --> Validator
+    Validator --> Engine
+    Engine --> StateStore
+    Engine --> Filesystem
+    Engine -.-> Upstream
+```
+
+## 2. Component Boundaries & Responsibilities
+
+| Component | Responsibility | Boundary / Package | Concurrency & I/O |
+|---|---|---|---|
+| CLI / Dispatch | Parse arguments, validate flags, handle terminal I/O | `internal/cli` | Synchronous, interactive terminal |
+| Domain Engine | Core business logic, execution orchestration | `internal/engine` | Injected clock, deterministic |
+| State Store | Atomic persistence and event journaling | `.sdd/state` | POSIX file locking, atomic rename |
+
+## 3. Communication Patterns
+
+- **In-Process Dispatch:** Components communicate through typed interfaces; errors wrapped with `%w`.
+- **Filesystem I/O:** Atomic writes via temporary files and atomic rename; directory confinement using `os.Root`.
+- **IPC / External:** Deterministic JSON over stdout or stdin pipes; zero unapproved network calls.

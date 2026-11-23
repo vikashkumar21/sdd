@@ -94,6 +94,12 @@ func TestTopLevelDispatch(t *testing.T) {
 	if r := exec(t, "", false, "", "init", "--nonsense"); r.code != 2 {
 		t.Errorf("bad flag should be a usage error: %+v", r)
 	}
+	if r := exec(t, "", false, "", "doc", "-h"); r.code != 0 || !strings.Contains(r.out, "usage: sdd doc") {
+		t.Errorf("doc -h should succeed: %+v", r)
+	}
+	if r := exec(t, "", false, "", "doc", "init", "--nonsense"); r.code != 2 {
+		t.Errorf("doc init bad flag should be a usage error: %+v", r)
+	}
 }
 
 func TestInitYesGreenfieldThenCheckPasses(t *testing.T) {

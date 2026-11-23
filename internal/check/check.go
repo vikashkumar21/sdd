@@ -245,6 +245,7 @@ func (c *checker) run() {
 		}
 		c.checkFences(rel, text)
 		c.checkTables(rel, text)
+		c.checkMermaid(rel, text)
 		c.checkLifecycle(rel, text)
 		c.checkPathHygiene(rel, text)
 	}
@@ -386,6 +387,7 @@ func (c *checker) markdownFiles() []string {
 		filepath.Join("tasks", "hotfixes"),
 		filepath.Join("tasks", "spikes"),
 		"features", "bugfixes", "hotfixes", "spikes",
+		"docs",
 	}
 	for _, dName := range scanDirs {
 		dirPath := filepath.Join(c.root, dName)
@@ -426,6 +428,12 @@ func (c *checker) checkTables(rel, text string) {
 				c.add(Error, rel, r.LineNo, "table-format", "table row has %d columns, header has %d (pipes mismatch or unescaped literal pipe)", r.Columns, want)
 			}
 		}
+	}
+}
+
+func (c *checker) checkMermaid(rel, text string) {
+	for _, f := range markdown.CheckMermaid(text) {
+		c.add(Error, rel, f.Line, f.Rule, "%s", f.Message)
 	}
 }
 
