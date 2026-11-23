@@ -1,5 +1,5 @@
 ---
-status: draft
+status: completed
 ---
 # Requirements — T-054 Deep domain flow documentation and visual Mermaid diagrams
 
