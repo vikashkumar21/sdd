@@ -719,3 +719,78 @@ func TestPromptDiscovery_RuntimeDefaultsAndCoverageLedger(t *testing.T) {
 		}
 	}
 }
+
+func TestPromptDiscovery_ModelRouting(t *testing.T) {
+	tmp := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	// 1. Text output for discovery
+	code := runPromptDiscovery([]string{"--dir", tmp}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery failed: %s", stderr.String())
+	}
+	out := stdout.String()
+	if !strings.Contains(out, "## Model Routing Guidance") {
+		t.Errorf("expected '## Model Routing Guidance' in discovery prompt, got:\n%s", out)
+	}
+	if !strings.Contains(out, "- **Role:** codebase-analyst") || !strings.Contains(out, "- **Model Tier:** frontier") {
+		t.Errorf("expected codebase-analyst frontier routing in discovery prompt, got:\n%s", out)
+	}
+
+	// 2. JSON output for discovery
+	stdout.Reset()
+	stderr.Reset()
+	code = runPromptDiscovery([]string{"--dir", tmp, "--json"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery --json failed: %s", stderr.String())
+	}
+	var ctx DiscoveryPromptContext
+	if err := json.Unmarshal(stdout.Bytes(), &ctx); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if ctx.ModelRouting == nil {
+		t.Fatal("expected non-nil ctx.ModelRouting")
+	}
+	if ctx.ModelRouting.Tier != "frontier" || ctx.ModelRouting.ReasoningEffort != "high" {
+		t.Errorf("unexpected model_routing: %+v", ctx.ModelRouting)
+	}
+
+	// 3. Ensemble discovery prompt
+	stdout.Reset()
+	stderr.Reset()
+	code = runPromptDiscovery([]string{"--dir", tmp, "--ensemble"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery --ensemble failed: %s", stderr.String())
+	}
+	ensOut := stdout.String()
+	if !strings.Contains(ensOut, "## Model Routing Guidance") {
+		t.Errorf("expected '## Model Routing Guidance' in ensemble discovery prompt, got:\n%s", ensOut)
+	}
+	if !strings.Contains(ensOut, "Primary Analyst (codebase-analyst)") || !strings.Contains(ensOut, "Adversarial Challenger (discovery-challenger)") {
+		t.Errorf("expected ensemble role routing in prompt, got:\n%s", ensOut)
+	}
+
+	// 4. Ensemble JSON output
+	stdout.Reset()
+	stderr.Reset()
+	code = runPromptDiscovery([]string{"--dir", tmp, "--ensemble", "--json"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery --ensemble --json failed: %s", stderr.String())
+	}
+	var ensCtx DiscoveryPromptContext
+	if err := json.Unmarshal(stdout.Bytes(), &ensCtx); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if ensCtx.ModelRouting == nil || ensCtx.ChallengerRouting == nil {
+		t.Fatalf("expected non-nil ModelRouting and ChallengerRouting, got: %+v, %+v", ensCtx.ModelRouting, ensCtx.ChallengerRouting)
+	}
+	if ensCtx.ChallengerRouting.Tier != "frontier" || ensCtx.ChallengerRouting.ReasoningEffort != "high" {
+		t.Errorf("unexpected challenger routing: %+v", ensCtx.ChallengerRouting)
+	}
+}

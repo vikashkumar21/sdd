@@ -419,6 +419,31 @@ func BuildPlan(root string, opts Options) (*Plan, error) {
 			existingCfg.Roles["discovery-challenger"] = rolesDefault.Roles["discovery-challenger"]
 			needsUpdate = true
 		}
+
+		// Backfill missing model routing fields on canonical roles deterministically
+		for _, name := range role.CanonicalRoleNames() {
+			defRole := rolesDefault.Roles[name]
+			if curRole, ok := existingCfg.Roles[name]; ok {
+				roleUpdated := false
+				if curRole.ModelTier == "" && defRole.ModelTier != "" {
+					curRole.ModelTier = defRole.ModelTier
+					roleUpdated = true
+				}
+				if curRole.ReasoningEffort == "" && defRole.ReasoningEffort != "" {
+					curRole.ReasoningEffort = defRole.ReasoningEffort
+					roleUpdated = true
+				}
+				if curRole.RecommendedFamily == "" && defRole.RecommendedFamily != "" {
+					curRole.RecommendedFamily = defRole.RecommendedFamily
+					roleUpdated = true
+				}
+				if roleUpdated {
+					existingCfg.Roles[name] = curRole
+					needsUpdate = true
+				}
+			}
+		}
+
 		if existingCfg.Phases == nil {
 			existingCfg.Phases = make(map[string]role.PhaseMapping)
 		}
@@ -442,7 +467,7 @@ func BuildPlan(root string, opts Options) (*Plan, error) {
 				Path:            rolesPath,
 				Kind:            "file",
 				Action:          ActionUpdate,
-				Reason:          "roles manifest updated with discovery-challenger",
+				Reason:          "roles manifest updated with canonical roles and model routing",
 				OriginalContent: string(rawRoles),
 				ProposedContent: string(upgradedJSON),
 				NewHash:         sum(string(upgradedJSON)),

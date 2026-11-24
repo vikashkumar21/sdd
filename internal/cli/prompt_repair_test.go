@@ -220,3 +220,40 @@ func TestPromptRepair_JSON(t *testing.T) {
 		t.Errorf("expected HaltReason to mention ceiling, got %q", ctx2.HaltReason)
 	}
 }
+
+func TestPromptRepair_ModelRouting(t *testing.T) {
+	root := setupBugfixTaskForRepair(t, "T-001", "repair-model-routing")
+	var out, errOut bytes.Buffer
+	env := IO{Out: &out, Err: &errOut}
+
+	// 1. Text mode has model routing guidance
+	code := Run([]string{"prompt", "repair", "T-001", "--dir", root}, env)
+	if code != 0 {
+		t.Fatalf("prompt repair failed with code %d: %s", code, errOut.String())
+	}
+	outText := out.String()
+	if !strings.Contains(outText, "## Model Routing Guidance") {
+		t.Errorf("expected '## Model Routing Guidance' in repair prompt, got:\n%s", outText)
+	}
+	if !strings.Contains(outText, "- **Role:** implementer") || !strings.Contains(outText, "- **Model Tier:** advanced") {
+		t.Errorf("expected implementer advanced tier in repair prompt, got:\n%s", outText)
+	}
+
+	// 2. JSON mode includes model_routing object
+	out.Reset()
+	errOut.Reset()
+	code = Run([]string{"prompt", "repair", "T-001", "--json", "--dir", root}, env)
+	if code != 0 {
+		t.Fatalf("prompt repair --json failed with code %d: %s", code, errOut.String())
+	}
+	var ctx RepairPromptContext
+	if err := json.Unmarshal(out.Bytes(), &ctx); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if ctx.ModelRouting == nil {
+		t.Fatal("expected non-nil ctx.ModelRouting")
+	}
+	if ctx.ModelRouting.Tier != "advanced" || ctx.ModelRouting.ReasoningEffort != "medium" {
+		t.Errorf("unexpected repair model routing: %+v", ctx.ModelRouting)
+	}
+}

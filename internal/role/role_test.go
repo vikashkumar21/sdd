@@ -308,3 +308,103 @@ func TestResolveCoordinatorAlias(t *testing.T) {
 		t.Errorf("expected custom body in aliased resolution")
 	}
 }
+
+func TestModelRouting_CanonicalDefaults(t *testing.T) {
+	cfg := role.DefaultRoleConfig()
+	for _, name := range role.CanonicalRoleNames() {
+		info, ok := cfg.Roles[name]
+		if !ok {
+			t.Fatalf("missing canonical role %q", name)
+		}
+		if err := role.ValidateModelTier(info.ModelTier); err != nil {
+			t.Errorf("role %q has invalid model_tier %q: %v", name, info.ModelTier, err)
+		}
+		if err := role.ValidateReasoningEffort(info.ReasoningEffort); err != nil {
+			t.Errorf("role %q has invalid reasoning_effort %q: %v", name, info.ReasoningEffort, err)
+		}
+		if strings.TrimSpace(info.RecommendedFamily) == "" {
+			t.Errorf("role %q has empty recommended_family", name)
+		}
+
+		routing := info.Routing()
+		if routing.Tier != info.ModelTier || routing.ReasoningEffort != info.ReasoningEffort || routing.RecommendedFamily != info.RecommendedFamily {
+			t.Errorf("role %q Routing() mismatch: got %+v, want %+v", name, routing, info)
+		}
+	}
+}
+
+func TestValidateModelTier(t *testing.T) {
+	valid := []string{"frontier", "advanced", "standard", "fast", "Frontier", " ADVANCED "}
+	for _, v := range valid {
+		if err := role.ValidateModelTier(v); err != nil {
+			t.Errorf("expected %q to be valid, got: %v", v, err)
+		}
+	}
+
+	invalid := []string{"", "   ", "super-fast", "ultra", "low"}
+	for _, inv := range invalid {
+		if err := role.ValidateModelTier(inv); err == nil {
+			t.Errorf("expected %q to be invalid, got nil error", inv)
+		}
+	}
+}
+
+func TestValidateReasoningEffort(t *testing.T) {
+	valid := []string{"high", "medium", "low", "none", "HIGH", " medium "}
+	for _, v := range valid {
+		if err := role.ValidateReasoningEffort(v); err != nil {
+			t.Errorf("expected %q to be valid, got: %v", v, err)
+		}
+	}
+
+	invalid := []string{"", "   ", "maximum", "extra-high", "fast"}
+	for _, inv := range invalid {
+		if err := role.ValidateReasoningEffort(inv); err == nil {
+			t.Errorf("expected %q to be invalid, got nil error", inv)
+		}
+	}
+}
+
+func TestResolveRoleRouting(t *testing.T) {
+	// 1. Canonical defaults from nil config
+	rNil := role.ResolveRoleRouting(nil, "spec-auditor")
+	if rNil.Tier != "standard" || rNil.ReasoningEffort != "medium" || !strings.Contains(rNil.RecommendedFamily, "claude-sonnet") {
+		t.Errorf("unexpected routing for spec-auditor from nil cfg: %+v", rNil)
+	}
+
+	// 2. Custom override
+	customCfg := role.DefaultRoleConfig()
+	customCfg.Roles["spec-auditor"] = role.RoleInfo{
+		Skill:             "spec-auditor",
+		Description:       "Custom Auditor",
+		ModelTier:         "frontier",
+		ReasoningEffort:   "high",
+		RecommendedFamily: "custom-family",
+	}
+	rCustom := role.ResolveRoleRouting(customCfg, "spec-auditor")
+	if rCustom.Tier != "frontier" || rCustom.ReasoningEffort != "high" || rCustom.RecommendedFamily != "custom-family" {
+		t.Errorf("unexpected overridden routing: %+v", rCustom)
+	}
+
+	// 3. Custom role without routing fields
+	customCfg.Roles["custom-worker"] = role.RoleInfo{
+		Skill:       "custom-worker",
+		Description: "Worker",
+	}
+	rFallback := role.ResolveRoleRouting(customCfg, "custom-worker")
+	if rFallback.Tier != "frontier" || rFallback.ReasoningEffort != "medium" {
+		t.Errorf("unexpected fallback routing for custom role: %+v", rFallback)
+	}
+
+	// 4. Role with invalid tier/effort safely falls back
+	customCfg.Roles["spec-auditor"] = role.RoleInfo{
+		Skill:           "spec-auditor",
+		Description:     "Auditor with invalid routing",
+		ModelTier:       "hyper-fast",
+		ReasoningEffort: "extreme",
+	}
+	rSafe := role.ResolveRoleRouting(customCfg, "spec-auditor")
+	if rSafe.Tier != "standard" || rSafe.ReasoningEffort != "medium" {
+		t.Errorf("expected fallback to canonical defaults for invalid tier/effort, got: %+v", rSafe)
+	}
+}

@@ -414,3 +414,162 @@ func TestRolesCheck_LegacyMissingPhaseDiscovery(t *testing.T) {
 		}
 	}
 }
+
+func TestRolesCheck_ModelRouting(t *testing.T) {
+	// 1. Valid default config passes cleanly
+	tmp := t.TempDir()
+	cfg := role.DefaultRoleConfig()
+	if err := role.SaveRoles(tmp, cfg); err != nil {
+		t.Fatal(err)
+	}
+
+	r, err := check.Run(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range r.Findings {
+		if f.File == ".sdd/roles.json" {
+			t.Errorf("unexpected finding for valid default roles: %+v", f)
+		}
+	}
+
+	// 2. Invalid model_tier triggers roles-tier
+	tmpTier := t.TempDir()
+	rolesPath := role.RolesFilePath(tmpTier)
+	if err := os.MkdirAll(filepath.Dir(rolesPath), 0755); err != nil {
+		t.Fatal(err)
+	}
+	invalidTierJSON := `{
+  "schema": 1,
+  "roles": {
+    "coordinator": {
+      "skill": "coordinator",
+      "description": "Coordinator",
+      "model_tier": "hyper-fast",
+      "reasoning_effort": "high",
+      "recommended_family": "claude-sonnet"
+    }
+  },
+  "phases": {}
+}`
+	if err := os.WriteFile(rolesPath, []byte(invalidTierJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+	rTier, err := check.Run(tmpTier)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasTierErr := false
+	for _, f := range rTier.Findings {
+		if f.File == ".sdd/roles.json" && f.Rule == "roles-tier" {
+			hasTierErr = true
+			break
+		}
+	}
+	if !hasTierErr {
+		t.Errorf("expected roles-tier error for invalid model_tier, got findings: %+v", rTier.Findings)
+	}
+
+	// 3. Invalid reasoning_effort triggers roles-reasoning
+	tmpEffort := t.TempDir()
+	rolesPathEffort := role.RolesFilePath(tmpEffort)
+	if err := os.MkdirAll(filepath.Dir(rolesPathEffort), 0755); err != nil {
+		t.Fatal(err)
+	}
+	invalidEffortJSON := `{
+  "schema": 1,
+  "roles": {
+    "coordinator": {
+      "skill": "coordinator",
+      "description": "Coordinator",
+      "model_tier": "frontier",
+      "reasoning_effort": "maximum",
+      "recommended_family": "claude-sonnet"
+    }
+  },
+  "phases": {}
+}`
+	if err := os.WriteFile(rolesPathEffort, []byte(invalidEffortJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+	rEffort, err := check.Run(tmpEffort)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasEffortErr := false
+	for _, f := range rEffort.Findings {
+		if f.File == ".sdd/roles.json" && f.Rule == "roles-reasoning" {
+			hasEffortErr = true
+			break
+		}
+	}
+	if !hasEffortErr {
+		t.Errorf("expected roles-reasoning error for invalid reasoning_effort, got findings: %+v", rEffort.Findings)
+	}
+
+	// 4. Blank or multiline recommended_family triggers roles-family
+	tmpFamily := t.TempDir()
+	rolesPathFamily := role.RolesFilePath(tmpFamily)
+	if err := os.MkdirAll(filepath.Dir(rolesPathFamily), 0755); err != nil {
+		t.Fatal(err)
+	}
+	invalidFamilyJSON := `{
+  "schema": 1,
+  "roles": {
+    "coordinator": {
+      "skill": "coordinator",
+      "description": "Coordinator",
+      "model_tier": "frontier",
+      "reasoning_effort": "high",
+      "recommended_family": "claude\nsonnet"
+    }
+  },
+  "phases": {}
+}`
+	if err := os.WriteFile(rolesPathFamily, []byte(invalidFamilyJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+	rFamily, err := check.Run(tmpFamily)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hasFamilyErr := false
+	for _, f := range rFamily.Findings {
+		if f.File == ".sdd/roles.json" && f.Rule == "roles-family" {
+			hasFamilyErr = true
+			break
+		}
+	}
+	if !hasFamilyErr {
+		t.Errorf("expected roles-family error for multiline recommended_family, got findings: %+v", rFamily.Findings)
+	}
+
+	// 5. Omitted fields in legacy roles pass cleanly
+	tmpLegacy := t.TempDir()
+	rolesPathLegacy := role.RolesFilePath(tmpLegacy)
+	if err := os.MkdirAll(filepath.Dir(rolesPathLegacy), 0755); err != nil {
+		t.Fatal(err)
+	}
+	legacyJSON := `{
+  "schema": 1,
+  "roles": {
+    "coordinator": {
+      "skill": "coordinator",
+      "description": "Coordinator"
+    }
+  },
+  "phases": {}
+}`
+	if err := os.WriteFile(rolesPathLegacy, []byte(legacyJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+	rLegacy, err := check.Run(tmpLegacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range rLegacy.Findings {
+		if f.File == ".sdd/roles.json" && (f.Rule == "roles-tier" || f.Rule == "roles-reasoning" || f.Rule == "roles-family") {
+			t.Errorf("unexpected finding for legacy roles without model routing: %+v", f)
+		}
+	}
+}

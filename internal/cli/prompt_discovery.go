@@ -17,23 +17,25 @@ import (
 
 // DiscoveryPromptContext represents the structured context bundle emitted with --json.
 type DiscoveryPromptContext struct {
-	TaskID                  string   `json:"taskId,omitempty"`
-	TaskDir                 string   `json:"taskDir,omitempty"`
-	Typology                string   `json:"typology,omitempty"`
-	ProjectRoot             string   `json:"projectRoot"`
-	RoleSkill               string   `json:"roleSkill"`
-	Ensemble                bool     `json:"ensemble,omitempty"`
-	BundleDir               string   `json:"bundleDir,omitempty"`
-	ChallengerRoleSkill     string   `json:"challengerRoleSkill,omitempty"`
-	BlindSpotVectors        []string `json:"blindSpotVectors,omitempty"`
-	ReconciliationChecklist []string `json:"reconciliationChecklist,omitempty"`
-	DetectedLanguages       []string `json:"detectedLanguages"`
-	LivingDocs              []string `json:"livingDocs"`
-	Checklist               []string `json:"checklist"`
-	StagedContext           []string `json:"stagedContext,omitempty"`
-	Requirements            string   `json:"requirements,omitempty"`
-	Plan                    string   `json:"plan,omitempty"`
-	Prompt                  string   `json:"prompt"`
+	TaskID                  string             `json:"taskId,omitempty"`
+	TaskDir                 string             `json:"taskDir,omitempty"`
+	Typology                string             `json:"typology,omitempty"`
+	ProjectRoot             string             `json:"projectRoot"`
+	RoleSkill               string             `json:"roleSkill"`
+	ModelRouting            *role.ModelRouting `json:"model_routing,omitempty"`
+	ChallengerRouting       *role.ModelRouting `json:"challenger_model_routing,omitempty"`
+	Ensemble                bool               `json:"ensemble,omitempty"`
+	BundleDir               string             `json:"bundleDir,omitempty"`
+	ChallengerRoleSkill     string             `json:"challengerRoleSkill,omitempty"`
+	BlindSpotVectors        []string           `json:"blindSpotVectors,omitempty"`
+	ReconciliationChecklist []string           `json:"reconciliationChecklist,omitempty"`
+	DetectedLanguages       []string           `json:"detectedLanguages"`
+	LivingDocs              []string           `json:"livingDocs"`
+	Checklist               []string           `json:"checklist"`
+	StagedContext           []string           `json:"stagedContext,omitempty"`
+	Requirements            string             `json:"requirements,omitempty"`
+	Plan                    string             `json:"plan,omitempty"`
+	Prompt                  string             `json:"prompt"`
 }
 
 func getDiscoveryLivingDocs() []string {
@@ -207,6 +209,14 @@ func runPromptDiscovery(args []string, env IO) int {
 		}
 	}
 
+	rolesCfg, _ := role.LoadRoles(root)
+	analystRouting := role.ResolveRoleRouting(rolesCfg, "codebase-analyst")
+	var challengerRouting *role.ModelRouting
+	if *ensembleFlag {
+		chR := role.ResolveRoleRouting(rolesCfg, "discovery-challenger")
+		challengerRouting = &chR
+	}
+
 	// 4. Assemble prompt text
 	var promptText string
 	if *ensembleFlag {
@@ -226,6 +236,8 @@ func runPromptDiscovery(args []string, env IO) int {
 			bundleDir,
 			reqs,
 			plan,
+			analystRouting,
+			challengerRouting,
 		)
 	} else {
 		promptText = buildDiscoveryPrompt(
@@ -242,6 +254,7 @@ func runPromptDiscovery(args []string, env IO) int {
 			roleSkill,
 			reqs,
 			plan,
+			analystRouting,
 		)
 	}
 
@@ -253,6 +266,8 @@ func runPromptDiscovery(args []string, env IO) int {
 			Typology:          typology,
 			ProjectRoot:       filepath.ToSlash(root),
 			RoleSkill:         roleSkill,
+			ModelRouting:      &analystRouting,
+			ChallengerRouting: challengerRouting,
 			DetectedLanguages: detectedLangs,
 			LivingDocs:        getDiscoveryLivingDocs(),
 			Checklist:         getDiscoveryChecklist(),
@@ -288,6 +303,7 @@ func buildDiscoveryPrompt(
 	buildCmd, testCmd, lintCmd string,
 	stagedContext []string,
 	roleSkill, reqs, plan string,
+	routing role.ModelRouting,
 ) string {
 	var sb strings.Builder
 
@@ -311,6 +327,12 @@ func buildDiscoveryPrompt(
 	sb.WriteString("## Canonical Role Skill: Staff Reverse-Engineer & Technical Auditor (codebase-analyst)\n")
 	sb.WriteString(strings.TrimSpace(roleSkill))
 	sb.WriteString("\n\n")
+
+	sb.WriteString("## Model Routing Guidance\n")
+	sb.WriteString("- **Role:** codebase-analyst\n")
+	fmt.Fprintf(&sb, "- **Model Tier:** %s\n", routing.Tier)
+	fmt.Fprintf(&sb, "- **Reasoning Effort:** %s\n", routing.ReasoningEffort)
+	fmt.Fprintf(&sb, "- **Recommended Family:** %s\n\n", routing.RecommendedFamily)
 
 	sb.WriteString("## 4-Pillar Progressive Extraction Checklist\n")
 	sb.WriteString("Execute this progressive extraction checklist systematically:\n\n")
@@ -371,6 +393,8 @@ func buildDiscoveryEnsemblePrompt(
 	buildCmd, testCmd, lintCmd string,
 	stagedContext []string,
 	roleSkill, challengerSkill, bundleDir, reqs, plan string,
+	analystRouting role.ModelRouting,
+	challengerRouting *role.ModelRouting,
 ) string {
 	var sb strings.Builder
 
@@ -419,6 +443,20 @@ func buildDiscoveryEnsemblePrompt(
 	sb.WriteString("\n### Canonical Role Skill: Discovery Challenger\n")
 	sb.WriteString(strings.TrimSpace(challengerSkill))
 	sb.WriteString("\n\n")
+
+	sb.WriteString("## Model Routing Guidance\n")
+	sb.WriteString("Multi-agent discovery dispatch recommendations:\n")
+	sb.WriteString("- **Primary Analyst (codebase-analyst):**\n")
+	fmt.Fprintf(&sb, "  - Model Tier: %s\n", analystRouting.Tier)
+	fmt.Fprintf(&sb, "  - Reasoning Effort: %s\n", analystRouting.ReasoningEffort)
+	fmt.Fprintf(&sb, "  - Recommended Family: %s\n", analystRouting.RecommendedFamily)
+	if challengerRouting != nil {
+		sb.WriteString("- **Adversarial Challenger (discovery-challenger):**\n")
+		fmt.Fprintf(&sb, "  - Model Tier: %s\n", challengerRouting.Tier)
+		fmt.Fprintf(&sb, "  - Reasoning Effort: %s\n", challengerRouting.ReasoningEffort)
+		fmt.Fprintf(&sb, "  - Recommended Family: %s\n", challengerRouting.RecommendedFamily)
+	}
+	sb.WriteString("\n")
 
 	sb.WriteString("## 3. Deterministic Reconciliation Protocol (Gate 1 Exit Criteria)\n")
 	sb.WriteString("Before presenting the brownfield discovery specifications to the human at Gate 1, the Task Coordinator executes this reconciliation:\n")

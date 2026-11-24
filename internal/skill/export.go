@@ -185,7 +185,15 @@ The Task Coordinator acts as a Staff Orchestrator and Technical Project Lead. It
 - **Rule F-001 Compliance:** The Task Coordinator ensures all findings (Blockers, Warnings, Minors) are resolved in a unified batch remediation pass before presenting to the human.
 - **3-Loop Circuit Breaker:** At most 3 review-fix iterations. If Blockers persist after attempt 3, halt, mark the task Blocked, and escalate to the human.
 
-### 5. Pre-Merge Qualification & Gate 2 Presentation
+### 5. Heterogeneous Role Model Routing & Tier Allocation
+- **Cognitive Bias & Token Budget Optimization:** Homogeneous dispatch (running every subagent on the most expensive frontier model) wastes tokens on verification and creates shared cognitive blind spots. The Task Coordinator routes agent dispatches according to abstract capability tiers and reasoning effort calibrated in .sdd/roles.json (D-049):
+  - **frontier (High Reasoning):** Complex architectural synthesis, threat modeling, forensic discovery, and orchestration (coordinator, architect, codebase-analyst, discovery-challenger, appsec-specialist). Recommended family: claude-opus / gemini-pro / o1.
+  - **advanced (Medium-High Reasoning):** Detailed plan auditing and production code authoring (plan-reviewer, implementer). Recommended family: claude-sonnet / gemini-pro / o3-mini.
+  - **standard (Medium-Low Reasoning):** Requirements traceability, pattern checking, test automation, and CI pipelines (spec-auditor, pattern-auditor, qa, devops). Recommended family: claude-sonnet / gemini-flash / gpt-4o.
+  - **fast (Low/No Reasoning):** Rapid sanity checking, mechanical repairs, and deterministic table formatting. Recommended family: claude-haiku / gemini-flash / gpt-4o-mini.
+- **Provider-Agnostic Dispatch:** Model routing guidance emitted by sdd prompt informs both human supervisors and automated Agent SDK orchestrators, allowing provider switching without hard vendor lock-in.
+
+### 6. Pre-Merge Qualification & Gate 2 Presentation
 Before any merge into main:
 1. Verify task status is Awaiting review.
 2. Verify independent review sign-off: review.md must have status Approved with 0 Blockers, and all findings resolved or justified per Rule F-001.

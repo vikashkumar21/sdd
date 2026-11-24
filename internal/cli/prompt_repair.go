@@ -13,20 +13,21 @@ import (
 
 // RepairPromptContext represents the structured context bundle for automated repair.
 type RepairPromptContext struct {
-	TaskID          string   `json:"taskId"`
-	TaskDir         string   `json:"taskDir"`
-	Typology        string   `json:"typology"`
-	Attempt         int      `json:"attempt"`
-	MaxLoops        int      `json:"maxLoops"`
-	Halted          bool     `json:"halted"`
-	HaltReason      string   `json:"haltReason,omitempty"`
-	ReproductionDoc string   `json:"reproductionDoc,omitempty"`
-	RCADoc          string   `json:"rcaDoc,omitempty"`
-	PlanDoc         string   `json:"planDoc,omitempty"`
-	ValidationDoc   string   `json:"validationDoc,omitempty"`
-	FeedbackRules   string   `json:"feedbackRules"`
-	Decisions       []string `json:"decisions"`
-	Prompt          string   `json:"prompt"`
+	TaskID          string             `json:"taskId"`
+	TaskDir         string             `json:"taskDir"`
+	Typology        string             `json:"typology"`
+	Attempt         int                `json:"attempt"`
+	MaxLoops        int                `json:"maxLoops"`
+	Halted          bool               `json:"halted"`
+	HaltReason      string             `json:"haltReason,omitempty"`
+	ModelRouting    *role.ModelRouting `json:"model_routing,omitempty"`
+	ReproductionDoc string             `json:"reproductionDoc,omitempty"`
+	RCADoc          string             `json:"rcaDoc,omitempty"`
+	PlanDoc         string             `json:"planDoc,omitempty"`
+	ValidationDoc   string             `json:"validationDoc,omitempty"`
+	FeedbackRules   string             `json:"feedbackRules"`
+	Decisions       []string           `json:"decisions"`
+	Prompt          string             `json:"prompt"`
 }
 
 func runPromptRepair(args []string, env IO) int {
@@ -145,8 +146,10 @@ func runPromptRepair(args []string, env IO) int {
 	decisions := extractApprovedDecisions(root)
 
 	roleSkill, _ := role.ResolveSkill(root, "implementer", nil)
+	rolesCfg, _ := role.LoadRoles(root)
+	repairRouting := role.ResolveRoleRouting(rolesCfg, "implementer")
 
-	promptText := buildRepairPrompt(normID, taskDirRel, typology, currentAttempt, *maxLoops, halted, haltReason, reproDoc, rcaDoc, planDoc, valDoc, feedbackRules, decisions, roleSkill)
+	promptText := buildRepairPrompt(normID, taskDirRel, typology, currentAttempt, *maxLoops, halted, haltReason, reproDoc, rcaDoc, planDoc, valDoc, feedbackRules, decisions, roleSkill, repairRouting)
 
 	ctx := RepairPromptContext{
 		TaskID:          normID,
@@ -156,6 +159,7 @@ func runPromptRepair(args []string, env IO) int {
 		MaxLoops:        *maxLoops,
 		Halted:          halted,
 		HaltReason:      haltReason,
+		ModelRouting:    &repairRouting,
 		ReproductionDoc: reproDoc,
 		RCADoc:          rcaDoc,
 		PlanDoc:         planDoc,
@@ -179,7 +183,7 @@ func runPromptRepair(args []string, env IO) int {
 	return 0
 }
 
-func buildRepairPrompt(taskID, taskDir, typology string, attempt, maxLoops int, halted bool, haltReason, reproDoc, rcaDoc, planDoc, valDoc, feedbackRules string, decisions []string, roleSkill string) string {
+func buildRepairPrompt(taskID, taskDir, typology string, attempt, maxLoops int, halted bool, haltReason, reproDoc, rcaDoc, planDoc, valDoc, feedbackRules string, decisions []string, roleSkill string, routing role.ModelRouting) string {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "# Auto-Repair Handover Prompt — %s (%s)\n\n", taskID, taskDir)
@@ -196,6 +200,12 @@ func buildRepairPrompt(taskID, taskDir, typology string, attempt, maxLoops int, 
 		fmt.Fprintf(&b, "> You are executing automated repair attempt %d of %d.\n", attempt, maxLoops)
 		fmt.Fprintf(&b, "> If this attempt fails, the auto-repair loop will terminate at attempt %d.\n\n", maxLoops)
 	}
+
+	b.WriteString("## Model Routing Guidance\n")
+	b.WriteString("- **Role:** implementer\n")
+	fmt.Fprintf(&b, "- **Model Tier:** %s\n", routing.Tier)
+	fmt.Fprintf(&b, "- **Reasoning Effort:** %s\n", routing.ReasoningEffort)
+	fmt.Fprintf(&b, "- **Recommended Family:** %s\n\n", routing.RecommendedFamily)
 
 	b.WriteString("## 1. Mandatory Step 0: Minimal Failing Test Case\n")
 	b.WriteString("> **MANDATORY PREREQUISITE:** Before applying any fixes or modifying production code:\n")

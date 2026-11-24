@@ -21,57 +21,61 @@ var taskIDPattern = regexp.MustCompile(`^[A-Za-z]+-\d+$`)
 
 // ReviewPromptContext represents the structured context bundle for subagent reviews.
 type ReviewPromptContext struct {
-	TaskID        string   `json:"taskId"`
-	TaskDir       string   `json:"taskDir"`
-	Typology      string   `json:"typology"`
-	Lens          string   `json:"lens"`
-	Loop          int      `json:"loop,omitempty"`
-	LensFocus     []string `json:"lensFocus,omitempty"`
-	RoleSkill     string   `json:"roleSkill,omitempty"`
-	Requirements  string   `json:"requirements,omitempty"`
-	Plan          string   `json:"plan,omitempty"`
-	Validation    string   `json:"validation,omitempty"`
-	Review        string   `json:"review,omitempty"`
-	ChangedFiles  []string `json:"changedFiles"`
-	FeedbackRules string   `json:"feedbackRules"`
-	BundleDir     string   `json:"bundleDir,omitempty"`
-	BundleFiles   []string `json:"bundleFiles,omitempty"`
-	Prompt        string   `json:"prompt"`
+	TaskID        string                       `json:"taskId"`
+	TaskDir       string                       `json:"taskDir"`
+	Typology      string                       `json:"typology"`
+	Lens          string                       `json:"lens"`
+	Loop          int                          `json:"loop,omitempty"`
+	LensFocus     []string                     `json:"lensFocus,omitempty"`
+	RoleSkill     string                       `json:"roleSkill,omitempty"`
+	ModelRouting  *role.ModelRouting           `json:"model_routing,omitempty"`
+	TriadRouting  map[string]role.ModelRouting `json:"triad_model_routing,omitempty"`
+	Requirements  string                       `json:"requirements,omitempty"`
+	Plan          string                       `json:"plan,omitempty"`
+	Validation    string                       `json:"validation,omitempty"`
+	Review        string                       `json:"review,omitempty"`
+	ChangedFiles  []string                     `json:"changedFiles"`
+	FeedbackRules string                       `json:"feedbackRules"`
+	BundleDir     string                       `json:"bundleDir,omitempty"`
+	BundleFiles   []string                     `json:"bundleFiles,omitempty"`
+	Prompt        string                       `json:"prompt"`
 }
 
 // PlanReviewPromptContext represents the structured context bundle for pre-GATE 1 plan reviews.
 type PlanReviewPromptContext struct {
-	TaskID        string   `json:"taskId"`
-	TaskDir       string   `json:"taskDir"`
-	Typology      string   `json:"typology"`
-	RoleSkill     string   `json:"roleSkill,omitempty"`
-	Requirements  string   `json:"requirements,omitempty"`
-	Plan          string   `json:"plan,omitempty"`
-	Validation    string   `json:"validation,omitempty"`
-	PlannedFiles  []string `json:"plannedFiles"`
-	FeedbackRules string   `json:"feedbackRules"`
-	Decisions     []string `json:"decisions"`
-	Rubric        []string `json:"rubric"`
-	BundleDir     string   `json:"bundleDir,omitempty"`
-	BundleFiles   []string `json:"bundleFiles,omitempty"`
-	Prompt        string   `json:"prompt"`
+	TaskID        string             `json:"taskId"`
+	TaskDir       string             `json:"taskDir"`
+	Typology      string             `json:"typology"`
+	RoleSkill     string             `json:"roleSkill,omitempty"`
+	ModelRouting  *role.ModelRouting `json:"model_routing,omitempty"`
+	Requirements  string             `json:"requirements,omitempty"`
+	Plan          string             `json:"plan,omitempty"`
+	Validation    string             `json:"validation,omitempty"`
+	PlannedFiles  []string           `json:"plannedFiles"`
+	FeedbackRules string             `json:"feedbackRules"`
+	Decisions     []string           `json:"decisions"`
+	Rubric        []string           `json:"rubric"`
+	BundleDir     string             `json:"bundleDir,omitempty"`
+	BundleFiles   []string           `json:"bundleFiles,omitempty"`
+	Prompt        string             `json:"prompt"`
 }
 
 // ImplementPromptContext represents the structured context bundle for Phase B implementation.
 type ImplementPromptContext struct {
-	TaskID          string   `json:"taskId"`
-	TaskDir         string   `json:"taskDir"`
-	Typology        string   `json:"typology"`
-	Role            string   `json:"role"`
-	RoleSkill       string   `json:"roleSkill,omitempty"`
-	ActivatedSkills []string `json:"activatedSkills,omitempty"`
-	Requirements    string   `json:"requirements,omitempty"`
-	Plan            string   `json:"plan,omitempty"`
-	Validation      string   `json:"validation,omitempty"`
-	PlannedFiles    []string `json:"plannedFiles"`
-	FeedbackRules   string   `json:"feedbackRules"`
-	Decisions       []string `json:"decisions"`
-	Prompt          string   `json:"prompt"`
+	TaskID          string             `json:"taskId"`
+	TaskDir         string             `json:"taskDir"`
+	Typology        string             `json:"typology"`
+	Role            string             `json:"role"`
+	RoleSkill       string             `json:"roleSkill,omitempty"`
+	ModelRouting    *role.ModelRouting `json:"model_routing,omitempty"`
+	ActivatedSkills []string           `json:"activatedSkills,omitempty"`
+	Requirements    string             `json:"requirements,omitempty"`
+	Plan            string             `json:"plan,omitempty"`
+	Validation      string             `json:"validation,omitempty"`
+	PlannedFiles    []string           `json:"plannedFiles"`
+	FeedbackRules   string             `json:"feedbackRules"`
+	Decisions       []string           `json:"decisions"`
+	Prompt          string             `json:"prompt"`
 }
 
 var (
@@ -129,6 +133,8 @@ func runPromptPlanReview(args []string, env IO) int {
 	decisions := extractApprovedDecisions(root)
 
 	roleSkill, _ := role.ResolveSkill(root, "plan-reviewer", nil)
+	rolesCfg, _ := role.LoadRoles(root)
+	routing := role.ResolveRoleRouting(rolesCfg, "plan-reviewer")
 
 	// Stage isolated, frozen review bundle by default (D-044)
 	bundle, bErr := audit.StagePlanBundle(root, rawTaskID, env.now())
@@ -137,7 +143,7 @@ func runPromptPlanReview(args []string, env IO) int {
 	}
 
 	rubric := getPlanReviewRubric()
-	promptText := buildPlanReviewPrompt(rawTaskID, taskDirRel, typology, plannedFiles, feedbackRules, decisions, rubric, roleSkill, bundle)
+	promptText := buildPlanReviewPrompt(rawTaskID, taskDirRel, typology, plannedFiles, feedbackRules, decisions, rubric, roleSkill, bundle, routing)
 
 	var bundleDir string
 	var bundleFiles []string
@@ -151,6 +157,7 @@ func runPromptPlanReview(args []string, env IO) int {
 		TaskDir:       taskDirRel,
 		Typology:      typology,
 		RoleSkill:     roleSkill,
+		ModelRouting:  &routing,
 		Requirements:  requirements,
 		Plan:          plan,
 		Validation:    validation,
@@ -211,7 +218,38 @@ func extractApprovedDecisions(root string) []string {
 	return decisions
 }
 
-func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []string, feedbackRules string, decisions, rubric []string, roleSkill string, bundle *audit.PlanBundle) string {
+func formatModelRoutingSection(r role.ModelRouting, roleName string) string {
+	var sb strings.Builder
+	sb.WriteString("## Model Routing Guidance\n")
+	if roleName != "" {
+		fmt.Fprintf(&sb, "- **Role:** %s\n", roleName)
+	}
+	fmt.Fprintf(&sb, "- **Model Tier:** %s\n", r.Tier)
+	fmt.Fprintf(&sb, "- **Reasoning Effort:** %s\n", r.ReasoningEffort)
+	fmt.Fprintf(&sb, "- **Recommended Family:** %s\n", r.RecommendedFamily)
+	return sb.String()
+}
+
+func formatTriadModelRoutingSection(spec, sec, pat role.ModelRouting) string {
+	var sb strings.Builder
+	sb.WriteString("## Model Routing Guidance\n")
+	sb.WriteString("Independent Subagent Review Triad dispatch recommendations:\n")
+	sb.WriteString("- **Spec Auditor (spec-auditor):**\n")
+	fmt.Fprintf(&sb, "  - Model Tier: %s\n", spec.Tier)
+	fmt.Fprintf(&sb, "  - Reasoning Effort: %s\n", spec.ReasoningEffort)
+	fmt.Fprintf(&sb, "  - Recommended Family: %s\n", spec.RecommendedFamily)
+	sb.WriteString("- **AppSec Specialist (appsec-specialist):**\n")
+	fmt.Fprintf(&sb, "  - Model Tier: %s\n", sec.Tier)
+	fmt.Fprintf(&sb, "  - Reasoning Effort: %s\n", sec.ReasoningEffort)
+	fmt.Fprintf(&sb, "  - Recommended Family: %s\n", sec.RecommendedFamily)
+	sb.WriteString("- **Pattern Auditor (pattern-auditor):**\n")
+	fmt.Fprintf(&sb, "  - Model Tier: %s\n", pat.Tier)
+	fmt.Fprintf(&sb, "  - Reasoning Effort: %s\n", pat.ReasoningEffort)
+	fmt.Fprintf(&sb, "  - Recommended Family: %s\n", pat.RecommendedFamily)
+	return sb.String()
+}
+
+func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []string, feedbackRules string, decisions, rubric []string, roleSkill string, bundle *audit.PlanBundle, routing role.ModelRouting) string {
 	var sb strings.Builder
 
 	fmt.Fprintf(&sb, "# Handover: Independent Pre-GATE 1 Plan Review for %s\n\n", taskID)
@@ -243,6 +281,9 @@ func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []stri
 		sb.WriteString(strings.TrimSpace(roleSkill))
 		sb.WriteString("\n\n")
 	}
+
+	sb.WriteString(formatModelRoutingSection(routing, "plan-reviewer"))
+	sb.WriteString("\n")
 
 	sb.WriteString("## Task Details\n")
 	fmt.Fprintf(&sb, "- **Task ID:** %s\n", taskID)
@@ -344,9 +385,11 @@ func runPromptImplement(args []string, env IO) int {
 	decisions := extractApprovedDecisions(root)
 
 	roleSkill, _ := role.ResolveSkill(root, targetRole, nil)
+	rolesCfg, _ := role.LoadRoles(root)
+	implementRouting := role.ResolveRoleRouting(rolesCfg, targetRole)
 	activatedSkills := detectOperationalSkills(plan)
 
-	promptText := buildImplementPrompt(rawTaskID, taskDirRel, typology, targetRole, roleSkill, activatedSkills, plannedFiles, feedbackRules, decisions)
+	promptText := buildImplementPrompt(rawTaskID, taskDirRel, typology, targetRole, roleSkill, activatedSkills, plannedFiles, feedbackRules, decisions, implementRouting)
 
 	ctx := ImplementPromptContext{
 		TaskID:          rawTaskID,
@@ -354,6 +397,7 @@ func runPromptImplement(args []string, env IO) int {
 		Typology:        typology,
 		Role:            targetRole,
 		RoleSkill:       roleSkill,
+		ModelRouting:    &implementRouting,
 		ActivatedSkills: activatedSkills,
 		Requirements:    requirements,
 		Plan:            plan,
@@ -401,7 +445,7 @@ func detectOperationalSkills(planContent string) []string {
 	return activated
 }
 
-func buildImplementPrompt(taskID, taskDir, typology, targetRole, roleSkill string, activatedSkills, plannedFiles []string, feedbackRules string, decisions []string) string {
+func buildImplementPrompt(taskID, taskDir, typology, targetRole, roleSkill string, activatedSkills, plannedFiles []string, feedbackRules string, decisions []string, routing role.ModelRouting) string {
 	var sb strings.Builder
 
 	roleTitle := "Senior Software Engineer (Implementer)"
@@ -424,6 +468,9 @@ func buildImplementPrompt(taskID, taskDir, typology, targetRole, roleSkill strin
 		sb.WriteString(strings.TrimSpace(roleSkill))
 		sb.WriteString("\n\n")
 	}
+
+	sb.WriteString(formatModelRoutingSection(routing, targetRole))
+	sb.WriteString("\n")
 
 	if len(activatedSkills) > 0 {
 		sb.WriteString("## Conditional Operational Skills Activated by Plan\n")
@@ -568,8 +615,30 @@ func runPromptReview(args []string, env IO) int {
 		fprintf(env.Err, "sdd prompt review: warning: could not stage review bundle: %v\n", bErr)
 	}
 
+	rolesCfg, _ := role.LoadRoles(root)
+	var activeRouting role.ModelRouting
+	var triadRouting map[string]role.ModelRouting
+	switch normLens {
+	case "spec":
+		activeRouting = role.ResolveRoleRouting(rolesCfg, "spec-auditor")
+	case "security":
+		activeRouting = role.ResolveRoleRouting(rolesCfg, "appsec-specialist")
+	case "pattern":
+		activeRouting = role.ResolveRoleRouting(rolesCfg, "pattern-auditor")
+	default: // "all"
+		specR := role.ResolveRoleRouting(rolesCfg, "spec-auditor")
+		secR := role.ResolveRoleRouting(rolesCfg, "appsec-specialist")
+		patR := role.ResolveRoleRouting(rolesCfg, "pattern-auditor")
+		activeRouting = secR // Frontier tier across triad
+		triadRouting = map[string]role.ModelRouting{
+			"spec-auditor":      specR,
+			"appsec-specialist": secR,
+			"pattern-auditor":   patR,
+		}
+	}
+
 	lensFocus := getLensFocusItems(normLens)
-	promptText := buildReviewPromptWithLens(rawTaskID, taskDirRel, normLens, changedFiles, feedbackRules, lensFocus, roleSkill, bundle)
+	promptText := buildReviewPromptWithLens(rawTaskID, taskDirRel, normLens, changedFiles, feedbackRules, lensFocus, roleSkill, bundle, activeRouting, triadRouting)
 
 	var bundleDir string
 	var bundleFiles []string
@@ -586,6 +655,8 @@ func runPromptReview(args []string, env IO) int {
 		Loop:          *loopFlag,
 		LensFocus:     lensFocus,
 		RoleSkill:     roleSkill,
+		ModelRouting:  &activeRouting,
+		TriadRouting:  triadRouting,
 		Requirements:  requirements,
 		Plan:          plan,
 		Validation:    validation,
@@ -815,7 +886,7 @@ func extractActiveFeedbackRules(root string) string {
 	return strings.Join(ruleLines, "\n")
 }
 
-func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, feedbackRules string, focusItems []string, roleSkill string, bundle *audit.ReviewBundle) string {
+func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, feedbackRules string, focusItems []string, roleSkill string, bundle *audit.ReviewBundle, activeRouting role.ModelRouting, triadRouting map[string]role.ModelRouting) string {
 	var sb strings.Builder
 
 	lensTitle := "Ensemble Review Triad"
@@ -871,6 +942,21 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 		sb.WriteString("## Canonical Role Skill Instructions\n")
 		sb.WriteString(strings.TrimSpace(roleSkill))
 		sb.WriteString("\n\n")
+	}
+
+	if lens == "all" && triadRouting != nil {
+		sb.WriteString(formatTriadModelRoutingSection(triadRouting["spec-auditor"], triadRouting["appsec-specialist"], triadRouting["pattern-auditor"]))
+		sb.WriteString("\n")
+	} else {
+		targetRole := "spec-auditor"
+		switch lens {
+		case "security":
+			targetRole = "appsec-specialist"
+		case "pattern":
+			targetRole = "pattern-auditor"
+		}
+		sb.WriteString(formatModelRoutingSection(activeRouting, targetRole))
+		sb.WriteString("\n")
 	}
 
 	sb.WriteString("## Lens Focus & Verification Questions\n")

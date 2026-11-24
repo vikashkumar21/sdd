@@ -325,3 +325,29 @@ To eliminate the LLM "Repair-Loop Justification Bleed" and cognitive anchoring b
 
 ### 3. Mechanical Verification (`sdd check`)
 - Rule `remediation-hygiene` scans `review.md` in active (non-`done`) tasks and fails if conversational negotiation chatter, developer justifications, or chat artifacts (e.g. `User:`, `Agent:`, `I fixed this because`, `Sorry for the oversight`) are detected in the findings register.
+
+## 17. Heterogeneous Role Model Routing & Tier Specification Standard
+
+Homogeneous multi-agent execution—where every planner, coder, and reviewer runs on the same frontier model—wastes token budgets and induces correlated cognitive bias. SDD enforces heterogeneous model routing across canonical roles (`T-059`, `D-049`):
+
+### 1. Abstract Capability Tiers & Reasoning Calibration
+Role assignments in `.sdd/roles.json` declare calibrated model capability tiers and reasoning effort:
+1. **`frontier` (High Reasoning):** Reserved for high-complexity architectural formulation, threat surface analysis, adversarial discovery, and workflow orchestration:
+   - Canonical roles: `coordinator`, `architect`, `codebase-analyst`, `discovery-challenger`, `appsec-specialist`.
+   - Recommended family: `claude-opus / gemini-pro / o1`.
+2. **`advanced` (Medium-High Reasoning):** Targeted at rigorous plan auditing and precision production implementation:
+   - Canonical roles: `plan-reviewer`, `implementer`.
+   - Recommended family: `claude-sonnet / gemini-pro / o3-mini`.
+3. **`standard` (Medium-Low Reasoning):** Optimized for structured verification, requirements traceability, pattern compliance, unit test authoring, and CI recipes:
+   - Canonical roles: `spec-auditor`, `pattern-auditor`, `qa`, `devops`.
+   - Recommended family: `claude-sonnet / gemini-flash / gpt-4o`.
+4. **`fast` (Low/No Reasoning):** Suited for deterministic mechanical repairs, table formatting, and rapid lint sweeps:
+   - Recommended family: `claude-haiku / gemini-flash / gpt-4o-mini`.
+
+### 2. Provider-Agnostic Dispatch & Handover Integration
+- **Guidance in Prompts:** All `sdd prompt` handover commands (`review`, `plan-review`, `implement`, `discovery`, `repair`) output a dedicated `## Model Routing Guidance` section specifying the recommended role, tier, effort, and model family.
+- **Agent SDK Orchestration:** Handover generators include `model_routing` (and `triad_model_routing` / `challenger_model_routing`) in JSON context bundles, enabling programmatic orchestrators (e.g. Antigravity Python SDK, Claude Code) to route subagents dynamically.
+
+### 3. Mechanical Consistency & Upgrade Invariants
+- **Validation (`sdd check`):** Rules `roles-tier`, `roles-reasoning`, and `roles-family` verify that declared roles conform strictly to allowed enum tiers and effort levels.
+- **Non-Destructive Migration (`sdd upgrade`):** Upgrading older kits backfills missing model routing metadata on canonical roles without clobbering user overrides or custom role definitions.

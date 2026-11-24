@@ -10,6 +10,7 @@ import (
 
 	"github.com/vikashkumar21/sdd/internal/block"
 	"github.com/vikashkumar21/sdd/internal/detect"
+	"github.com/vikashkumar21/sdd/internal/role"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 	"github.com/vikashkumar21/sdd/internal/templates"
 )
@@ -899,7 +900,10 @@ func TestUpgradeExistingRolesJson_PreservesCustomChallengerAndDescription(t *tes
   "roles": {
     "discovery-challenger": {
       "skill": "custom-challenger-skill",
-      "description": "User customized discovery challenger description"
+      "description": "User customized discovery challenger description",
+      "model_tier": "frontier",
+      "reasoning_effort": "high",
+      "recommended_family": "claude-opus / gemini-pro / o1"
     }
   },
   "phases": {
@@ -1090,4 +1094,107 @@ func TestUpgradeContractToV2(t *testing.T) {
 		t.Errorf("expected manifest to be updated to %s, got:\n%s", templates.Version, string(upgradedManifestBytes))
 	}
 	_ = rep
+}
+
+func TestUpgrade_RolesModelRouting(t *testing.T) {
+	root := generateKit(t)
+	rolesPath := filepath.Join(root, ".sdd", "roles.json")
+
+	// Create legacy roles.json with:
+	// - coordinator has user-customized model_tier ("advanced") and custom description
+	// - spec-auditor has missing model_tier and reasoning_effort
+	// - custom-worker is a non-canonical role
+	legacyRolesJSON := `{
+  "schema": 1,
+  "roles": {
+    "coordinator": {
+      "skill": "coordinator",
+      "description": "Custom user coordinator",
+      "model_tier": "advanced"
+    },
+    "spec-auditor": {
+      "skill": "spec-auditor",
+      "description": "Standard spec auditor"
+    },
+    "custom-worker": {
+      "skill": "custom-worker",
+      "description": "Non-canonical worker"
+    }
+  },
+  "phases": {}
+}
+`
+	if err := os.WriteFile(rolesPath, []byte(legacyRolesJSON), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	plan, err := BuildPlan(root, Options{Now: fixedNow})
+	if err != nil {
+		t.Fatalf("BuildPlan failed: %v", err)
+	}
+
+	var rolesItem *Item
+	for i := range plan.Items {
+		if plan.Items[i].Path == ".sdd/roles.json" {
+			rolesItem = &plan.Items[i]
+			break
+		}
+	}
+	if rolesItem == nil {
+		t.Fatal("expected .sdd/roles.json in upgrade plan")
+	}
+	if rolesItem.Action != ActionUpdate {
+		t.Fatalf("expected ActionUpdate for legacy roles with missing model routing, got %v", rolesItem.Action)
+	}
+
+	rep, err := Apply(plan, fixedNow.Add(time.Hour))
+	if err != nil {
+		t.Fatalf("Apply failed: %v", err)
+	}
+	_ = rep
+
+	// Read upgraded roles.json
+	data, err := os.ReadFile(rolesPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var upgradedCfg role.RoleConfig
+	if err := json.Unmarshal(data, &upgradedCfg); err != nil {
+		t.Fatalf("failed to parse upgraded roles.json: %v", err)
+	}
+
+	// 1. User override on coordinator model_tier ("advanced") is preserved!
+	coord := upgradedCfg.Roles["coordinator"]
+	if coord.ModelTier != "advanced" {
+		t.Errorf("expected coordinator model_tier override 'advanced' preserved, got %q", coord.ModelTier)
+	}
+	if coord.Description != "Custom user coordinator" {
+		t.Errorf("expected custom description preserved, got %q", coord.Description)
+	}
+	// Missing reasoning_effort on coordinator was backfilled
+	if coord.ReasoningEffort != string(role.ReasoningMedium) {
+		t.Errorf("expected coordinator reasoning_effort backfilled to 'medium', got %q", coord.ReasoningEffort)
+	}
+
+	// 2. spec-auditor had all routing fields backfilled
+	spec := upgradedCfg.Roles["spec-auditor"]
+	if spec.ModelTier != string(role.TierStandard) {
+		t.Errorf("expected spec-auditor model_tier backfilled to 'standard', got %q", spec.ModelTier)
+	}
+	if spec.ReasoningEffort != string(role.ReasoningMedium) {
+		t.Errorf("expected spec-auditor reasoning_effort backfilled to 'medium', got %q", spec.ReasoningEffort)
+	}
+	if !strings.Contains(spec.RecommendedFamily, "claude-sonnet") {
+		t.Errorf("expected spec-auditor recommended_family backfilled, got %q", spec.RecommendedFamily)
+	}
+
+	// 3. custom-worker was preserved without forced routing
+	customWorker := upgradedCfg.Roles["custom-worker"]
+	if customWorker.Description != "Non-canonical worker" {
+		t.Errorf("expected custom-worker preserved, got %+v", customWorker)
+	}
+	if customWorker.ModelTier != "" {
+		t.Errorf("expected custom-worker model_tier to remain empty, got %q", customWorker.ModelTier)
+	}
 }

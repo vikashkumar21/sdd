@@ -207,6 +207,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-24 | Release v1.9.0 cross-platform static binaries (darwin, linux, windows), template version 2.4.0, and SHA256SUMS verified | Build, tests, and make dist | M14 |
 | 2026-11-24 | Unanchored Requirements Traceability Ledger validation (traceability-ledger), bundle extraction (ledger.md), Step 1 omission scan before diff.patch, negative test verification, and template version 2.5.0 verified | Run in internal/audit, internal/check, internal/cli, internal/templates tests (T-057) | M14 |
 | 2026-11-24 | Ephemeral Tabula-Rasa Reviewer Lifecycle, Zero-Negotiation Loop Isolation, loop-aware review bundle staging (findings_to_verify.md), sdd prompt review --loop, mechanical remediation-hygiene check, and template version 2.6.0 verified | Run in internal/audit, internal/check, internal/cli, internal/skill, internal/templates tests (T-058) | M14 |
+| 2026-11-24 | Heterogeneous role model routing (.sdd/roles.json), abstract capability tiers (frontier, advanced, standard, fast), reasoning effort calibration, sdd prompt model routing sections, JSON context export, and template version 2.7.0 verified | Run in internal/role, internal/check, internal/cli, internal/upgrade, internal/templates tests (T-059) | M14 |
 
 ## 8. Dependency register
 

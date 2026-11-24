@@ -272,3 +272,137 @@ func TestPromptReview_Loop(t *testing.T) {
 		t.Errorf("expected ctx.Loop == 2, got %d", ctx.Loop)
 	}
 }
+
+func TestPromptReview_ModelRouting(t *testing.T) {
+	root := setupPromptTestProject(t, "T-059", "routing-test")
+
+	// 1. Text output for lens=spec
+	var outBuf, errBuf bytes.Buffer
+	env := IO{In: strings.NewReader(""), Out: &outBuf, Err: &errBuf}
+	if code := runPromptReview([]string{"T-059", "--lens", "spec", "--dir", root}, env); code != 0 {
+		t.Fatalf("runPromptReview failed: %d: %s", code, errBuf.String())
+	}
+	outText := outBuf.String()
+	if !strings.Contains(outText, "## Model Routing Guidance") {
+		t.Errorf("expected '## Model Routing Guidance' in prompt output:\n%s", outText)
+	}
+	if !strings.Contains(outText, "- **Role:** spec-auditor") || !strings.Contains(outText, "- **Model Tier:** standard") {
+		t.Errorf("expected spec-auditor standard tier in prompt output:\n%s", outText)
+	}
+
+	// 2. JSON output for lens=spec
+	outBuf.Reset()
+	errBuf.Reset()
+	if code := runPromptReview([]string{"T-059", "--lens", "spec", "--dir", root, "--json"}, env); code != 0 {
+		t.Fatalf("runPromptReview --json failed: %d: %s", code, errBuf.String())
+	}
+	var ctx ReviewPromptContext
+	if err := json.Unmarshal(outBuf.Bytes(), &ctx); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if ctx.ModelRouting == nil {
+		t.Fatal("expected non-nil ctx.ModelRouting")
+	}
+	if ctx.ModelRouting.Tier != "standard" || ctx.ModelRouting.ReasoningEffort != "medium" {
+		t.Errorf("unexpected model_routing: %+v", ctx.ModelRouting)
+	}
+
+	// 3. Text output for lens=all (triad routing)
+	outBuf.Reset()
+	errBuf.Reset()
+	if code := runPromptReview([]string{"T-059", "--lens", "all", "--dir", root}, env); code != 0 {
+		t.Fatalf("runPromptReview all failed: %d: %s", code, errBuf.String())
+	}
+	allText := outBuf.String()
+	if !strings.Contains(allText, "## Model Routing Guidance") {
+		t.Errorf("expected '## Model Routing Guidance' in all prompt:\n%s", allText)
+	}
+	if !strings.Contains(allText, "Spec Auditor (spec-auditor)") || !strings.Contains(allText, "AppSec Specialist (appsec-specialist)") {
+		t.Errorf("expected triad roles in guidance:\n%s", allText)
+	}
+
+	// 4. JSON output for lens=all
+	outBuf.Reset()
+	errBuf.Reset()
+	if code := runPromptReview([]string{"T-059", "--lens", "all", "--dir", root, "--json"}, env); code != 0 {
+		t.Fatalf("runPromptReview all --json failed: %d: %s", code, errBuf.String())
+	}
+	var allCtx ReviewPromptContext
+	if err := json.Unmarshal(outBuf.Bytes(), &allCtx); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if allCtx.ModelRouting == nil {
+		t.Fatal("expected non-nil allCtx.ModelRouting")
+	}
+	if allCtx.TriadRouting == nil || len(allCtx.TriadRouting) != 3 {
+		t.Errorf("expected 3 triad routing entries, got: %+v", allCtx.TriadRouting)
+	}
+}
+
+func TestPromptPlanReview_ModelRouting(t *testing.T) {
+	root := setupPromptTestProject(t, "T-059", "routing-test")
+
+	var outBuf, errBuf bytes.Buffer
+	env := IO{In: strings.NewReader(""), Out: &outBuf, Err: &errBuf}
+	if code := runPromptPlanReview([]string{"T-059", "--dir", root}, env); code != 0 {
+		t.Fatalf("runPromptPlanReview failed: %d: %s", code, errBuf.String())
+	}
+	outText := outBuf.String()
+	if !strings.Contains(outText, "## Model Routing Guidance") {
+		t.Errorf("expected '## Model Routing Guidance' in plan review prompt:\n%s", outText)
+	}
+	if !strings.Contains(outText, "- **Role:** plan-reviewer") || !strings.Contains(outText, "- **Model Tier:** advanced") {
+		t.Errorf("expected plan-reviewer advanced tier in prompt output:\n%s", outText)
+	}
+
+	// JSON output
+	outBuf.Reset()
+	errBuf.Reset()
+	if code := runPromptPlanReview([]string{"T-059", "--dir", root, "--json"}, env); code != 0 {
+		t.Fatalf("runPromptPlanReview --json failed: %d: %s", code, errBuf.String())
+	}
+	var ctx PlanReviewPromptContext
+	if err := json.Unmarshal(outBuf.Bytes(), &ctx); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if ctx.ModelRouting == nil {
+		t.Fatal("expected non-nil ctx.ModelRouting")
+	}
+	if ctx.ModelRouting.Tier != "advanced" || ctx.ModelRouting.ReasoningEffort != "high" {
+		t.Errorf("unexpected plan review model routing: %+v", ctx.ModelRouting)
+	}
+}
+
+func TestPromptImplement_ModelRouting(t *testing.T) {
+	root := setupPromptTestProject(t, "T-059", "routing-test")
+
+	var outBuf, errBuf bytes.Buffer
+	env := IO{In: strings.NewReader(""), Out: &outBuf, Err: &errBuf}
+	if code := runPromptImplement([]string{"T-059", "--dir", root}, env); code != 0 {
+		t.Fatalf("runPromptImplement failed: %d: %s", code, errBuf.String())
+	}
+	outText := outBuf.String()
+	if !strings.Contains(outText, "## Model Routing Guidance") {
+		t.Errorf("expected '## Model Routing Guidance' in implement prompt:\n%s", outText)
+	}
+	if !strings.Contains(outText, "- **Role:** implementer") || !strings.Contains(outText, "- **Model Tier:** advanced") {
+		t.Errorf("expected implementer advanced tier in prompt output:\n%s", outText)
+	}
+
+	// JSON output
+	outBuf.Reset()
+	errBuf.Reset()
+	if code := runPromptImplement([]string{"T-059", "--dir", root, "--json"}, env); code != 0 {
+		t.Fatalf("runPromptImplement --json failed: %d: %s", code, errBuf.String())
+	}
+	var ctx ImplementPromptContext
+	if err := json.Unmarshal(outBuf.Bytes(), &ctx); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if ctx.ModelRouting == nil {
+		t.Fatal("expected non-nil ctx.ModelRouting")
+	}
+	if ctx.ModelRouting.Tier != "advanced" || ctx.ModelRouting.ReasoningEffort != "medium" {
+		t.Errorf("unexpected implement model routing: %+v", ctx.ModelRouting)
+	}
+}

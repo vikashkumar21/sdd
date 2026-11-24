@@ -19,10 +19,97 @@ import (
 // CurrentSchema defines the schema version for .sdd/roles.json.
 const CurrentSchema = 1
 
+// ModelTier represents an abstract model capability class for heterogeneous routing.
+type ModelTier string
+
+const (
+	TierFrontier ModelTier = "frontier"
+	TierAdvanced ModelTier = "advanced"
+	TierStandard ModelTier = "standard"
+	TierFast     ModelTier = "fast"
+)
+
+// AllowedModelTiers lists all valid model tier identifiers in canonical order.
+func AllowedModelTiers() []string {
+	return []string{
+		string(TierFrontier),
+		string(TierAdvanced),
+		string(TierStandard),
+		string(TierFast),
+	}
+}
+
+// ValidateModelTier verifies whether tier is a valid ModelTier.
+func ValidateModelTier(tier string) error {
+	t := strings.ToLower(strings.TrimSpace(tier))
+	if t == "" {
+		return errors.New("model tier cannot be empty")
+	}
+	switch ModelTier(t) {
+	case TierFrontier, TierAdvanced, TierStandard, TierFast:
+		return nil
+	default:
+		return fmt.Errorf("invalid model tier %q (expected one of: %s)", tier, strings.Join(AllowedModelTiers(), ", "))
+	}
+}
+
+// ReasoningEffort represents the recommended reasoning effort for a role.
+type ReasoningEffort string
+
+const (
+	ReasoningHigh   ReasoningEffort = "high"
+	ReasoningMedium ReasoningEffort = "medium"
+	ReasoningLow    ReasoningEffort = "low"
+	ReasoningNone   ReasoningEffort = "none"
+)
+
+// AllowedReasoningEfforts lists all valid reasoning effort identifiers in canonical order.
+func AllowedReasoningEfforts() []string {
+	return []string{
+		string(ReasoningHigh),
+		string(ReasoningMedium),
+		string(ReasoningLow),
+		string(ReasoningNone),
+	}
+}
+
+// ValidateReasoningEffort verifies whether effort is a valid ReasoningEffort.
+func ValidateReasoningEffort(effort string) error {
+	e := strings.ToLower(strings.TrimSpace(effort))
+	if e == "" {
+		return errors.New("reasoning effort cannot be empty")
+	}
+	switch ReasoningEffort(e) {
+	case ReasoningHigh, ReasoningMedium, ReasoningLow, ReasoningNone:
+		return nil
+	default:
+		return fmt.Errorf("invalid reasoning effort %q (expected one of: %s)", effort, strings.Join(AllowedReasoningEfforts(), ", "))
+	}
+}
+
+// ModelRouting captures model routing metadata for an agent role.
+type ModelRouting struct {
+	Tier              string `json:"model_tier,omitempty"`
+	ReasoningEffort   string `json:"reasoning_effort,omitempty"`
+	RecommendedFamily string `json:"recommended_family,omitempty"`
+}
+
 // RoleInfo defines metadata and the corresponding skill name for an agent role.
 type RoleInfo struct {
-	Skill       string `json:"skill"`
-	Description string `json:"description"`
+	Skill             string `json:"skill"`
+	Description       string `json:"description"`
+	ModelTier         string `json:"model_tier,omitempty"`
+	ReasoningEffort   string `json:"reasoning_effort,omitempty"`
+	RecommendedFamily string `json:"recommended_family,omitempty"`
+}
+
+// Routing returns the ModelRouting representation for r.
+func (r RoleInfo) Routing() ModelRouting {
+	return ModelRouting{
+		Tier:              r.ModelTier,
+		ReasoningEffort:   r.ReasoningEffort,
+		RecommendedFamily: r.RecommendedFamily,
+	}
 }
 
 // PhaseMapping defines role assignments for SDD workflow phases.
@@ -68,48 +155,81 @@ func DefaultRoleConfig() *RoleConfig {
 		Schema: CurrentSchema,
 		Roles: map[string]RoleInfo{
 			"coordinator": {
-				Skill:       "coordinator",
-				Description: "Multi-agent workspace governance, task decomposition, state tracking, and merge qualification",
+				Skill:             "coordinator",
+				Description:       "Multi-agent workspace governance, task decomposition, state tracking, and merge qualification",
+				ModelTier:         string(TierFrontier),
+				ReasoningEffort:   string(ReasoningMedium),
+				RecommendedFamily: "claude-sonnet / gemini-pro / gpt-4o",
 			},
 			"architect": {
-				Skill:       "architect",
-				Description: "Phase A requirements synthesis, architectural decision formulation (D-xxx), boundary setting, and risk modeling",
+				Skill:             "architect",
+				Description:       "Phase A requirements synthesis, architectural decision formulation (D-xxx), boundary setting, and risk modeling",
+				ModelTier:         string(TierFrontier),
+				ReasoningEffort:   string(ReasoningHigh),
+				RecommendedFamily: "claude-opus / gemini-pro / o1",
 			},
 			"codebase-analyst": {
-				Skill:       "codebase-analyst",
-				Description: "Forensic codebase analysis, design system & CSS/font extraction, backend architecture mapping, schema discovery, and tech debt auditing",
+				Skill:             "codebase-analyst",
+				Description:       "Forensic codebase analysis, design system & CSS/font extraction, backend architecture mapping, schema discovery, and tech debt auditing",
+				ModelTier:         string(TierFrontier),
+				ReasoningEffort:   string(ReasoningHigh),
+				RecommendedFamily: "claude-opus / gemini-pro / o1",
 			},
 			"discovery-challenger": {
-				Skill:       "discovery-challenger",
-				Description: "Adversarial codebase challenger: audits discovery findings, uncovers hidden entry points, implicit fallbacks, orphan code, and unreferenced architecture",
+				Skill:             "discovery-challenger",
+				Description:       "Adversarial codebase challenger: audits discovery findings, uncovers hidden entry points, implicit fallbacks, orphan code, and unreferenced architecture",
+				ModelTier:         string(TierFrontier),
+				ReasoningEffort:   string(ReasoningHigh),
+				RecommendedFamily: "claude-opus / gemini-pro / o1",
 			},
 			"plan-reviewer": {
-				Skill:       "plan-reviewer",
-				Description: "Pre-GATE 1 independent plan audit, rubric checking, boundary precision, and open questions verification",
+				Skill:             "plan-reviewer",
+				Description:       "Pre-GATE 1 independent plan audit, rubric checking, boundary precision, and open questions verification",
+				ModelTier:         string(TierAdvanced),
+				ReasoningEffort:   string(ReasoningHigh),
+				RecommendedFamily: "claude-sonnet / gemini-pro / o3-mini",
 			},
 			"spec-auditor": {
-				Skill:       "spec-auditor",
-				Description: "Phase C.2 Review Triad lens: requirements traceability, negative test coverage, plan boundaries, and stdlib purity",
+				Skill:             "spec-auditor",
+				Description:       "Phase C.2 Review Triad lens: requirements traceability, negative test coverage, plan boundaries, and stdlib purity",
+				ModelTier:         string(TierStandard),
+				ReasoningEffort:   string(ReasoningMedium),
+				RecommendedFamily: "claude-sonnet / gemini-flash / gpt-4o",
 			},
 			"appsec-specialist": {
-				Skill:       "appsec-specialist",
-				Description: "Phase C.2 Review Triad lens: threat surface, input validation, filesystem confinement, secrets hygiene, and command safety",
+				Skill:             "appsec-specialist",
+				Description:       "Phase C.2 Review Triad lens: threat surface, input validation, filesystem confinement, secrets hygiene, and command safety",
+				ModelTier:         string(TierFrontier),
+				ReasoningEffort:   string(ReasoningHigh),
+				RecommendedFamily: "claude-opus / gemini-pro / o1",
 			},
 			"pattern-auditor": {
-				Skill:       "pattern-auditor",
-				Description: "Phase C.2 Review Triad lens: decision conformance, determinism, language idioms, and Rule F-001",
+				Skill:             "pattern-auditor",
+				Description:       "Phase C.2 Review Triad lens: decision conformance, determinism, language idioms, and Rule F-001",
+				ModelTier:         string(TierStandard),
+				ReasoningEffort:   string(ReasoningMedium),
+				RecommendedFamily: "claude-sonnet / gemini-flash / gpt-4o",
 			},
 			"implementer": {
-				Skill:       "implementer",
-				Description: "Phase B step-by-step implementation, strict plan boundary enforcement, and determinism",
+				Skill:             "implementer",
+				Description:       "Phase B step-by-step implementation, strict plan boundary enforcement, and determinism",
+				ModelTier:         string(TierAdvanced),
+				ReasoningEffort:   string(ReasoningMedium),
+				RecommendedFamily: "claude-sonnet / gemini-flash / gpt-4o",
 			},
 			"qa": {
-				Skill:       "qa",
-				Description: "Senior QA automation engineer; integration testing; negative coverage; race detection; determinism; fuzzing",
+				Skill:             "qa",
+				Description:       "Senior QA automation engineer; integration testing; negative coverage; race detection; determinism; fuzzing",
+				ModelTier:         string(TierStandard),
+				ReasoningEffort:   string(ReasoningLow),
+				RecommendedFamily: "claude-haiku / gemini-flash / gpt-4o-mini",
 			},
 			"devops": {
-				Skill:       "devops",
-				Description: "Senior DevOps / SRE engineer; build automation; CI/CD recipes; packaging; distribution",
+				Skill:             "devops",
+				Description:       "Senior DevOps / SRE engineer; build automation; CI/CD recipes; packaging; distribution",
+				ModelTier:         string(TierStandard),
+				ReasoningEffort:   string(ReasoningLow),
+				RecommendedFamily: "claude-haiku / gemini-flash / gpt-4o-mini",
 			},
 		},
 		Phases: map[string]PhaseMapping{
@@ -211,6 +331,54 @@ func (c *RoleConfig) RoleNames() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// ResolveRoleRouting resolves model routing metadata for roleName.
+// It checks cfg.Roles[roleName], falling back to DefaultRoleConfig() defaults for any missing fields,
+// or generic defaults (TierFrontier, ReasoningMedium, "claude-sonnet / gemini-pro / gpt-4o") if unconfigured.
+func ResolveRoleRouting(cfg *RoleConfig, roleName string) ModelRouting {
+	defCfg := DefaultRoleConfig()
+	var defInfo RoleInfo
+	if defCfg != nil && defCfg.Roles != nil {
+		defInfo = defCfg.Roles[roleName]
+	}
+
+	var configured RoleInfo
+	if cfg != nil && cfg.Roles != nil {
+		configured = cfg.Roles[roleName]
+	}
+
+	tier := configured.ModelTier
+	if tier == "" || ValidateModelTier(tier) != nil {
+		tier = defInfo.ModelTier
+	}
+	// Custom or unconfigured roles without valid routing safely default to Frontier governance routing.
+	if tier == "" || ValidateModelTier(tier) != nil {
+		tier = string(TierFrontier)
+	}
+
+	effort := configured.ReasoningEffort
+	if effort == "" || ValidateReasoningEffort(effort) != nil {
+		effort = defInfo.ReasoningEffort
+	}
+	// Custom or unconfigured roles without valid reasoning effort safely default to Medium effort.
+	if effort == "" || ValidateReasoningEffort(effort) != nil {
+		effort = string(ReasoningMedium)
+	}
+
+	family := strings.TrimSpace(configured.RecommendedFamily)
+	if family == "" {
+		family = defInfo.RecommendedFamily
+	}
+	if family == "" {
+		family = "claude-sonnet / gemini-pro / gpt-4o"
+	}
+
+	return ModelRouting{
+		Tier:              tier,
+		ReasoningEffort:   effort,
+		RecommendedFamily: family,
+	}
 }
 
 // ResolveSkill resolves a skill in two tiers:
