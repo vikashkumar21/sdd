@@ -134,6 +134,9 @@ func BuildPlan(root string, opts Options) (*Plan, error) {
 		titles = append(titles, pack.Title)
 	}
 	data.LanguageList = strings.Join(titles, ", ")
+	if len(data.Packs) > 0 {
+		data.ReviewStandards = data.Packs[0].ReviewStandards
+	}
 	for _, id := range ans.Agents {
 		data.AgentFiles = append(data.AgentFiles, scaffold.AgentFile(id))
 	}
@@ -486,7 +489,13 @@ func BuildPlan(root string, opts Options) (*Plan, error) {
 			tmplPath := "tasks/" + topDir + "/_templates/" + name
 			legacyTmplPath := topDir + "/_templates/" + name
 
-			rawTmpl, err := set.Raw("tasks/" + topDir + "/" + name)
+			var rawTmpl string
+			var err error
+			if name == "review.md" {
+				rawTmpl, err = set.Render("tasks/"+topDir+"/"+name, data)
+			} else {
+				rawTmpl, err = set.Raw("tasks/" + topDir + "/" + name)
+			}
 			if err != nil {
 				return nil, fmt.Errorf("upgrade: read template %s/%s: %w", topDir, name, err)
 			}

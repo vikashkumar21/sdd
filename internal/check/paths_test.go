@@ -252,3 +252,43 @@ func TestPathHygiene_Suppression(t *testing.T) {
 		t.Fatalf("expected suppressed path-hygiene finding in %+v", r2.Findings)
 	}
 }
+
+func TestCitationHygiene(t *testing.T) {
+	c := &checker{}
+	text := `# Verification Notes
+Line 2: Evidence stored in ` + "`scratch/scan.txt`" + `
+Line 3: Dump output to /tmp/output.json
+Line 4: Temp bundle at .sdd/tmp/bundle.tar
+Line 5: Transcript located at file:///Users/dev/.system_generated/logs/transcript.jsonl
+Line 6: See citation-hygiene check for details on scratch/notes.md
+Line 7: Clean repository file at internal/check/paths.go
+`
+	c.checkCitationHygiene("validation.md", text)
+
+	expected := []struct {
+		line int
+		path string
+	}{
+		{2, "scratch/scan.txt"},
+		{3, "/tmp/output.json"},
+		{4, ".sdd/tmp/bundle.tar"},
+		{5, ".system_generated/logs/transcript.jsonl"},
+	}
+
+	if len(c.findings) != len(expected) {
+		t.Fatalf("expected %d findings, got %d: %+v", len(expected), len(c.findings), c.findings)
+	}
+
+	for i, exp := range expected {
+		f := c.findings[i]
+		if f.Line != exp.line {
+			t.Errorf("finding %d: expected line %d, got %d", i, exp.line, f.Line)
+		}
+		if f.Rule != "citation-hygiene" {
+			t.Errorf("finding %d: expected rule 'citation-hygiene', got %s", i, f.Rule)
+		}
+		if !strings.Contains(f.Message, exp.path) {
+			t.Errorf("finding %d: expected message to contain %q, got: %s", i, exp.path, f.Message)
+		}
+	}
+}

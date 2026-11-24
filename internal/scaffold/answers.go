@@ -162,6 +162,7 @@ type Data struct {
 	Brownfield      bool
 	LanguageList    string
 	Packs           []templates.Pack
+	ReviewStandards string
 	AgentFiles      []string
 	Detected        detect.Result
 }

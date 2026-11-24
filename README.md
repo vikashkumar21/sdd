@@ -4,7 +4,7 @@
 
 - agent contracts: `CLAUDE.md`, `GEMINI.md`, `AGENTS.md` (identical rules)
 - living documents: `MISSION.md`, `TECH_STACK.md`, `ROADMAP.md`, `SKILLS.md`
-- per-task templates for all work typologies in `tasks/features/_templates/`, `tasks/bugfixes/_templates/`, `tasks/hotfixes/_templates/`, `tasks/spikes/_templates/`
+- per-task templates for all work typologies in `tasks/features/_templates/`, `tasks/bugfixes/_templates/`, `tasks/hotfixes/_templates/`, `tasks/spikes/_templates/` with language-pack-aware review rubrics (Go, Java, Python, TypeScript, generic)
 - a root `.ragignore` excluding ephemeral and build artifacts from RAG/vector indexing
 - safe brownfield proposal files (`README.md.sdd-new`) preserving existing project documentation untouched
 - a `.sdd/manifest.json` recording what was generated
@@ -98,10 +98,10 @@ sdd ingest --ci-log --file failure.log                       # scrub ANSI/secret
 sdd ingest --ci-log --seed-bugfix --task T-003 --file log    # stage sanitized CI log and seed bugfix task folder
 sdd prompt gemini        # prints a handover prompt for an agent (claude, gemini, agents, or any name)
 sdd prompt gemini --compact # generate high-density micro-context prompt (< 400 tokens)
-sdd prompt discovery                        # generate turnkey brownfield exploration prompt (codebase-analyst role, --json)
-sdd prompt discovery --ensemble             # generate adversarial multi-agent discovery brief (analyst + challenger, 7 vectors)
+sdd prompt discovery                        # generate turnkey brownfield exploration prompt (codebase-analyst role, Coverage Ledger, --json)
+sdd prompt discovery --ensemble             # generate adversarial discovery brief (unanchored challenger inventory, Coverage Ledger diff, context cross-check)
 sdd prompt discovery T-003                  # generate discovery prompt linked to specific task requirements and plan
-sdd prompt discovery T-003 --ensemble       # stage stateless review bundle (.sdd/review/T-003/discovery/) and output ensemble brief
+sdd prompt discovery T-003 --ensemble       # stage stateless review bundle (.sdd/review/T-003/discovery/ with context/) and output ensemble brief
 sdd prompt plan-review T-003                  # generate turnkey pre-GATE 1 plan review prompt (--json supported)
 sdd prompt implement T-003                    # generate turnkey Phase B implementation prompt (implementer role, --json supported)
 sdd prompt implement T-003 --role qa          # generate implementation prompt enriched with QA automation skill

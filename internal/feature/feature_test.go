@@ -435,3 +435,60 @@ exit status 1
 		t.Errorf("expected reproduction.md to contain failure snippet, got:\n%s", repro)
 	}
 }
+
+func TestFeatureNew_LanguageReview(t *testing.T) {
+	testCases := []struct {
+		lang     string
+		expected string
+	}{
+		{"java", "Idiomatic Java conventions, thread safety, clean build (gradle check / mvn verify)"},
+		{"python", "PEP 8 / PEP 257 standards, type hints, clean linting (ruff / pytest)"},
+		{"typescript", "Strict TypeScript idioms, async/await error propagation, clean linting (npm test / eslint)"},
+		{"go", "Effective Go conventions, context.Context first, clean linting (make lint)"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.lang, func(t *testing.T) {
+			root := t.TempDir()
+			set, err := templates.New("")
+			if err != nil {
+				t.Fatal(err)
+			}
+			det, _ := detect.Detect(root)
+			now := time.Date(2026, 11, 24, 0, 0, 0, 0, time.UTC)
+			p, err := scaffold.BuildPlan(root, scaffold.Answers{
+				Project:   "demo-" + tc.lang,
+				Mode:      scaffold.ModeGreenfield,
+				Languages: []string{tc.lang},
+			}, det, set, now, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := scaffold.Apply(p, now, ""); err != nil {
+				t.Fatal(err)
+			}
+
+			// Verify _templates/review.md was rendered with language standards
+			tmplReview := read(t, root, "tasks/features/_templates/review.md")
+			if !strings.Contains(tmplReview, tc.expected) {
+				t.Errorf("tasks/features/_templates/review.md for %s missing %q; got:\n%s", tc.lang, tc.expected, tmplReview)
+			}
+
+			// Verify bugfixes _templates/review.md was rendered with language standards
+			bugReview := read(t, root, "tasks/bugfixes/_templates/review.md")
+			if !strings.Contains(bugReview, tc.expected) {
+				t.Errorf("tasks/bugfixes/_templates/review.md for %s missing %q; got:\n%s", tc.lang, tc.expected, bugReview)
+			}
+
+			// Verify feature.New generates task review.md with language standards
+			res, err := New(root, "T-001", "lang-task", "")
+			if err != nil {
+				t.Fatalf("feature.New failed: %v", err)
+			}
+			taskReview := read(t, root, filepath.Join(res.Dir, "review.md"))
+			if !strings.Contains(taskReview, tc.expected) {
+				t.Errorf("task review.md for %s missing %q; got:\n%s", tc.lang, tc.expected, taskReview)
+			}
+		})
+	}
+}

@@ -17,7 +17,7 @@ import (
 
 // Version identifies the embedded template set. Bump it whenever any template
 // changes so that generated projects record which templates they came from.
-const Version = "2.3.0"
+const Version = "2.4.0"
 
 //go:embed all:data
 var embedded embed.FS
@@ -30,11 +30,12 @@ type Set struct {
 
 // Pack is the language-specific content for one language.
 type Pack struct {
-	ID        string
-	Title     string
-	Standards string // markdown bullets for SKILLS.md
-	Contract  string // short markdown bullets for the agent contract
-	SkillMap  string // markdown table rows for the human skill map
+	ID              string
+	Title           string
+	Standards       string // markdown bullets for SKILLS.md
+	Contract        string // short markdown bullets for the agent contract
+	SkillMap        string // markdown table rows for the human skill map
+	ReviewStandards string // markdown standard for review.md
 }
 
 var packTitles = map[string]string{
@@ -144,6 +145,9 @@ func (s *Set) Pack(id string) (Pack, error) {
 	}
 	if p.SkillMap, err = read("skillmap.md"); err != nil {
 		return Pack{}, err
+	}
+	if p.ReviewStandards, err = read("review_standards.md"); err != nil {
+		p.ReviewStandards = "Clean linting and language idioms preserved"
 	}
 	return p, nil
 }

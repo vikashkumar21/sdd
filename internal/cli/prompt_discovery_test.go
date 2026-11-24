@@ -41,8 +41,8 @@ func TestPromptDiscovery_Basic(t *testing.T) {
 		"Handover: Codebase Discovery & Forensic Extraction",
 		"Codebase Analyst & Forensic Technical Auditor",
 		"name: codebase-analyst",
-		"1. AST & Module Map",
-		"2. Design System & UI Patterns",
+		"1. AST, Module Map & Runtime Defaults",
+		"2. Container, CI & Build Inventory",
 		"3. Data & State Modeling",
 		"4. Anti-Patterns & Technical Debt",
 		"Brownfield Living Document Synthesis Protocol",
@@ -96,10 +96,10 @@ func TestPromptDiscovery_ExtractionChecklist(t *testing.T) {
 	}
 	out := stdout.String()
 	for _, pillar := range []string{
-		"1. AST & Module Map (Architecture & Topology)",
-		"2. Design System & UI Patterns (Frontend & Layout)",
+		"1. AST, Module Map & Runtime Defaults (Architecture & Topology)",
+		"2. Container, CI & Build Inventory (Infrastructure & Artifacts)",
 		"3. Data & State Modeling (Data Flow & Storage)",
-		"4. Anti-Patterns & Technical Debt (Hygiene & Pitfalls)",
+		"4. Anti-Patterns & Technical Debt (Hygiene & UI Systems)",
 	} {
 		if !strings.Contains(out, pillar) {
 			t.Errorf("missing pillar %q in extraction checklist", pillar)
@@ -468,8 +468,8 @@ func TestPromptDiscovery_EnsembleJSON(t *testing.T) {
 	if len(ctx.BlindSpotVectors) != 7 {
 		t.Errorf("expected 7 blind spot vectors, got %d", len(ctx.BlindSpotVectors))
 	}
-	if len(ctx.ReconciliationChecklist) != 5 {
-		t.Errorf("expected 5 reconciliation checklist items, got %d", len(ctx.ReconciliationChecklist))
+	if len(ctx.ReconciliationChecklist) != 8 {
+		t.Errorf("expected 8 reconciliation checklist items, got %d", len(ctx.ReconciliationChecklist))
 	}
 	if !strings.Contains(ctx.RoleSkill, "name: codebase-analyst") {
 		t.Errorf("expected RoleSkill to contain codebase-analyst")
@@ -666,6 +666,56 @@ func TestPromptDiscovery_DomainFlowGuidance(t *testing.T) {
 	} {
 		if !strings.Contains(out, expected) {
 			t.Errorf("expected %q in discovery prompt output", expected)
+		}
+	}
+}
+
+func TestPromptDiscovery_RuntimeDefaultsAndCoverageLedger(t *testing.T) {
+	tmp := t.TempDir()
+	var stdout, stderr bytes.Buffer
+	env := IO{
+		In:  strings.NewReader(""),
+		Out: &stdout,
+		Err: &stderr,
+		Now: time.Now,
+	}
+
+	// 1. Standard discovery prompt has runtime defaults and coverage ledger checklist
+	code := runPromptDiscovery([]string{"--dir", tmp}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery failed: %s", stderr.String())
+	}
+	out := stdout.String()
+	for _, expected := range []string{
+		"Compiler and runtime defaults: exact Java/Go/Node/Python version, GC ergonomics",
+		"default character encoding (UTF-8)",
+		"Mandatory Coverage Ledger: record every manifest and config file read",
+		"## Coverage Ledger",
+		"Container, CI & Build Inventory",
+		"Dependency age and End-of-Life (EOL)",
+	} {
+		if !strings.Contains(out, expected) {
+			t.Errorf("expected %q in discovery prompt, got:\n%s", expected, out)
+		}
+	}
+
+	// 2. Ensemble discovery prompt has unanchored independent inventory and coverage ledger diff
+	stdout.Reset()
+	stderr.Reset()
+	code = runPromptDiscovery([]string{"--dir", tmp, "--ensemble"}, env)
+	if code != 0 {
+		t.Fatalf("runPromptDiscovery --ensemble failed: %s", stderr.String())
+	}
+	ensembleOut := stdout.String()
+	for _, expected := range []string{
+		"Unanchored Independent Inventory (Mandatory First Step)",
+		"Coverage Ledger Diff",
+		"Reference Context Cross-Check",
+		"Unbounded Concurrency & Thread Pools",
+		"Undeclared Environment Variables",
+	} {
+		if !strings.Contains(ensembleOut, expected) {
+			t.Errorf("expected %q in ensemble discovery prompt, got:\n%s", expected, ensembleOut)
 		}
 	}
 }

@@ -1843,3 +1843,129 @@ func TestCheckDocsDirectoryScanned(t *testing.T) {
 		t.Errorf("expected code-fence error on docs/business_flows/flow.md, got findings: %+v", r.Findings)
 	}
 }
+
+func TestCoverageLedger(t *testing.T) {
+	// 1. Discovery task with valid coverage ledger and justified skips passes
+	root := generate(t)
+	taskDir := filepath.Join(root, "tasks", "features", "T-001-codebase-discovery")
+	if err := os.MkdirAll(taskDir, 0755); err != nil {
+		t.Fatal(err)
+	}
+
+	validRequirements := `---
+status: completed
+---
+# Requirements — T-001 Codebase Discovery
+## 1. Goal
+Discovery of existing codebase
+## Coverage Ledger
+
+| Manifest / Config File | Total Lines | Lines Read | Lines Skipped | Reason for Skip | Fully Verified (Yes/No) |
+|---|---|---|---|---|---|
+| pom.xml | 150 | 1-150 | 0 | None | Yes |
+| libraries.gradle | 500 | 1-110 | 111-500 | Internal test dependencies only | Yes |
+`
+	if err := os.WriteFile(filepath.Join(taskDir, "requirements.md"), []byte(validRequirements), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(taskDir, "plan.md"), []byte("# Plan\n## 5. Files to create or modify\n| Path | Action | Reason |\n| a | create | b |\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(taskDir, "validation.md"), []byte("# Validation\n## 1. Traceability matrix\n| Req | Method | Command | Expected | Actual | Result |\n| R-001 | test | echo | pass | pass | Pass |\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(taskDir, "review.md"), []byte("# Review\nStatus: Approved\n"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Update ROADMAP.md to have T-001 as Done
+	edit(t, root, "ROADMAP.md", func(s string) string {
+		lines := strings.Split(s, "\n")
+		for i, line := range lines {
+			if strings.Contains(line, "| T-001 |") {
+				lines[i] = "| T-001 | Codebase Discovery | S | T-000 | Findings approved | D-004 | Done |"
+			}
+		}
+		return strings.Join(lines, "\n")
+	})
+
+	r := run(t, root)
+	for _, f := range r.Findings {
+		if f.Rule == "coverage-ledger" {
+			t.Errorf("unexpected coverage-ledger finding on valid ledger: %+v", f)
+		}
+	}
+
+	// 2. Unjustified skip in Coverage Ledger produces a Warning
+	unjustifiedRequirements := strings.Replace(validRequirements, "Internal test dependencies only", "", 1)
+	if err := os.WriteFile(filepath.Join(taskDir, "requirements.md"), []byte(unjustifiedRequirements), 0644); err != nil {
+		t.Fatal(err)
+	}
+	r2 := run(t, root)
+	foundUnjustified := false
+	for _, f := range r2.Findings {
+		if f.Rule == "coverage-ledger" && strings.Contains(f.Message, "without recorded justification") {
+			foundUnjustified = true
+			break
+		}
+	}
+	if !foundUnjustified {
+		t.Errorf("expected warning for unjustified skipped lines, got findings: %+v", r2.Findings)
+	}
+
+	// 3. Completed discovery task missing Coverage Ledger produces an Error
+	noLedgerRequirements := `---
+status: completed
+---
+# Requirements — T-001 Codebase Discovery
+## 1. Goal
+Discovery of existing codebase
+`
+	if err := os.WriteFile(filepath.Join(taskDir, "requirements.md"), []byte(noLedgerRequirements), 0644); err != nil {
+		t.Fatal(err)
+	}
+	r3 := run(t, root)
+	foundMissing := false
+	for _, f := range r3.Findings {
+		if f.Rule == "coverage-ledger" && strings.Contains(f.Message, "does not contain a ## Coverage Ledger table") {
+			foundMissing = true
+			if f.Severity != Error {
+				t.Errorf("expected Error severity for missing coverage ledger, got: %v", f.Severity)
+			}
+			break
+		}
+	}
+	if !foundMissing {
+		t.Errorf("expected error for missing coverage ledger on completed discovery task, got findings: %+v", r3.Findings)
+	}
+}
+
+func TestCitationHygiene_CheckIntegration(t *testing.T) {
+	root := generate(t)
+
+	// Writing an ephemeral scratchpad path in README.md should produce a citation-hygiene warning
+	readmePath := filepath.Join(root, "README.md")
+	readmeContent, err := os.ReadFile(readmePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	taintedReadme := string(readmeContent) + "\n\nSee `scratch/temp_analysis.txt` for raw output.\n"
+	if err := os.WriteFile(readmePath, []byte(taintedReadme), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	r := run(t, root)
+	found := false
+	for _, f := range r.Findings {
+		if f.Rule == "citation-hygiene" && strings.Contains(f.Message, "scratch/temp_analysis.txt") {
+			found = true
+			if f.Severity != Warn {
+				t.Errorf("expected Warn severity for citation-hygiene, got: %v", f.Severity)
+			}
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected citation-hygiene warning in README.md, got findings: %+v", r.Findings)
+	}
+}

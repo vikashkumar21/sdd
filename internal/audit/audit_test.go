@@ -138,6 +138,12 @@ func TestStagePlanBundle(t *testing.T) {
 	if !strings.Contains(string(specData), "internal/test.go") {
 		t.Errorf("spec.md missing plan content")
 	}
+	if !strings.Contains(string(specData), "Validation Strategy (validation.md)") {
+		t.Errorf("spec.md missing validation strategy header")
+	}
+	if !strings.Contains(string(specData), "Traceability matrix") {
+		t.Errorf("spec.md missing validation content")
+	}
 
 	rubricPath := filepath.Join(root, expectedBundleDir, "rubric.md")
 	if _, err := os.Stat(rubricPath); err != nil {

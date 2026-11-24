@@ -81,6 +81,52 @@ func TestStageDiscoveryBundle_Success(t *testing.T) {
 	}
 }
 
+func TestStageDiscoveryBundle_WithContext(t *testing.T) {
+	root := setupTestProject(t, "T-053", "discovery-ensemble")
+	fixedNow := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)
+
+	// Stage sample context files in .sdd/context/
+	ctxDir := filepath.Join(root, ".sdd", "context")
+	if err := os.MkdirAll(filepath.Join(ctxDir, "ref"), 0755); err != nil {
+		t.Fatalf("failed to create context dir: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ctxDir, "migration.md"), []byte("# Migration Guide\nPlatform details"), 0644); err != nil {
+		t.Fatalf("failed to write context file: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(ctxDir, "ref", "spec.json"), []byte(`{"version": 2}`), 0644); err != nil {
+		t.Fatalf("failed to write nested context file: %v", err)
+	}
+
+	bundle, err := StageDiscoveryBundle(root, "T-053", "Findings report", "# Rubric", fixedNow)
+	if err != nil {
+		t.Fatalf("StageDiscoveryBundle with context failed: %v", err)
+	}
+
+	// Expect 5 files: findings.md, rubric.md, context/migration.md, context/ref/spec.json, manifest.json
+	if len(bundle.Files) != 5 {
+		t.Fatalf("expected 5 staged files, got %d: %+v", len(bundle.Files), bundle.Files)
+	}
+
+	bundleDirAbs := filepath.Join(root, filepath.FromSlash(bundle.BundleDir))
+	stagedMigPath := filepath.Join(bundleDirAbs, "context", "migration.md")
+	migData, err := os.ReadFile(stagedMigPath)
+	if err != nil {
+		t.Fatalf("missing staged context migration.md: %v", err)
+	}
+	if !strings.Contains(string(migData), "Platform details") {
+		t.Errorf("unexpected content in staged migration.md: %s", string(migData))
+	}
+
+	stagedSpecPath := filepath.Join(bundleDirAbs, "context", "ref", "spec.json")
+	specData, err := os.ReadFile(stagedSpecPath)
+	if err != nil {
+		t.Fatalf("missing staged nested context ref/spec.json: %v", err)
+	}
+	if !strings.Contains(string(specData), `"version": 2`) {
+		t.Errorf("unexpected content in staged ref/spec.json: %s", string(specData))
+	}
+}
+
 func TestStageDiscoveryBundle_DefaultFallback(t *testing.T) {
 	root := setupTestProject(t, "T-053", "discovery-ensemble")
 	fixedNow := time.Date(2026, 11, 21, 12, 0, 0, 0, time.UTC)

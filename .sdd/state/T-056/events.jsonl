@@ -1,0 +1,1 @@
+{"delta":{"cache":210000,"input":42500,"output":14200},"recorded_at":"2026-11-24T04:23:04Z","task_id":"T-056","totals":{"input_tokens":42500,"cache_read_tokens":210000,"output_tokens":14200,"total_tokens":266700},"type":"token_recorded"}

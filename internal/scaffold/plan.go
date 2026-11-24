@@ -89,6 +89,9 @@ func BuildPlan(root string, a Answers, det detect.Result, set *templates.Set, no
 		titles = append(titles, pack.Title)
 	}
 	data.LanguageList = strings.Join(titles, ", ")
+	if len(data.Packs) > 0 {
+		data.ReviewStandards = data.Packs[0].ReviewStandards
+	}
 	for _, id := range a.Agents {
 		data.AgentFiles = append(data.AgentFiles, AgentFile(id))
 	}
@@ -164,7 +167,13 @@ func BuildPlan(root string, a Answers, det detect.Result, set *templates.Set, no
 	typologyOrder := []string{"features", "bugfixes", "hotfixes", "spikes"}
 	for _, topDir := range typologyOrder {
 		for _, name := range typologyTemplates[topDir] {
-			content, err := set.Raw("tasks/" + topDir + "/" + name)
+			var content string
+			var err error
+			if name == "review.md" {
+				content, err = set.Render("tasks/"+topDir+"/"+name, data)
+			} else {
+				content, err = set.Raw("tasks/" + topDir + "/" + name)
+			}
 			if err != nil {
 				return Plan{}, err
 			}

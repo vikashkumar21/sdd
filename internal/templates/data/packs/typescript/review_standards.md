@@ -1,0 +1,1 @@
+Strict TypeScript idioms, async/await error propagation, clean linting (npm test / eslint)

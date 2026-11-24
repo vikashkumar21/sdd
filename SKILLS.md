@@ -227,3 +227,29 @@ Visual architecture and domain flows make software topologies, data schemas, and
 - **Special Characters in Labels:** Always quote node labels containing parentheses, brackets, or special characters (e.g. `id["Label (extra info)"]`, `db[("User Store [PostgreSQL]")]`).
 - **Comments & Cleanliness:** Use `%%` for inline comments. Keep diagrams focused on single bounded contexts or primary flows; decompose oversized flows into child diagrams.
 - **Mechanical Validation:** `sdd check` enforces `mermaid-syntax` verification across all repository markdown files, validating diagram headers, non-empty blocks, and delimiter balancing.
+
+## 13. Forensic Brownfield Coverage Ledger and Unanchored Challenger Standard
+
+Brownfield discovery on non-trivial polyglot repositories easily overlooks critical libraries, legacy runtime quirks, and unreferenced native binaries if an analyst only skims top-level manifests or if a challenger is anchored on the analyst's output (`T-056`, `D-048`).
+
+### 1. Mandatory Coverage Ledger Table
+Every brownfield discovery report must include a `## Coverage Ledger` table recording every manifest, build file, configuration, and image specification inspected:
+
+| Manifest / Config File | Total Lines | Lines Read | Lines Skipped | Reason for Skip | Fully Verified (Yes/No) |
+|---|---|---|---|---|---|
+| pom.xml | 240 | 1-240 | 0 | None | Yes |
+| libraries.gradle | 650 | 1-120 | 121-650 | Internal test dependencies only | Yes |
+| Dockerfile | 45 | 1-45 | 0 | None | Yes |
+
+- **Complete Line Accounting:** For every file, `Lines Read` + `Lines Skipped` must account for `Total Lines`.
+- **Explicit Justifications:** Any non-zero `Lines Skipped` requires a non-empty, actionable explanation in `Reason for Skip`. Blanket skipping without justification fails `sdd check` under rule `coverage-ledger`.
+- **Full Verification Check:** `Fully Verified (Yes/No)` explicitly signals whether all declared dependencies, plugins, and configurations were cross-checked.
+
+### 2. Unanchored Challenger Inventory-First Protocol
+The `discovery-challenger` auditor must never begin by reading the analyst's findings:
+1. **Step 1: Unanchored Independent Inventory:** Before opening `findings.md`, scan the project root to independently inventory all build manifests (`pom.xml`, `build.gradle*`, `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`), container definitions (`Dockerfile*`, compose files), CI/CD pipelines, and vendor/native binaries.
+2. **Step 2: Inventory Diff against Coverage Ledger:** Compare the independent inventory against the primary analyst's `## Coverage Ledger`. Flag any missing manifests, partial line reads, or unjustified skips as findings.
+3. **Step 3: Staged Reference Context Cross-Check:** Check `.sdd/review/<TASK_ID>/discovery/context/` for staged external reference packs (e.g. migration guides, target platform specs, stakeholder requests) and verify that the codebase reality aligns with or addresses all referenced items.
+
+### 3. Scratchpad Citation Hygiene Guard
+All tracked markdown documentation (`MISSION.md`, `TECH_STACK.md`, `ROADMAP.md`, `SKILLS.md`, `README.md`, and task folders) must cite persistent repository paths or commands. Citing ephemeral scratchpad paths (`scratch/`, `/tmp/`, `.sdd/tmp/`, `.system_generated/`) violates Rule `citation-hygiene` in `sdd check`.

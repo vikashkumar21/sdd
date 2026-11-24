@@ -40,6 +40,7 @@ Status: living document · Last updated: 2026-10-26
 | M10 | Autonomous Multi-Agent Architecture, Roles, and State Persistence | T-039 – T-042 | 17 | Task state persistence, event journaling, role-based agentskills.io skills, and cross-project dependency register |
 | M11 | Codebase Discovery & Remote CI/PR Orchestration | T-043 – T-049 | 26 | codebase-analyst role skill, sdd prompt discovery, multi-agent coordinator contract alignment, prompt cache boundary optimization, multi-platform CI workflows, sdd task pr packaging, and CI log ingestion |
 | M12 | Adversarial Discovery, Hard Git Gating & Stateless Review Isolation | T-050 – T-055 | 25 | Path hygiene check, sdd hook install hard git gate, stateless review isolation harness, adversarial discovery challenger, visual domain flow diagrams, and default token telemetry |
+| M13 | Forensic Brownfield Hardening, Coverage Auditing & Multi-Language Rubrics | T-056 | 6 | Coverage ledger standard, mechanical verification in sdd check, language-pack review templates, unanchored challenger inventorying, and enriched review bundles |
 
 ## 4. Tasks
 
@@ -164,6 +165,12 @@ Status: living document · Last updated: 2026-10-26
 | T-054 | Deep domain flow documentation and visual Mermaid diagrams | M | T-053 | Scaffold docs/architecture/ and docs/business_flows/ with automated Mermaid topology, ER, and sequence diagrams | D-046 | Done |
 | T-055 | Default task token telemetry and template integration | S | T-049, T-053 | All task templates contain ## Token Metrics, contract templates mandate sdd task state record-tokens before Gate 2, sdd record-tokens command alias, templates.Version bumped to 2.2.0, and upgrade verified | D-047 | Done |
 
+### M13 — Forensic Brownfield Hardening, Coverage Auditing & Multi-Language Rubrics
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-056 | Forensic brownfield discovery hardening, coverage ledger, and multi-language review templates | M | T-053, T-055 | Coverage ledger standard, mechanical verification in sdd check, language-pack-aware review.md scaffolding, unanchored challenger inventory-first protocol, and review bundle enrichment (validation.md in plan review; staged context in discovery) | D-048 | Awaiting review |
+
 ## 5. Unknown-technology protocol (spikes)
 
 Unfamiliar technology derails projects. To prevent that:
@@ -190,13 +197,15 @@ Unfamiliar technology derails projects. To prevent that:
 
 1. M0 through M11 are complete (50 tasks delivered, 100% roadmap completion).
 2. Release v1.8.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 12: Adversarial Discovery, Hard Git Gating & Stateless Review Isolation (T-050 – T-055; 5/6 complete, 83%).
-4. Active task: none. Next available task: T-051 (Hard Git commit gate and pre-commit hook enforcement).
+3. Active milestone: Milestone 13: Forensic Brownfield Hardening, Coverage Auditing & Multi-Language Rubrics (0/1 complete, 0%).
+4. Active task: T-056 (Forensic brownfield discovery hardening, coverage ledger, and multi-language review templates, Awaiting review). Other open tasks: T-051 (Hard Git commit gate).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-24 | T-056: Forensic brownfield discovery hardening, coverage ledger, and multi-language review templates awaiting review |
+| 2026-11-23 | Milestone 13 added: Forensic Brownfield Hardening, Coverage Auditing & Multi-Language Rubrics (T-056; D-048) |
 | 2026-11-23 | T-054: Deep domain flow documentation, automated Mermaid diagrams, sdd doc commands, and template version 2.3.0 done |
 | 2026-11-22 | T-054: Deep domain flow documentation, automated Mermaid diagrams, sdd doc commands, and template version 2.3.0 awaiting review |
 | 2026-11-22 | T-055: Default task token telemetry, starter template metrics, top-level sdd record-tokens command, and template version 2.2.0 done |

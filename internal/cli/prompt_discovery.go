@@ -46,20 +46,20 @@ func getDiscoveryLivingDocs() []string {
 
 func getDiscoveryChecklist() []string {
 	return []string{
-		"Pillar 1: AST & Module Map (Directory topology, entry points, package manifests, build scripts)",
-		"Pillar 2: Design System & UI Patterns (Font families, CSS frameworks, color themes, component hierarchy)",
-		"Pillar 3: Data & State Modeling (Database schemas, ORM models, state containers, APIs)",
-		"Pillar 4: Anti-Patterns & Technical Debt (Fragile dependencies, unhandled error patterns, security risks, undocumented quirks)",
+		"Pillar 1: AST, Module Map & Runtime Defaults (Directory topology, entry points, package manifests, build scripts, compiler/runtime versions, GC, character encoding/locale, TLS/keystore)",
+		"Pillar 2: Container, CI & Build Inventory (Dockerfiles, compose files, CI pipeline stages, native/vendor binaries, dependency age/EOL, coverage ledger of all manifests)",
+		"Pillar 3: Data & State Modeling (Database schemas, ORM models, state containers, APIs, transaction boundaries)",
+		"Pillar 4: Anti-Patterns & Technical Debt (Fragile dependencies, unhandled error patterns, security risks, undocumented quirks; UI/styling frameworks and design systems if frontend assets detected)",
 	}
 }
 
 func getDiscoveryBlindSpotVectors() []string {
 	return []string{
 		"Vector 1: Hidden Entry Points & Triggers (CLI flags/subcommands, background daemon loops, cron/schedulers, queue workers, webhooks, and event consumers unreferenced in primary entrypoints)",
-		"Vector 2: Concurrency, Lifecycle & Shutdown Invariants (unbounded goroutines/threads, missing cancellation propagation, SIGINT/SIGTERM drain hooks, package-level mutable state, race conditions in init)",
-		"Vector 3: Data Boundary Invariants & Schema Drift (unhandled database errors, uncommitted/unrolled-back transactions, raw SQL queries bypassing the ORM, schema migration mismatches, in-memory cache desync)",
+		"Vector 2: Concurrency, Lifecycle & Shutdown Invariants (unbounded threads/goroutines/executors, missing cancellation/context propagation, SIGINT/SIGTERM drain hooks, mutable global state, race conditions in init)",
+		"Vector 3: Data Boundary Invariants & Schema Drift (unhandled database errors, uncommitted/unrolled-back transactions, raw queries bypassing the ORM, schema migration mismatches, in-memory cache desync)",
 		"Vector 4: Dynamic Dispatch & Runtime Feature Flags (reflection-based routing, plugin systems, runtime feature flags, environment-conditional code paths invisible to static call graphs)",
-		"Vector 5: Orphan & Dead Code (dangling configurations, abandoned routes/endpoints, unexported/unreferenced symbols, unused dependencies)",
+		"Vector 5: Orphan & Dead Code (dangling configurations, abandoned routes/endpoints, unexported/unreferenced symbols, unused dependencies across full manifests)",
 		"Vector 6: Implicit External & Ambient Dependencies (undocumented env vars, ambient binaries/system tools assumed to exist on the host, undeclared cloud SDK defaults, unrecorded third-party APIs)",
 		"Vector 7: Architectural & Documentation Contradictions (direct discrepancies between existing README/architecture docs and actual runtime code behavior, stale comments, unverified assumptions)",
 	}
@@ -67,11 +67,14 @@ func getDiscoveryBlindSpotVectors() []string {
 
 func getDiscoveryReconciliationChecklist() []string {
 	return []string{
-		"1. Cross-reference primary analyst AST map with challenger-discovered entry points and async event consumers.",
-		"2. Reconcile database models and data flows against migration history and raw queries.",
-		"3. Ensure all implicit external dependencies, tools, and env vars are registered in TECH_STACK.md §8 and configuration schemas.",
-		"4. Sweep codebase for dead code, abandoned endpoints, and dangling config keys, logging candidates into ROADMAP.md §7 Parking Lot.",
-		"5. Verify that existing documentation discrepancies are resolved in living documents prior to Gate 1 approval.",
+		"1. Unanchored Independent Inventory: Build independent inventory of all build files, Dockerfiles, and manifests before reviewing primary analyst findings.",
+		"2. Coverage Ledger Diff: Diff independent inventory against analyst's Coverage Ledger to catch omitted or skipped files and verify skip justifications.",
+		"3. Reference Context Cross-Check: Cross-reference codebase reality against any external reference documents staged in .sdd/review/<TASK_ID>/discovery/context/.",
+		"4. Cross-reference primary analyst AST map with challenger-discovered entry points, async event consumers, and background jobs.",
+		"5. Reconcile database models, migration history, raw queries, and transaction boundaries.",
+		"6. Ensure all implicit external dependencies, tools, env vars, and runtime defaults are registered in TECH_STACK.md and configuration schemas.",
+		"7. Sweep codebase for dead code, abandoned endpoints, and dangling config keys, logging candidates into ROADMAP.md §7 Parking Lot.",
+		"8. Verify that existing documentation discrepancies are resolved in living documents prior to Gate 1 approval.",
 	}
 }
 
@@ -311,30 +314,32 @@ func buildDiscoveryPrompt(
 
 	sb.WriteString("## 4-Pillar Progressive Extraction Checklist\n")
 	sb.WriteString("Execute this progressive extraction checklist systematically:\n\n")
-	sb.WriteString("### 1. AST & Module Map (Architecture & Topology)\n")
-	sb.WriteString("- [ ] Directory topology and entry points (e.g. `cmd/`, `src/`, `main.go`, `index.ts`, `App.tsx`).\n")
-	sb.WriteString("- [ ] Package manifest audit (`go.mod`, `package.json`, `pom.xml`, `requirements.txt`).\n")
-	sb.WriteString("- [ ] Build systems, compilation targets, and local developer toolchains (`Makefile`, scripts, Dockerfiles).\n")
-	sb.WriteString("- [ ] Subsystem boundaries, internal modules, and external API integrations.\n\n")
+	sb.WriteString("### 1. AST, Module Map & Runtime Defaults (Architecture & Topology)\n")
+	sb.WriteString("- [ ] Directory topology and entry points (e.g. `cmd/`, `src/`, `main.go`, `index.ts`, `App.tsx`, `Application.java`).\n")
+	sb.WriteString("- [ ] Compiler and runtime defaults: exact Java/Go/Node/Python version, GC ergonomics, default character encoding (UTF-8), locale/timezone assumptions, and TLS/keystore configurations.\n")
+	sb.WriteString("- [ ] Package manifest audit (`go.mod`, `package.json`, `pom.xml`, `build.gradle`, `requirements.txt`, `pyproject.toml`).\n")
+	sb.WriteString("- [ ] Build systems, compilation targets, and local developer toolchains (`Makefile`, scripts, Dockerfiles, compose specs).\n")
+	sb.WriteString("- [ ] Mandatory Coverage Ledger: record every manifest and config file read, line ranges, and justifications for any skipped lines in a `## Coverage Ledger` table.\n\n")
 
-	sb.WriteString("### 2. Design System & UI Patterns (Frontend & Layout)\n")
-	sb.WriteString("- [ ] UI component hierarchy, layout containers, and view routing.\n")
-	sb.WriteString("- [ ] Styling framework: Tailwind, CSS Modules, Styled Components, Sass/SCSS, Vanilla CSS.\n")
-	sb.WriteString("- [ ] Design tokens: font families, typography scale, color palettes, spacing units, responsive breakpoints.\n")
-	sb.WriteString("- [ ] Asset pipelines, icon libraries, and visual design conventions.\n\n")
+	sb.WriteString("### 2. Container, CI & Build Inventory (Infrastructure & Artifacts)\n")
+	sb.WriteString("- [ ] Container inventory: Dockerfiles, base images, multi-stage builds, root vs. non-root users, build arguments, and package manager layers.\n")
+	sb.WriteString("- [ ] CI/CD pipeline inventory: GitHub Actions, Jenkinsfile, GitLab CI stages, ambient build environment dependencies.\n")
+	sb.WriteString("- [ ] Native, vendor, and binary dependencies: C/C++ libraries, JNI bindings, native wrappers, precompiled binaries.\n")
+	sb.WriteString("- [ ] Dependency age and End-of-Life (EOL) analysis across complete manifests.\n\n")
 
 	sb.WriteString("### 3. Data & State Modeling (Data Flow & Storage)\n")
-	sb.WriteString("- [ ] Persistence engines, database schemas, migration files, and ORM / ODM models.\n")
-	sb.WriteString("- [ ] Client/server state management (Redux, Zustand, React Query, Pinia, internal buses).\n")
+	sb.WriteString("- [ ] Persistence engines, database schemas, migration files (Flyway, Liquibase, Prisma, Alembic), and ORM / ODM models.\n")
+	sb.WriteString("- [ ] Client/server state management (Redux, Zustand, React Query, Pinia, internal buses, Spring beans).\n")
 	sb.WriteString("- [ ] Caching layers (Redis, Memcached, in-memory LRU) and event queues / brokers (Kafka, RabbitMQ).\n")
 	sb.WriteString("- [ ] Data validation schemas and serialization contracts (JSON Schema, Protobuf, Zod).\n\n")
 
-	sb.WriteString("### 4. Anti-Patterns & Technical Debt (Hygiene & Pitfalls)\n")
+	sb.WriteString("### 4. Anti-Patterns & Technical Debt (Hygiene & UI Systems)\n")
 	sb.WriteString("- [ ] Fragile or unmaintained third-party dependencies (outdated versions, deprecated APIs).\n")
 	sb.WriteString("- [ ] Unhandled error patterns, swallowed exceptions, empty catch blocks, unchecked panics.\n")
-	sb.WriteString("- [ ] Concurrency risks: unowned goroutines, shared mutable state without locks, race conditions.\n")
+	sb.WriteString("- [ ] Concurrency risks: unowned goroutines/threads, shared mutable state without locks, race conditions.\n")
 	sb.WriteString("- [ ] Security hazards: hardcoded secrets/tokens, missing input sanitization, insecure defaults.\n")
-	sb.WriteString("- [ ] Undocumented quirks or tribal knowledge to seed the Pitfalls log.\n\n")
+	sb.WriteString("- [ ] Undocumented quirks or tribal knowledge to seed the Pitfalls log.\n")
+	sb.WriteString("- [ ] Frontend design systems & UI patterns: conditionally evaluate font families, CSS frameworks, color themes, and component hierarchy ONLY if frontend assets are present.\n\n")
 
 	sb.WriteString("## Brownfield Living Document Synthesis Protocol\n")
 	sb.WriteString("Synthesize forensic findings directly into the project's living documents:\n")

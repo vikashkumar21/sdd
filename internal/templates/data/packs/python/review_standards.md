@@ -1,0 +1,1 @@
+PEP 8 / PEP 257 standards, type hints, clean linting (ruff / pytest)

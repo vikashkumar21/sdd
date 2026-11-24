@@ -1,0 +1,1 @@
+Idiomatic Java conventions, thread safety, clean build (gradle check / mvn verify)

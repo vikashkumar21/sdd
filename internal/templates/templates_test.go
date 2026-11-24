@@ -8,8 +8,8 @@ import (
 )
 
 func TestVersion(t *testing.T) {
-	if Version != "2.3.0" {
-		t.Errorf("Version = %q, want 2.3.0", Version)
+	if Version != "2.4.0" {
+		t.Errorf("Version = %q, want 2.4.0", Version)
 	}
 }
 
@@ -76,7 +76,7 @@ func TestEveryLanguageHasACompletePack(t *testing.T) {
 		if err != nil {
 			t.Fatalf("pack %s: %v", id, err)
 		}
-		if p.Title == "" || p.Standards == "" || p.Contract == "" || p.SkillMap == "" {
+		if p.Title == "" || p.Standards == "" || p.Contract == "" || p.SkillMap == "" || p.ReviewStandards == "" {
 			t.Errorf("pack %s has an empty part: %+v", id, p)
 		}
 		for _, row := range strings.Split(p.SkillMap, "\n") {
@@ -85,7 +85,7 @@ func TestEveryLanguageHasACompletePack(t *testing.T) {
 			}
 		}
 		for _, bad := range []string{"{{", "}}"} {
-			if strings.Contains(p.Standards+p.Contract+p.SkillMap, bad) {
+			if strings.Contains(p.Standards+p.Contract+p.SkillMap+p.ReviewStandards, bad) {
 				t.Errorf("pack %s contains %q", id, bad)
 			}
 		}
@@ -212,6 +212,44 @@ func TestExtendedEmbeddedRoleSkills(t *testing.T) {
 		}
 		if !strings.Contains(content, "ALWAYS BE DETERMINISTIC") {
 			t.Errorf("extended embedded role skill %s missing SDD anthem", tmplPath)
+		}
+	}
+}
+
+func TestReviewTemplateLanguageStandards(t *testing.T) {
+	set, err := New("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	testCases := []struct {
+		lang     string
+		expected string
+	}{
+		{"go", "Effective Go conventions, context.Context first, clean linting (make lint)"},
+		{"java", "Idiomatic Java conventions, thread safety, clean build (gradle check / mvn verify)"},
+		{"python", "PEP 8 / PEP 257 standards, type hints, clean linting (ruff / pytest)"},
+		{"typescript", "Strict TypeScript idioms, async/await error propagation, clean linting (npm test / eslint)"},
+		{"other", "Idiomatic language conventions, clean build and test suite"},
+	}
+
+	for _, tc := range testCases {
+		pack, err := set.Pack(tc.lang)
+		if err != nil {
+			t.Fatalf("pack %s: %v", tc.lang, err)
+		}
+		data := struct {
+			ReviewStandards string
+		}{
+			ReviewStandards: pack.ReviewStandards,
+		}
+		for _, tmpl := range []string{"tasks/features/review.md", "tasks/bugfixes/review.md"} {
+			rendered, err := set.Render(tmpl, data)
+			if err != nil {
+				t.Fatalf("render %s for %s: %v", tmpl, tc.lang, err)
+			}
+			if !strings.Contains(rendered, tc.expected) {
+				t.Errorf("%s for %s missing expected standards %q; got:\n%s", tmpl, tc.lang, tc.expected, rendered)
+			}
 		}
 	}
 }

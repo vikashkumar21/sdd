@@ -25,7 +25,7 @@ Commit / Diff Ref: <HEAD / diff summary>
 - [ ] Complies with approved decisions in TECH_STACK.md (D-xxx)
 - [ ] Complies with active feedback rules in SKILLS.md §8 (F-xxx)
 - [ ] Concurrency & memory safety verified (no data races or leaks)
-- [ ] Clean linting and language idioms preserved
+- [ ] Language standards: {{ .ReviewStandards }}
 
 ## 2. Risk & Findings Register
 

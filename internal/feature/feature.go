@@ -4,6 +4,7 @@
 package feature
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -354,6 +355,14 @@ func NewWithOptions(root, id, slug string, opts Options) (Result, error) {
 		text := strings.ReplaceAll(content, "T-xxx", id)
 		text = strings.ReplaceAll(text, "<title>", title)
 
+		if name == "review.md" {
+			if strings.Contains(text, "{{ .ReviewStandards }}") || strings.Contains(text, "{{.ReviewStandards}}") {
+				standards := resolveReviewStandards(rootHandle)
+				text = strings.ReplaceAll(text, "{{ .ReviewStandards }}", standards)
+				text = strings.ReplaceAll(text, "{{.ReviewStandards}}", standards)
+			}
+		}
+
 		if name == "requirements.md" || name == "reproduction.md" {
 			if jiraIssue != nil {
 				text = jira.InjectRequirements(text, *jiraIssue)
@@ -417,4 +426,32 @@ func NewWithOptions(root, id, slug string, opts Options) (Result, error) {
 	}
 
 	return res, nil
+}
+
+func resolveReviewStandards(rootHandle *os.Root) string {
+	defaultStandards := "Effective Go conventions, context.Context first, clean linting (make lint)"
+	if rootHandle == nil {
+		return defaultStandards
+	}
+	data, err := rootHandle.ReadFile(".sdd/manifest.json")
+	if err != nil {
+		return defaultStandards
+	}
+	var m struct {
+		Answers struct {
+			Languages []string `json:"languages"`
+		} `json:"answers"`
+	}
+	if err := json.Unmarshal(data, &m); err != nil || len(m.Answers.Languages) == 0 {
+		return defaultStandards
+	}
+	set, err := templates.New("")
+	if err != nil {
+		return defaultStandards
+	}
+	pack, err := set.Pack(m.Answers.Languages[0])
+	if err != nil || pack.ReviewStandards == "" {
+		return defaultStandards
+	}
+	return pack.ReviewStandards
 }

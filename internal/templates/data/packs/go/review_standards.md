@@ -1,0 +1,1 @@
+Effective Go conventions, context.Context first, clean linting (make lint)

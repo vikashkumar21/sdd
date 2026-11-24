@@ -26,36 +26,36 @@ The Discovery Challenger is an adversarial, read-only interrogator. It approache
 
 ### Vector 1: Hidden Entry Points & Triggers
 - **CLI Options & Subcommands:** Scan argument parsing logic, hidden flags, diagnostic commands, and debug hooks omitted from `main`/entrypoint documentation.
-- **Background Schedulers & Daemon Loops:** Search for background timers (`time.Ticker`, cron packages, scheduled workers) running outside standard HTTP/RPC routing.
-- **Queue Listeners & Event Consumers:** Uncover message broker subscribers (Kafka, RabbitMQ, SQS, NATS), Redis pub/sub listeners, and internal channel consumers.
+- **Background Schedulers & Daemon Loops:** Search for background timers (`time.Ticker`, cron packages, `@Scheduled` Spring beans, Celery tasks, scheduled workers) running outside standard HTTP/RPC routing.
+- **Queue Listeners & Event Consumers:** Uncover message broker subscribers (Kafka, RabbitMQ, SQS, NATS, JMS), Redis pub/sub listeners, and internal async event consumers.
 - **Webhooks & Async Ingestion:** Identify auxiliary ingress ports, webhook handlers, socket listeners, and sidecar endpoints.
 
 ### Vector 2: Concurrency, Lifecycle & Shutdown Invariants
-- **Unbounded Goroutines & Thread Pools:** Detect `go` routines or worker threads spawned per-request without bounded concurrency pools or rate limiters.
-- **Context & Cancellation Propagation:** Verify whether background tasks accept and respect `context.Context` cancellation or run detached indefinitely.
-- **Graceful Termination & Drain Hooks:** Check for OS signal interception (SIGINT, SIGTERM), connection draining, inflight request flushes, and database connection pool closures.
-- **Package-Level Mutable State & Init Races:** Interrogate package-level variables and `init()` side effects for data races or order-of-initialization dependencies.
+- **Unbounded Concurrency & Thread Pools:** Detect unbounded worker pools (`go` routines, `Executors.newCachedThreadPool`, unmetered async workers) spawned per-request without rate limiters.
+- **Context, Thread Interruption & Cancellation:** Verify whether background tasks accept and respect cancellation propagation (`context.Context`, `Thread.interrupt()`, `AbortController`) or run detached indefinitely.
+- **Graceful Termination & Drain Hooks:** Check for OS signal interception (SIGINT, SIGTERM), shutdown hooks (`Runtime.addShutdownHook`), connection draining, inflight request flushes, and database connection pool closures.
+- **Package-Level Mutable State & Init Races:** Interrogate package-level variables, static mutable singletons, and `init()` / static initializer side effects for race conditions or order dependencies.
 
 ### Vector 3: Data Boundary Invariants & Schema Drift
-- **Transaction Rollback & Error Paths:** Interrogate database transactions (`tx.Rollback`, deferred rollbacks, savepoints) to identify paths where errors leave dangling or partial state.
-- **Raw SQL Queries vs. ORM:** Grep for raw string queries, untyped database operations, or direct SQL execution bypassing declared models or schemas.
-- **Schema Migration Drift:** Cross-check migration directory versions against active ORM entity declarations to expose unmigrated tables, columns, or indexes.
-- **Cache Invalidation & Desync:** Check if caching layers (Redis, Memcached, in-memory sync.Map) lack expiration TTLs or fail to invalidate during state mutations.
+- **Transaction Rollback & Error Paths:** Interrogate database transactions (`tx.Rollback`, deferred rollbacks, `@Transactional` boundaries, savepoints) to identify paths where errors leave dangling or partial state.
+- **Raw Queries vs. ORM:** Grep for raw string queries, untyped database operations, or direct SQL execution bypassing declared models or schemas.
+- **Schema Migration Drift:** Cross-check migration directory versions (Flyway, Liquibase, Alembic, Prisma) against active ORM entity declarations to expose unmigrated tables, columns, or indexes.
+- **Cache Invalidation & Desync:** Check if caching layers (Redis, Memcached, in-memory caches) lack expiration TTLs or fail to invalidate during state mutations.
 
 ### Vector 4: Dynamic Dispatch & Runtime Feature Flags
-- **Dynamic Routing & Reflection:** Trace reflection, dynamic method invocation, interface type assertions, or runtime dependency injection containers that bypass static call graphs.
-- **Plugin Systems & Dynamic Modules:** Identify dynamic library loading (`plugin.Open`), script evaluators, or dynamic class loaders.
-- **Runtime Feature Flags & Conditionals:** Grep for environment-based conditionals (`os.Getenv`, config toggles, feature flag services) that gate entire alternative subsystems.
+- **Dynamic Routing & Reflection:** Trace reflection (`reflect`, Java reflection/cglib, Python `getattr`), dynamic method invocation, interface type assertions, or runtime dependency injection containers that bypass static call graphs.
+- **Plugin Systems & Dynamic Modules:** Identify dynamic library loading (`plugin.Open`, `ServiceLoader`, dynamic classloaders), script evaluators, or dynamic class loaders.
+- **Runtime Feature Flags & Conditionals:** Grep for environment-based conditionals (`os.Getenv`, `System.getProperty`, `process.env`, config toggles, feature flag services) that gate entire alternative subsystems.
 
 ### Vector 5: Orphan & Dead Code
-- **Dangling Configuration Keys:** Match configuration struct fields or YAML/JSON keys against actual codebase consumption to flag dead settings.
-- **Abandoned Routes & Endpoints:** Identify commented-out, deprecated, or unreachable routes in HTTP/gRPC routers.
+- **Dangling Configuration Keys:** Match configuration struct fields or YAML/JSON/properties keys against actual codebase consumption to flag dead settings.
+- **Abandoned Routes & Endpoints:** Identify commented-out, deprecated, or unreachable routes in HTTP/gRPC routers or controllers.
 - **Unreferenced Symbols & Packages:** Spot internal packages, utility modules, or exported helper functions with zero references across the project.
-- **Unused Build Dependencies:** Verify declared dependencies in package manifests (`go.mod`, `package.json`, `pom.xml`, `requirements.txt`) that are never imported.
+- **Unused Build Dependencies:** Verify declared dependencies in package manifests (`go.mod`, `package.json`, `pom.xml`, `build.gradle`, `requirements.txt`) across full manifests that are never imported.
 
 ### Vector 6: Implicit External & Ambient Dependencies
-- **Undeclared Environment Variables:** Extract all `os.Getenv`, `process.env`, or property lookups and verify they are documented in configuration schemas or `.env.example`.
-- **Ambient System Tools & Binaries:** Check `exec.Command` / shell execution calls to confirm whether host utilities (e.g. `curl`, `git`, `ffmpeg`, `docker`) are assumed to exist.
+- **Undeclared Environment Variables:** Extract all environment and system property lookups (`os.Getenv`, `System.getenv`, `System.getProperty`, `process.env`, `os.environ`) and verify they are documented in configuration schemas or `.env.example`.
+- **Ambient System Tools & Binaries:** Check `exec.Command` / `Runtime.getRuntime().exec` / `subprocess.Popen` / shell execution calls to confirm whether host utilities (e.g. `curl`, `git`, `ffmpeg`, `docker`, `tar`) are assumed to exist.
 - **Undeclared Cloud & Network APIs:** Inspect HTTP clients, cloud SDK initializations, and remote endpoints to identify implicit service dependencies.
 
 ### Vector 7: Architectural & Documentation Contradictions
@@ -67,14 +67,30 @@ The Discovery Challenger is an adversarial, read-only interrogator. It approache
 
 ## Challenger Audit Protocol & Reconciliation
 
-1. **Tabula-Rasa Review:** Inspect the staged discovery findings in `.sdd/review/<TASK_ID>/discovery/findings.md` without conversational interaction with the primary analyst.
-2. **Direct Codebase Verification:** For every claim, navigate to the referenced file and line in the target codebase.
-3. **Audit Vector Sweep:** Execute targeted searches across the codebase for all 7 blind-spot vectors.
-4. **Structured Reconciliation Report:** Output findings categorizing what was:
-   - **Confirmed:** Findings verified accurate with codebase evidence.
-   - **Disputed:** Claims contradicted by code reality.
-   - **Omitted (Blind Spots):** Critical components, background jobs, external dependencies, or invariants missed by the initial pass.
-5. **Synthesis:** Hand off the reconciliation report to the Task Coordinator to integrate into `TECH_STACK.md`, `ROADMAP.md` Parking Lot, and `SKILLS.md` before Gate 1 approval.
+1. **Unanchored Independent Inventory (Mandatory First Step):**
+   - BEFORE reading `.sdd/review/<TASK_ID>/discovery/findings.md`, scan the project root and subdirectories to build your own independent inventory of:
+     - All build files (`pom.xml`, `build.gradle`, `package.json`, `go.mod`, `pyproject.toml`, `requirements.txt`, `Makefile`)
+     - All container and deployment configurations (`Dockerfile*`, `docker-compose*.yml`, Helm charts, Kubernetes manifests)
+     - All CI workflows (`.github/workflows/`, `Jenkinsfile`, `.gitlab-ci.yml`)
+2. **Coverage Ledger Diff:**
+   - Open `.sdd/review/<TASK_ID>/discovery/findings.md` and locate the primary analyst's `## Coverage Ledger`.
+   - Diff your independent inventory against the Coverage Ledger:
+     - Did the analyst omit any manifest or Dockerfile entirely?
+     - For large files (e.g. `libraries.gradle`), did the analyst read the entire file or skip lines without recorded justification?
+3. **Reference Context Cross-Check:**
+   - Check `.sdd/review/<TASK_ID>/discovery/context/` for staged external reference documents (migration guides, architecture specs, stakeholder requests).
+   - Cross-check the codebase and analyst findings against these reference packs to uncover undocumented migration vectors or architecture contradictions.
+4. **Audit Vector Sweep:**
+   - Execute targeted codebase searches across all 7 blind-spot vectors.
+5. **Direct Codebase Verification:**
+   - For every claim in `findings.md`, verify the cited file and line in the target codebase.
+6. **Structured Reconciliation Report:**
+   - Output findings categorizing what was:
+     - **Confirmed:** Findings verified accurate with codebase evidence.
+     - **Disputed:** Claims contradicted by code reality.
+     - **Omitted (Blind Spots):** Critical components, background jobs, external dependencies, unread manifest lines, or invariants missed by the initial pass.
+7. **Synthesis:**
+   - Hand off the reconciliation report to the Task Coordinator to integrate into `TECH_STACK.md`, `ROADMAP.md` Parking Lot, and `SKILLS.md` before Gate 1 approval.
 
 ## Anti-Hallucination & Path Hygiene Directives
 1. **Strictly Read-Only:** Never create, edit, or delete application source files. Touch only task specification and reconciliation documents.

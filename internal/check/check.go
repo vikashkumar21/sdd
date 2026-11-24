@@ -190,9 +190,10 @@ func Run(root string) (Report, error) {
 }
 
 type checker struct {
-	root     string
-	texts    map[string]string // slash-relative path -> content (CRLF normalised)
-	findings []Finding
+	root         string
+	texts        map[string]string // slash-relative path -> content (CRLF normalised)
+	findings     []Finding
+	taskStatuses map[string]string // normalized task ID -> status kind
 }
 
 func (c *checker) add(sev Severity, file string, line int, rule string, format string, args ...any) {
@@ -248,6 +249,7 @@ func (c *checker) run() {
 		c.checkMermaid(rel, text)
 		c.checkLifecycle(rel, text)
 		c.checkPathHygiene(rel, text)
+		c.checkCitationHygiene(rel, text)
 	}
 	c.checkReferences(docs)
 	c.checkParity(agents)
@@ -644,9 +646,11 @@ func (c *checker) checkRoadmap() []roadmap.Task {
 
 func (c *checker) checkFeatures(tasks []roadmap.Task) {
 	status := map[string]string{}
+	titles := map[string]string{}
 	for _, task := range tasks {
 		if _, dup := status[task.ID]; !dup {
 			status[task.ID] = roadmap.Kind(task.Status)
+			titles[task.ID] = task.Title
 		}
 	}
 	folders := map[string]string{} // task ID -> folder rel path
@@ -721,6 +725,7 @@ func (c *checker) checkFeatures(tasks []roadmap.Task) {
 				if topo.name == "features" || topo.name == "bugfixes" {
 					c.checkReviewDocument(rel, status[id])
 				}
+				c.checkCoverageLedger(rel, id, status[id], titles[id], topo.name)
 			}
 		}
 	}
@@ -1023,5 +1028,151 @@ func (c *checker) checkManifestDrift(m scaffold.Manifest) {
 	}
 	if modified > 0 {
 		c.add(Info, scaffold.ManifestPath, 0, "manifest-modified", "%d generated file(s) have changed since sdd generated them (expected: you edit them)", modified)
+	}
+}
+
+func isDiscoveryTask(rel, id, taskTitle, topoName string, hasFindings bool) bool {
+	if topoName == "discovery" || strings.HasPrefix(rel, "tasks/discovery/") {
+		return true
+	}
+	if hasFindings && topoName != "spikes" {
+		return true
+	}
+	lowerRel := strings.ToLower(rel)
+	base := filepath.Base(lowerRel)
+	if strings.HasSuffix(base, "-codebase-discovery") || strings.HasSuffix(base, "-discovery") || base == "discovery" || base == "codebase-discovery" {
+		if !strings.Contains(base, "prompt-") && !strings.Contains(base, "ensemble") && !strings.Contains(base, "hardening") {
+			return true
+		}
+	}
+	lowerTitle := strings.ToLower(strings.TrimSpace(taskTitle))
+	if lowerTitle == "discovery" || lowerTitle == "codebase discovery" || strings.HasPrefix(lowerTitle, "discovery ") || strings.HasPrefix(lowerTitle, "discovery(") {
+		if !strings.Contains(lowerTitle, "prompt") && !strings.Contains(lowerTitle, "ensemble") && !strings.Contains(lowerTitle, "hardening") && !strings.Contains(lowerTitle, "protocol") && !strings.Contains(lowerTitle, "skill") {
+			return true
+		}
+	}
+	return false
+}
+
+func (c *checker) checkCoverageLedger(rel, id, taskStatus, taskTitle, topoName string) {
+	_, hasFindings := c.load(rel + "/findings.md")
+	isDiscovery := isDiscoveryTask(rel, id, taskTitle, topoName, hasFindings)
+
+	foundLedger := false
+	taskDocs := []string{"findings.md", "requirements.md", "plan.md", "validation.md"}
+	for _, docName := range taskDocs {
+		docRel := rel + "/" + docName
+		docText, ok := c.load(docRel)
+		if !ok {
+			continue
+		}
+		if strings.Contains(docText, "Coverage Ledger") {
+			foundLedger = true
+			c.validateCoverageLedgerTable(docRel, docText)
+		}
+	}
+
+	if isDiscovery && !foundLedger {
+		normStatus := roadmap.Kind(taskStatus)
+		if normStatus == "awaiting review" || normStatus == "done" {
+			c.add(Error, rel, 0, "coverage-ledger", "discovery task %s is %s but does not contain a ## Coverage Ledger table", id, taskStatus)
+		}
+	}
+}
+
+func (c *checker) validateCoverageLedgerTable(docRel, docText string) {
+	lines := strings.Split(docText, "\n")
+	inLedger := false
+	headerFound := false
+	fileCol, linesSkippedCol, reasonCol, fullyVerifiedCol := -1, -1, -1, -1
+
+	for i, line := range lines {
+		lineNum := i + 1
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "#") {
+			if strings.Contains(trimmed, "Coverage Ledger") {
+				inLedger = true
+				continue
+			} else if inLedger {
+				break
+			}
+		}
+
+		if !inLedger {
+			continue
+		}
+
+		if !strings.HasPrefix(trimmed, "|") || !strings.HasSuffix(trimmed, "|") {
+			continue
+		}
+
+		rawCells := strings.Split(trimmed, "|")
+		if len(rawCells) < 3 {
+			continue
+		}
+		var cells []string
+		for _, cell := range rawCells[1 : len(rawCells)-1] {
+			cells = append(cells, strings.TrimSpace(cell))
+		}
+
+		// Delimiter row
+		if strings.Contains(cells[0], "---") {
+			continue
+		}
+
+		// Header row
+		if !headerFound {
+			for idx, cell := range cells {
+				lower := strings.ToLower(cell)
+				if strings.Contains(lower, "file") || strings.Contains(lower, "manifest") {
+					fileCol = idx
+				} else if strings.Contains(lower, "skipped") {
+					linesSkippedCol = idx
+				} else if strings.Contains(lower, "reason") {
+					reasonCol = idx
+				} else if strings.Contains(lower, "verified") {
+					fullyVerifiedCol = idx
+				}
+			}
+			if fileCol != -1 && (linesSkippedCol != -1 || reasonCol != -1) {
+				headerFound = true
+			}
+			continue
+		}
+
+		fileName := ""
+		if fileCol >= 0 && fileCol < len(cells) {
+			fileName = cells[fileCol]
+		}
+		skipped := ""
+		if linesSkippedCol >= 0 && linesSkippedCol < len(cells) {
+			skipped = cells[linesSkippedCol]
+		}
+		reason := ""
+		if reasonCol >= 0 && reasonCol < len(cells) {
+			reason = cells[reasonCol]
+		}
+		verified := ""
+		if fullyVerifiedCol >= 0 && fullyVerifiedCol < len(cells) {
+			verified = cells[fullyVerifiedCol]
+		}
+
+		if strings.HasPrefix(fileName, "<") && strings.HasSuffix(fileName, ">") {
+			c.add(Warn, docRel, lineNum, "coverage-ledger", "coverage ledger contains placeholder row %q; record real inspected files", fileName)
+			continue
+		}
+
+		hasSkippedLines := skipped != "" && skipped != "0" && skipped != "-" && strings.ToLower(skipped) != "none" && strings.ToLower(skipped) != "n/a"
+		hasNoReason := reason == "" || reason == "-" || strings.ToLower(reason) == "none" || strings.ToLower(reason) == "n/a" || (strings.HasPrefix(reason, "<") && strings.HasSuffix(reason, ">"))
+
+		if hasSkippedLines && hasNoReason {
+			c.add(Warn, docRel, lineNum, "coverage-ledger", "coverage ledger row %q has skipped lines (%s) without recorded justification", fileName, skipped)
+		}
+
+		isUnverified := strings.ToLower(verified) == "no" || strings.ToLower(verified) == "false"
+		if isUnverified && hasNoReason {
+			c.add(Warn, docRel, lineNum, "coverage-ledger", "coverage ledger row %q is marked unverified without recorded justification", fileName)
+		}
 	}
 }

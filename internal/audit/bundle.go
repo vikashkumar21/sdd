@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -112,14 +113,19 @@ func StagePlanBundle(root, taskID string, now ...time.Time) (*PlanBundle, error)
 	if planContent == "" {
 		planContent = readDoc(taskRelDir, "patch.md", rootHandle)
 	}
+	valContent := readDoc(taskRelDir, "validation.md", rootHandle)
 
-	// 1. spec.md: combines requirements and plan
+	// 1. spec.md: combines requirements, plan, and validation matrix
 	var specBuf bytes.Buffer
 	fmt.Fprintf(&specBuf, "# Specification Bundle: %s (Plan Review)\n\n", normTaskID)
 	specBuf.WriteString("## Requirements (requirements.md)\n\n")
 	specBuf.WriteString(strings.TrimSpace(reqContent))
 	specBuf.WriteString("\n\n---\n\n## Implementation Plan (plan.md)\n\n")
 	specBuf.WriteString(strings.TrimSpace(planContent))
+	if strings.TrimSpace(valContent) != "" {
+		specBuf.WriteString("\n\n---\n\n## Validation Strategy (validation.md)\n\n")
+		specBuf.WriteString(strings.TrimSpace(valContent))
+	}
 	specBuf.WriteString("\n")
 
 	specRel := filepath.Join(bundleDirRel, "spec.md")
@@ -244,6 +250,36 @@ func StageDiscoveryBundle(root, taskID, findingsContent, rubricContent string, n
 	stagedFiles := []string{
 		filepath.ToSlash(filepath.Join(bundleDirRel, "findings.md")),
 		filepath.ToSlash(filepath.Join(bundleDirRel, "rubric.md")),
+	}
+
+	// Stage external reference context from .sdd/context/ if present
+	contextDirRel := filepath.ToSlash(filepath.Join(".sdd", "context"))
+	if _, err := fs.Stat(rootHandle.FS(), contextDirRel); err == nil {
+		var ctxFiles []string
+		_ = fs.WalkDir(rootHandle.FS(), contextDirRel, func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d == nil || d.IsDir() {
+				return nil
+			}
+			ctxFiles = append(ctxFiles, path)
+			return nil
+		})
+		sort.Strings(ctxFiles)
+		for _, srcPath := range ctxFiles {
+			relInContext := strings.TrimPrefix(srcPath, contextDirRel)
+			relInContext = strings.TrimPrefix(relInContext, "/")
+			if relInContext == "" {
+				continue
+			}
+			destRel := filepath.Join(bundleDirRel, "context", filepath.FromSlash(relInContext))
+			content, err := rootHandle.ReadFile(filepath.FromSlash(srcPath))
+			if err != nil {
+				continue
+			}
+			if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(destRel), content, 0o644); err != nil {
+				return nil, fmt.Errorf("writing discovery context file %s: %w", destRel, err)
+			}
+			stagedFiles = append(stagedFiles, filepath.ToSlash(destRel))
+		}
 	}
 
 	createdAt := time.Now().UTC()

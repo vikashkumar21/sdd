@@ -3,6 +3,8 @@ package check
 import (
 	"regexp"
 	"strings"
+
+	"github.com/vikashkumar21/sdd/internal/roadmap"
 )
 
 var (
@@ -102,5 +104,59 @@ func (c *checker) checkPathHygiene(rel, text string) {
 		checkRegex(winUserHomeRe)
 		checkRegex(macUserHomeRe)
 		checkRegex(linuxUserHomeRe)
+	}
+}
+
+var (
+	taskFolderExtractRe = regexp.MustCompile(`(?:^|/)(T-\d{3})-[a-z0-9]+(?:-[a-z0-9]+)*(?:/|$)`)
+	citationEphemeralRe = regexp.MustCompile("(?i)(?:^|[\\s`\"'(\\[<]|file://(?:[^\\s`\"'\\)]*/)?)(/tmp/[^\\s`\"'()<>]+|scratch/[^\\s`\"'()<>]+|\\.sdd/tmp/[^\\s`\"'()<>]+|\\.system_generated/[^\\s`\"'()<>]+)")
+)
+
+func (c *checker) isCompletedTaskDoc(rel string) bool {
+	m := taskFolderExtractRe.FindStringSubmatch(rel)
+	if len(m) < 2 {
+		return false
+	}
+	taskID := m[1]
+	if c.taskStatuses == nil {
+		c.taskStatuses = make(map[string]string)
+		if roadmapText, ok := c.load("ROADMAP.md"); ok {
+			for _, task := range roadmap.Parse(roadmapText) {
+				c.taskStatuses[task.ID] = roadmap.Kind(task.Status)
+			}
+		}
+	}
+	return c.taskStatuses[taskID] == "done"
+}
+
+// checkCitationHygiene scans markdown content line-by-line for citations pointing to ephemeral scratchpad paths per Rule R-006.
+func (c *checker) checkCitationHygiene(rel, text string) {
+	if c.isCompletedTaskDoc(rel) {
+		return
+	}
+
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		lineNum := i + 1
+
+		lower := strings.ToLower(line)
+		if strings.Contains(lower, "citation-hygiene") ||
+			strings.Contains(lower, "citation hygiene") ||
+			strings.Contains(lower, "citationhygiene") ||
+			strings.Contains(lower, "r-006") ||
+			strings.Contains(lower, "f-002") {
+			continue
+		}
+
+		matches := citationEphemeralRe.FindAllStringSubmatch(line, -1)
+		for _, m := range matches {
+			if len(m) > 1 && m[1] != "" {
+				ephemeralPath := m[1]
+				if strings.HasSuffix(ephemeralPath, "...") || strings.HasSuffix(ephemeralPath, "/") {
+					continue
+				}
+				c.add(Warn, rel, lineNum, "citation-hygiene", "ephemeral scratchpad path detected (%s); move persistent artifacts or scan evidence to tracked repository paths", ephemeralPath)
+			}
+		}
 	}
 }
