@@ -41,6 +41,7 @@ Status: living document · Last updated: 2026-10-26
 | M11 | Codebase Discovery & Remote CI/PR Orchestration | T-043 – T-049 | 26 | codebase-analyst role skill, sdd prompt discovery, multi-agent coordinator contract alignment, prompt cache boundary optimization, multi-platform CI workflows, sdd task pr packaging, and CI log ingestion |
 | M12 | Adversarial Discovery, Hard Git Gating & Stateless Review Isolation | T-050 – T-055 | 25 | Path hygiene check, sdd hook install hard git gate, stateless review isolation harness, adversarial discovery challenger, visual domain flow diagrams, and default token telemetry |
 | M13 | Forensic Brownfield Hardening, Coverage Auditing & Multi-Language Rubrics | T-056 | 6 | Coverage ledger standard, mechanical verification in sdd check, language-pack review templates, unanchored challenger inventorying, and enriched review bundles |
+| M14 | Cognitive Bias Immunity, Unanchored Auditing & Heterogeneous Model Routing | T-057 – T-059 | 15 | Unanchored traceability ledger, ephemeral reviewer lifecycle, zero-negotiation loop isolation, heterogeneous role model routing in .sdd/roles.json |
 
 ## 4. Tasks
 
@@ -176,7 +177,7 @@ Status: living document · Last updated: 2026-10-26
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
 | T-057 | Unanchored Requirements Traceability Ledger and omission-first review protocol | M | T-052, T-056 | Requirements Traceability Ledger standard in skills/code-review/, review bundle update with ledger.md, Step 1 omission scan before diff.patch, negative-path test execution evidence, and sdd check mechanical validation | D-049 | Done |
-| T-058 | Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation | M | T-057 | Forbid subagent session reuse across remediation loops, re-stage candidate diffs without developer prose, isolate pure finding IDs, and update coordinator review loop instructions | D-049 | Awaiting review |
+| T-058 | Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation | M | T-057 | Forbid subagent session reuse across remediation loops, re-stage candidate diffs without developer prose, isolate pure finding IDs, and update coordinator review loop instructions | D-049 | Done |
 | T-059 | Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch | M | T-058 | Extend .sdd/roles.json with model_tier, reasoning_effort, and recommended_family; multi-model prompt and export orchestration manifests | D-049 | Not started |
 
 ## 5. Unknown-technology protocol (spikes)
@@ -205,13 +206,14 @@ Unfamiliar technology derails projects. To prevent that:
 
 1. M0 through M13 are complete (55 tasks delivered).
 2. Release v1.9.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 14: Cognitive Bias Immunity, Unanchored Auditing & Heterogeneous Model Routing (1/3 complete, 33%).
-4. Active task: T-058 (Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation, Awaiting review) under M14.
+3. Active milestone: Milestone 14: Cognitive Bias Immunity, Unanchored Auditing & Heterogeneous Model Routing (2/3 complete, 67%).
+4. Next task: T-059 (Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch, Not started) under M14.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-24 | T-058: Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation done |
 | 2026-11-24 | T-058: Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation awaiting review |
 | 2026-11-24 | T-057: Unanchored Requirements Traceability Ledger and omission-first review protocol done |
 | 2026-11-24 | T-057: Unanchored Requirements Traceability Ledger and omission-first review protocol awaiting review |
