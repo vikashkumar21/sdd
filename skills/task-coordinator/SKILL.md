@@ -43,6 +43,10 @@ The Task Coordinator acts as a Staff Orchestrator and Technical Project Lead. It
   - Phase B: Implementer (`implementer`) executes in isolated branch (conditionally enriched with `qa` and `devops`).
   - Phase C.2: 3-Subagent Parallel Review Triad (`spec-auditor`, `appsec-specialist`, `pattern-auditor`) audits in parallel.
 - **Batch Remediation Protocol:** When multiple subagents report changes, the primary worker agent consolidates all remediations into a single fix pass. Resolving a batch of findings across multiple lenses consumes 1 loop in the 3-loop circuit breaker.
+- **Ephemeral Tabula-Rasa Reviewer Lifecycle & Zero-Negotiation Protocol:**
+  - **Single-Loop Reviewer Ephemerality:** Reviewer subagent sessions MUST NOT be reused across remediation loops. Reusing conversations via `send_message` across loops is strictly forbidden (`D-049`).
+  - **Fresh Dispatch Per Loop:** Every remediation loop (Loop 2 and Loop 3) requires dispatching brand new, ephemeral reviewer subagents (`invoke_subagent`) operating in isolated tabula-rasa contexts with zero conversational history.
+  - **Zero-Negotiation Loop Isolation:** Remediation prompts and review bundles (`.sdd/review/<TASK_ID>/code/`) MUST NOT contain developer prose, excuses, rationales, apologies, or negotiation transcripts. Stage candidate diffs alongside pure, objective finding checklists (`findings_to_verify.md`) generated via `sdd prompt review <TASK_ID> --loop <N>`.
 - **Rule F-001 Compliance:** The Task Coordinator ensures all findings (Blockers, Warnings, Minors) are resolved or explicitly justified before Gate 2 close.
 - **3-Loop Circuit Breaker:** At most 3 review-fix iterations. If Blockers persist after attempt 3, halt, mark the task `Blocked`, and escalate to the human.
 

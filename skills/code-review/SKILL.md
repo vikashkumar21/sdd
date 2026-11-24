@@ -53,6 +53,22 @@ To eliminate the LLM "Diff Framing" anchoring bias (where reviewers critique exi
 ### Step 2: Incremental Diff Quality Audit (After ledger completion)
 Only after every `R-xxx` is accounted for in Step 1, proceed to inspect `diff.patch` against `spec.md` using the respective lens rubrics (Spec, AppSec, Pattern).
 
+## Ephemeral Tabula-Rasa Reviewer Lifecycle & Zero-Negotiation Standard
+
+To eliminate "Repair-Loop Justification Bleed" where developers sway reviewers with conversational rationales or excuses, SDD mandates strict reviewer session ephemerality and zero-negotiation loop isolation (`D-049`):
+
+### 1. Ephemeral Subagent Spawning
+- Reviewer subagent conversations MUST NOT be reused across remediation loops. Reusing conversations via `send_message` or carrying conversational transcripts into subsequent loops is strictly forbidden.
+- For every review iteration (Loop 1 initial review, Loop 2 & Loop 3 remediation reviews), the Task Coordinator dispatches fresh, independent reviewer subagents (`invoke_subagent`).
+
+### 2. Zero-Negotiation Loop Isolation
+- When re-staging review bundles for Loop 2 and 3 via `sdd prompt review <TASK_ID> --loop <N>`, the bundle contains ONLY:
+  - The latest candidate diff (`diff.patch`).
+  - The unanchored requirements ledger (`ledger.md`) and specifications (`spec.md`).
+  - An objective defect verification checklist (`findings_to_verify.md`) generated from previous finding IDs and severities.
+- Developer prose, chat transcripts, excuses, or negotiation dialogues are strictly scrubbed from the bundle and prompt.
+- The ephemeral reviewer audits the candidate code objectively to determine whether defects are resolved, immune to cognitive anchoring.
+
 ## Batch Remediation & Conflict Resolution
 - **Single Remediator:** Review subagents are strictly read-only auditors; only the primary worker agent modifies code.
 - **Batched Remediation:** When multiple lenses report changes, the primary agent consolidates all findings into a single fix pass, consuming 1 loop in the 3-loop circuit breaker.

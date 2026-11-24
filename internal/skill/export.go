@@ -102,6 +102,11 @@ Every code review in Phase C.2 deploys three independent subagents in parallel, 
    - **Concurrency Safety:** Verify goroutine lifecycles, race detector compliance, and zero data races.
    - **Continuous Learning:** Active feedback rules in SKILLS.md §8 (F-xxx) complied with; recurring patterns captured.
 
+## Ephemeral Tabula-Rasa Reviewer Lifecycle & Zero-Negotiation Standard
+To eliminate Repair-Loop Justification Bleed where developers sway reviewers with conversational rationales or excuses, SDD mandates strict reviewer session ephemerality and zero-negotiation loop isolation (D-049):
+- Ephemeral Subagent Spawning: Reviewer subagent conversations MUST NOT be reused across remediation loops. Reusing conversations via send_message or carrying conversational transcripts into subsequent loops is strictly forbidden. For every review iteration, dispatch fresh, independent reviewer subagents (invoke_subagent).
+- Zero-Negotiation Loop Isolation: When re-staging review bundles for Loop 2 and 3 via sdd prompt review <TASK_ID> --loop <N>, the bundle contains ONLY candidate diff.patch, spec.md, ledger.md, and objective findings_to_verify.md. Developer prose, chat transcripts, excuses, or negotiation dialogues are strictly scrubbed.
+
 ## Batch Remediation & Conflict Resolution
 - **Single Remediator:** Review subagents are strictly read-only auditors; only the primary worker agent modifies code.
 - **Batched Remediation:** When multiple lenses report changes, the primary agent consolidates all findings into a single fix pass, consuming 1 loop in the 3-loop circuit breaker.
@@ -173,6 +178,10 @@ The Task Coordinator acts as a Staff Orchestrator and Technical Project Lead. It
   - Phase A: Architect / Planner (architect) drafts; Pre-GATE 1 Plan Review Subagent (plan-reviewer) audits.
   - Phase B: Implementer (implementer) executes in isolated branch.
   - Phase C.2: 3-Subagent Parallel Review Triad (spec-auditor, appsec-specialist, pattern-auditor) audits in parallel.
+- **Ephemeral Tabula-Rasa Reviewer Lifecycle & Zero-Negotiation Protocol:**
+  - Single-Loop Reviewer Ephemerality: Reviewer subagent sessions MUST NOT be reused across remediation loops. Reusing conversations via send_message across loops is strictly forbidden (D-049).
+  - Fresh Dispatch Per Loop: Every remediation loop (Loop 2 and Loop 3) requires dispatching brand new, ephemeral reviewer subagents (invoke_subagent) operating in isolated tabula-rasa contexts with zero conversational history.
+  - Zero-Negotiation Loop Isolation: Remediation prompts and review bundles (.sdd/review/<TASK_ID>/code/) MUST NOT contain developer prose, excuses, rationales, apologies, or negotiation transcripts. Stage candidate diffs alongside pure, objective finding checklists (findings_to_verify.md) generated via sdd prompt review <TASK_ID> --loop <N>.
 - **Rule F-001 Compliance:** The Task Coordinator ensures all findings (Blockers, Warnings, Minors) are resolved in a unified batch remediation pass before presenting to the human.
 - **3-Loop Circuit Breaker:** At most 3 review-fix iterations. If Blockers persist after attempt 3, halt, mark the task Blocked, and escalate to the human.
 

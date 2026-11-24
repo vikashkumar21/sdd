@@ -206,6 +206,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-24 | Hard Git commit gate and pre-commit hook enforcement (sdd hook install/status/uninstall), pre-commit & pre-merge-commit branch gating (/dev/tty, SDD_HUMAN_APPROVED=1 token), worktree hooks dir resolution, Gate 1 discipline check (sdd hook check-gate1), non-destructive chaining, and coordinator merge token injection verified | Run in internal/hook, internal/cli, internal/coordinator tests (T-051) | M14 |
 | 2026-11-24 | Release v1.9.0 cross-platform static binaries (darwin, linux, windows), template version 2.4.0, and SHA256SUMS verified | Build, tests, and make dist | M14 |
 | 2026-11-24 | Unanchored Requirements Traceability Ledger validation (traceability-ledger), bundle extraction (ledger.md), Step 1 omission scan before diff.patch, negative test verification, and template version 2.5.0 verified | Run in internal/audit, internal/check, internal/cli, internal/templates tests (T-057) | M14 |
+| 2026-11-24 | Ephemeral Tabula-Rasa Reviewer Lifecycle, Zero-Negotiation Loop Isolation, loop-aware review bundle staging (findings_to_verify.md), sdd prompt review --loop, mechanical remediation-hygiene check, and template version 2.6.0 verified | Run in internal/audit, internal/check, internal/cli, internal/skill, internal/templates tests (T-058) | M14 |
 
 ## 8. Dependency register
 

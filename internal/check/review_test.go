@@ -303,3 +303,85 @@ Reviewer: Independent Review Triad
 		t.Fatalf("expected Error finding for missing ledger in awaiting review, got: %+v", c.findings)
 	}
 }
+
+func TestCheckRemediationHygiene(t *testing.T) {
+	// 1. Review with conversational chatter in findings
+	chatterRev := `# Code Review — T-058 Test
+Status: Approved
+Reviewer: Independent Review Triad
+
+## 1. Requirements Traceability Ledger
+| Req ID | Requirement Statement | Code Symbol & File | Positive Test Evidence | Negative / Boundary Test Evidence | Status |
+|---|---|---|---|---|---|
+| R-001 | Statement | func() | test | test_neg | Verified |
+
+## 3. Risk & Findings Register
+| ID | Category | Severity | Finding | Suggested Action | Status |
+|---|---|---|---|---|---|
+| F-001 | Spec | 🔴 Blocker | Missing error check | Fix | Resolved |
+
+User: Can you fix this quickly?
+Agent: Sorry for the oversight, I took a shortcut because of time constraints.
+`
+
+	c1 := &checker{
+		texts: map[string]string{
+			"tasks/features/T-058-test/requirements.md": "# Requirements\n| ID | Req |\n|---|---|\n| R-001 | Statement |\n",
+			"tasks/features/T-058-test/review.md":       chatterRev,
+		},
+	}
+	c1.checkReviewDocument("tasks/features/T-058-test", "awaiting review")
+
+	foundHygiene := false
+	for _, f := range c1.findings {
+		if f.Rule == "remediation-hygiene" && f.Severity == Warn {
+			foundHygiene = true
+			break
+		}
+	}
+	if !foundHygiene {
+		t.Fatalf("expected Warn finding for remediation-hygiene, got: %+v", c1.findings)
+	}
+
+	// 2. Completed task (Done) ignores historical chatter
+	c2 := &checker{
+		texts: map[string]string{
+			"tasks/features/T-058-test/requirements.md": "# Requirements\n| ID | Req |\n|---|---|\n| R-001 | Statement |\n",
+			"tasks/features/T-058-test/review.md":       chatterRev,
+		},
+	}
+	c2.checkReviewDocument("tasks/features/T-058-test", "done")
+	for _, f := range c2.findings {
+		if f.Rule == "remediation-hygiene" {
+			t.Fatalf("expected 0 remediation-hygiene findings for Done task, got: %+v", f)
+		}
+	}
+
+	// 3. Clean review without chatter
+	cleanRev := `# Code Review — T-058 Test
+Status: Approved
+Reviewer: Independent Review Triad
+
+## 1. Requirements Traceability Ledger
+| Req ID | Requirement Statement | Code Symbol & File | Positive Test Evidence | Negative / Boundary Test Evidence | Status |
+|---|---|---|---|---|---|
+| R-001 | Statement | func() | test | test_neg | Verified |
+
+## 3. Risk & Findings Register
+| ID | Category | Severity | Finding | Suggested Action | Status |
+|---|---|---|---|---|---|
+| F-001 | Spec | 🔴 Blocker | Missing error check | Handle error cleanly | Resolved |
+`
+	c3 := &checker{
+		texts: map[string]string{
+			"tasks/features/T-058-test/requirements.md": "# Requirements\n| ID | Req |\n|---|---|\n| R-001 | Statement |\n",
+			"tasks/features/T-058-test/review.md":       cleanRev,
+		},
+	}
+	c3.checkReviewDocument("tasks/features/T-058-test", "awaiting review")
+	for _, f := range c3.findings {
+		if f.Rule == "remediation-hygiene" {
+			t.Fatalf("expected 0 remediation-hygiene findings for clean review, got: %+v", f)
+		}
+	}
+}

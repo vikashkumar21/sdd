@@ -13,6 +13,12 @@ var (
 	reviewStatusRe   = regexp.MustCompile(`(?i)^Status:\s*([^\r\n]+)`)
 	reviewReviewerRe = regexp.MustCompile(`(?i)^Reviewer:\s*([^\r\n]+)`)
 	reqIDPattern     = regexp.MustCompile(`^R-\d{3,}$`)
+
+	conversationalChatterPatterns = []*regexp.Regexp{
+		regexp.MustCompile(`(?i)\b(?:user|human|agent|assistant):\s+`),
+		regexp.MustCompile(`(?i)\b(?:sorry for the (?:mistake|oversight|confusion)|apologies for)\b`),
+		regexp.MustCompile(`(?i)\b(?:i took a shortcut because|i didn't implement it because|we agreed in chat)\b`),
+	}
 )
 
 func (c *checker) checkReviewDocument(rel string, taskStatus string) {
@@ -193,6 +199,43 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 
 	// 6. Verify Requirements Traceability Ledger
 	c.checkReviewTraceabilityLedger(rel, content, taskStatus, reviewStatus)
+
+	// 7. Verify Remediation Hygiene (Rule remediation-hygiene)
+	c.checkReviewRemediationHygiene(rel, content, taskStatus)
+}
+
+func (c *checker) checkReviewRemediationHygiene(rel, content, taskStatus string) {
+	normTaskStatus := roadmap.Kind(taskStatus)
+	if normTaskStatus == "done" {
+		return
+	}
+
+	reviewPath := rel + "/review.md"
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	lineNum := 0
+	inFindings := false
+
+	for scanner.Scan() {
+		lineNum++
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "#") {
+			lower := strings.ToLower(trimmed)
+			inFindings = strings.Contains(lower, "findings") || strings.Contains(lower, "risk & findings")
+			continue
+		}
+
+		if inFindings {
+			for _, pat := range conversationalChatterPatterns {
+				if pat.MatchString(trimmed) {
+					c.add(Warn, reviewPath, lineNum, "remediation-hygiene", "review.md contains conversational negotiation chatter in findings register; findings must be recorded objectively without justification bleed: %s", truncate(trimmed, 60))
+					break
+				}
+			}
+		}
+	}
+	_ = scanner.Err()
 }
 
 type ledgerRowInfo struct {

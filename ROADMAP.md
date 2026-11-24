@@ -176,7 +176,7 @@ Status: living document · Last updated: 2026-10-26
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
 | T-057 | Unanchored Requirements Traceability Ledger and omission-first review protocol | M | T-052, T-056 | Requirements Traceability Ledger standard in skills/code-review/, review bundle update with ledger.md, Step 1 omission scan before diff.patch, negative-path test execution evidence, and sdd check mechanical validation | D-049 | Done |
-| T-058 | Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation | M | T-057 | Forbid subagent session reuse across remediation loops, re-stage candidate diffs without developer prose, isolate pure finding IDs, and update coordinator review loop instructions | D-049 | Not started |
+| T-058 | Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation | M | T-057 | Forbid subagent session reuse across remediation loops, re-stage candidate diffs without developer prose, isolate pure finding IDs, and update coordinator review loop instructions | D-049 | Awaiting review |
 | T-059 | Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch | M | T-058 | Extend .sdd/roles.json with model_tier, reasoning_effort, and recommended_family; multi-model prompt and export orchestration manifests | D-049 | Not started |
 
 ## 5. Unknown-technology protocol (spikes)
@@ -206,12 +206,13 @@ Unfamiliar technology derails projects. To prevent that:
 1. M0 through M13 are complete (55 tasks delivered).
 2. Release v1.9.0 tagged and cross-platform release binaries built.
 3. Active milestone: Milestone 14: Cognitive Bias Immunity, Unanchored Auditing & Heterogeneous Model Routing (1/3 complete, 33%).
-4. Active task: T-058 (Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation, Not started) under M14.
+4. Active task: T-058 (Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation, Awaiting review) under M14.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-24 | T-058: Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation awaiting review |
 | 2026-11-24 | T-057: Unanchored Requirements Traceability Ledger and omission-first review protocol done |
 | 2026-11-24 | T-057: Unanchored Requirements Traceability Ledger and omission-first review protocol awaiting review |
 | 2026-11-24 | Milestone 14 added: Cognitive Bias Immunity, Unanchored Auditing & Heterogeneous Model Routing (T-057 to T-059; D-049) |

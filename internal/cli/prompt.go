@@ -25,6 +25,7 @@ type ReviewPromptContext struct {
 	TaskDir       string   `json:"taskDir"`
 	Typology      string   `json:"typology"`
 	Lens          string   `json:"lens"`
+	Loop          int      `json:"loop,omitempty"`
 	LensFocus     []string `json:"lensFocus,omitempty"`
 	RoleSkill     string   `json:"roleSkill,omitempty"`
 	Requirements  string   `json:"requirements,omitempty"`
@@ -476,6 +477,7 @@ func runPromptReview(args []string, env IO) int {
 	dir := fs.String("dir", ".", "project root")
 	jsonFlag := fs.Bool("json", false, "output machine-readable review context bundle as JSON")
 	lensFlag := fs.String("lens", "all", "review lens: spec, security (or appsec), pattern, or all")
+	loopFlag := fs.Int("loop", 1, "remediation loop number (1..3 per 3-loop circuit breaker)")
 
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
@@ -483,7 +485,12 @@ func runPromptReview(args []string, env IO) int {
 	}
 
 	if len(pos) != 1 {
-		fprintln(env.Err, "usage: sdd prompt review <T-xxx> [--lens <spec|security|pattern|all>] [--dir <project>] [--json]")
+		fprintln(env.Err, "usage: sdd prompt review <T-xxx> [--lens <spec|security|pattern|all>] [--loop <1..3>] [--dir <project>] [--json]")
+		return 2
+	}
+
+	if *loopFlag < 1 || *loopFlag > 3 {
+		fprintf(env.Err, "sdd prompt review: invalid --loop %d (expected 1, 2, or 3 per 3-loop circuit breaker)\n", *loopFlag)
 		return 2
 	}
 
@@ -556,7 +563,7 @@ func runPromptReview(args []string, env IO) int {
 	}
 
 	// Stage isolated, frozen review bundle by default (D-044)
-	bundle, bErr := audit.StageReviewBundle(root, rawTaskID, normLens, env.now())
+	bundle, bErr := audit.StageReviewBundleWithLoop(root, rawTaskID, normLens, *loopFlag, env.now())
 	if bErr != nil {
 		fprintf(env.Err, "sdd prompt review: warning: could not stage review bundle: %v\n", bErr)
 	}
@@ -576,6 +583,7 @@ func runPromptReview(args []string, env IO) int {
 		TaskDir:       taskDirRel,
 		Typology:      typology,
 		Lens:          normLens,
+		Loop:          *loopFlag,
 		LensFocus:     lensFocus,
 		RoleSkill:     roleSkill,
 		Requirements:  requirements,
@@ -824,10 +832,17 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 		roleDesc = "with a dedicated focus on architectural decision conformance, determinism, language idioms, and feedback rules"
 	}
 
-	fmt.Fprintf(&sb, "# Handover: Independent Subagent Code & Spec Review for %s (%s)\n\n", taskID, lensTitle)
-	fmt.Fprintf(&sb, "You are acting as an **Independent Subagent Reviewer (%s)** for task `%s`.\n", lensTitle, taskID)
-	fmt.Fprintf(&sb, "Your mandate is to impartially audit the implementation %s before GATE 2 human review.\n", roleDesc)
-	sb.WriteString("**You are strictly independent; the author agent cannot review or approve its own work.**\n\n")
+	if bundle != nil && bundle.Loop > 1 {
+		fmt.Fprintf(&sb, "# Handover: Independent Remediation Review (Loop %d) for %s (%s)\n\n", bundle.Loop, taskID, lensTitle)
+		fmt.Fprintf(&sb, "You are acting as an **Independent Subagent Reviewer (%s)** for task `%s` on remediation **Loop %d**.\n", lensTitle, taskID, bundle.Loop)
+		fmt.Fprintf(&sb, "Your mandate is to impartially audit the remediated candidate implementation %s before GATE 2 human review.\n", roleDesc)
+		sb.WriteString("**You are an independent, tabula-rasa reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
+	} else {
+		fmt.Fprintf(&sb, "# Handover: Independent Subagent Code & Spec Review for %s (%s)\n\n", taskID, lensTitle)
+		fmt.Fprintf(&sb, "You are acting as an **Independent Subagent Reviewer (%s)** for task `%s`.\n", lensTitle, taskID)
+		fmt.Fprintf(&sb, "Your mandate is to impartially audit the implementation %s before GATE 2 human review.\n", roleDesc)
+		sb.WriteString("**You are strictly independent; the author agent cannot review or approve its own work.**\n\n")
+	}
 
 	sb.WriteString("## SDD Anthem & Principles\n")
 	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
@@ -838,6 +853,9 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 		fmt.Fprintf(&sb, "- **Bundle Directory:** `%s/`\n", bundle.BundleDir)
 		fmt.Fprintf(&sb, "- **Frozen Specification:** `%s/spec.md` (frozen requirements and plan)\n", bundle.BundleDir)
 		fmt.Fprintf(&sb, "- **Traceability Ledger:** `%s/ledger.md` (unanchored requirements ledger to complete before reading diff.patch)\n", bundle.BundleDir)
+		if bundle.Loop > 1 {
+			fmt.Fprintf(&sb, "- **Findings to Verify:** `%s/findings_to_verify.md` (objective checklist of previous defects to verify without developer prose)\n", bundle.BundleDir)
+		}
 		fmt.Fprintf(&sb, "- **Git Diff Patch:** `%s/diff.patch` (working tree changes and untracked files)\n", bundle.BundleDir)
 		fmt.Fprintf(&sb, "- **Review Rubric:** `%s/rubric.md` (canonical role skill instructions for %s)\n", bundle.BundleDir, bundle.Lens)
 		fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n\n", bundle.BundleDir)
@@ -887,7 +905,11 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 	}
 
 	sb.WriteString("## Review Instructions\n")
-	if bundle != nil {
+	if bundle != nil && bundle.Loop > 1 {
+		fmt.Fprintf(&sb, "1. **Step 1 (Unanchored Traceability Scan):** Open `%s/ledger.md` and verify each requirement against codebase implementation and tests before opening `%s/diff.patch`. Ensure every requirement has concrete code symbols, positive test evidence, and negative/boundary test evidence. Any missing requirement is an automatic 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&sb, "2. **Step 2 (Defect Remediation Verification):** Open `%s/findings_to_verify.md` and verify whether each previous defect has been genuinely resolved in `%s/diff.patch`. Do not accept conversational developer explanations or unverified assertions.\n", bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&sb, "3. **Step 3 (Diff Quality & Lens Audit):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md` to ensure no new regressions, plan drift, or security flaws were introduced during remediation.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
+	} else if bundle != nil {
 		fmt.Fprintf(&sb, "1. **Step 1 (Unanchored Traceability Scan):** Open `%s/ledger.md` and verify each requirement against codebase implementation and tests before opening `%s/diff.patch`. Ensure every requirement has concrete code symbols, positive test evidence, and negative/boundary test evidence. Any missing requirement is an automatic 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
 		fmt.Fprintf(&sb, "2. **Step 2 (Diff Quality & Lens Audit):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md`.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
 	} else {

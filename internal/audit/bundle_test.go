@@ -356,3 +356,110 @@ func TestStageReviewBundle_LedgerStaged(t *testing.T) {
 		t.Errorf("prompt missing Unanchored Traceability Scan step:\n%s", prompt)
 	}
 }
+
+func TestExtractFindingsToVerify(t *testing.T) {
+	reviewContent := `---
+status: completed
+---
+# Code Review
+
+## 1. Requirements Traceability Ledger
+| Req ID | Requirement Statement | Code Symbol & File | Positive Test Evidence | Negative / Boundary Test Evidence | Status |
+|---|---|---|---|---|---|
+| R-001 | Statement | func() | test | test_neg | Verified |
+
+## 3. Risk & Findings Register
+
+| ID | Category | Severity | Finding | Suggested Action | Status |
+|---|---|---|---|---|---|
+| F-001 | Spec | 🔴 Blocker | Missing negative test for auth | Add test case | Resolved |
+| F-002 | AppSec | 🟡 Warning | Missing size bounds on input | Add MaxBytesReader | Open |
+| (none) | | | | | |
+`
+
+	findings, err := ExtractFindingsToVerify(reviewContent)
+	if err != nil {
+		t.Fatalf("ExtractFindingsToVerify failed: %v", err)
+	}
+
+	if len(findings) != 2 {
+		t.Fatalf("expected 2 findings, got %d: %+v", len(findings), findings)
+	}
+
+	if findings[0].ID != "F-001" || findings[0].Severity != "🔴 Blocker" {
+		t.Errorf("unexpected finding[0]: %+v", findings[0])
+	}
+	if findings[1].ID != "F-002" || findings[1].Category != "AppSec" {
+		t.Errorf("unexpected finding[1]: %+v", findings[1])
+	}
+
+	// Verify FormatFindingsToVerify
+	formatted := FormatFindingsToVerify(findings, 2)
+	if !strings.Contains(formatted, "# Previous Findings to Verify (Remediation Loop 2)") {
+		t.Errorf("formatted findings missing header: %s", formatted)
+	}
+	if !strings.Contains(formatted, "Zero-Negotiation Isolation") {
+		t.Errorf("formatted findings missing isolation notice: %s", formatted)
+	}
+	if !strings.Contains(formatted, "| F-001 | Spec | 🔴 Blocker | Missing negative test for auth | Add test case | Pending Verification |") {
+		t.Errorf("formatted findings missing F-001 row: %s", formatted)
+	}
+}
+
+func TestStageReviewBundle_Loop(t *testing.T) {
+	root := setupTestProject(t, "T-099", "sample-task")
+	fixedTime := time.Date(2026, 11, 24, 10, 0, 0, 0, time.UTC)
+
+	// Add sample findings to review.md
+	reviewPath := filepath.Join(root, "tasks", "features", "T-099-sample-task", "review.md")
+	reviewContent := `# Review
+## 3. Risk & Findings Register
+| ID | Category | Severity | Finding | Suggested Action | Status |
+|---|---|---|---|---|---|
+| F-101 | Spec | 🔴 Blocker | Missing validation for empty input | Add check | Resolved |
+`
+	if err := os.WriteFile(reviewPath, []byte(reviewContent), 0644); err != nil {
+		t.Fatalf("writing review.md: %v", err)
+	}
+
+	// Invalid loop bounds (< 1 or > 3)
+	if _, err := StageReviewBundleWithLoop(root, "T-099", "spec", 0, fixedTime); err == nil {
+		t.Error("expected error for loop 0, got nil")
+	}
+	if _, err := StageReviewBundleWithLoop(root, "T-099", "spec", 4, fixedTime); err == nil {
+		t.Error("expected error for loop 4, got nil")
+	}
+
+	// Loop 2 should stage findings_to_verify.md
+	bundle2, err := StageReviewBundleWithLoop(root, "T-099", "spec", 2, fixedTime)
+	if err != nil {
+		t.Fatalf("StageReviewBundleWithLoop failed for loop 2: %v", err)
+	}
+	if bundle2.Loop != 2 {
+		t.Errorf("expected bundle Loop 2, got %d", bundle2.Loop)
+	}
+
+	findingsPath := filepath.Join(root, bundle2.BundleDir, "findings_to_verify.md")
+	data, err := os.ReadFile(findingsPath)
+	if err != nil {
+		t.Fatalf("missing staged findings_to_verify.md: %v", err)
+	}
+	if !strings.Contains(string(data), "F-101") {
+		t.Errorf("findings_to_verify.md missing F-101: %s", string(data))
+	}
+
+	// Verify prompt for loop 2
+	prompt2, err := FormatReviewPrompt(bundle2, root)
+	if err != nil {
+		t.Fatalf("FormatReviewPrompt failed: %v", err)
+	}
+	if !strings.Contains(prompt2, "Remediation Review (Loop 2)") {
+		t.Errorf("prompt missing Remediation Review (Loop 2) header:\n%s", prompt2)
+	}
+	if !strings.Contains(prompt2, "findings_to_verify.md") {
+		t.Errorf("prompt missing findings_to_verify.md reference:\n%s", prompt2)
+	}
+	if !strings.Contains(prompt2, "Defect Remediation Verification (Step 2)") {
+		t.Errorf("prompt missing Defect Remediation Verification instruction:\n%s", prompt2)
+	}
+}

@@ -1,6 +1,7 @@
 package audit
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -109,6 +110,97 @@ func FormatTraceabilityLedger(reqs []RequirementItem) string {
 	return sb.String()
 }
 
+// FindingItem represents an itemized review finding needing verification.
+type FindingItem struct {
+	ID       string `json:"id"`
+	Category string `json:"category,omitempty"`
+	Severity string `json:"severity"`
+	Finding  string `json:"finding"`
+	Action   string `json:"action,omitempty"`
+	Status   string `json:"status"`
+}
+
+// ExtractFindingsToVerify parses review.md markdown and extracts findings requiring verification.
+func ExtractFindingsToVerify(content string) ([]FindingItem, error) {
+	if strings.TrimSpace(content) == "" {
+		return nil, nil
+	}
+
+	var findings []FindingItem
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	var currentSection string
+
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if strings.HasPrefix(line, "#") {
+			currentSection = strings.ToLower(line)
+			continue
+		}
+
+		if strings.HasPrefix(line, "|") && !strings.Contains(line, "---") {
+			// Only parse tables within or under Risk & Findings section
+			if strings.Contains(currentSection, "traceability") {
+				continue
+			}
+			parts := strings.Split(line, "|")
+			if len(parts) >= 8 {
+				id := strings.TrimSpace(parts[1])
+				category := strings.TrimSpace(parts[2])
+				severity := strings.TrimSpace(parts[3])
+				finding := strings.TrimSpace(parts[4])
+				action := strings.TrimSpace(parts[5])
+				status := strings.TrimSpace(parts[6])
+
+				// Skip header or placeholder row
+				if strings.EqualFold(id, "id") || strings.EqualFold(id, "req id") || strings.EqualFold(id, "(none)") || id == "" {
+					continue
+				}
+				if strings.EqualFold(severity, "severity") || strings.Contains(severity, "---") {
+					continue
+				}
+
+				findings = append(findings, FindingItem{
+					ID:       id,
+					Category: category,
+					Severity: severity,
+					Finding:  finding,
+					Action:   action,
+					Status:   status,
+				})
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	return findings, nil
+}
+
+// FormatFindingsToVerify formats findings into a clean, objective checklist markdown table.
+func FormatFindingsToVerify(findings []FindingItem, loop ...int) string {
+	l := 2
+	if len(loop) > 0 && loop[0] > 1 {
+		l = loop[0]
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "# Previous Findings to Verify (Remediation Loop %d)\n\n", l)
+	sb.WriteString("> **Zero-Negotiation Isolation:** The candidate code below must be evaluated objectively against requirements. Verify whether previous defect conditions are resolved without conversational bias.\n\n")
+	sb.WriteString("| Finding ID | Category | Severity | Defect Description | Suggested Action | Verification Status |\n")
+	sb.WriteString("|---|---|---|---|---|---|\n")
+
+	for _, f := range findings {
+		desc := strings.ReplaceAll(f.Finding, "\n", " ")
+		desc = strings.ReplaceAll(desc, "|", `\|`)
+		act := strings.ReplaceAll(f.Action, "\n", " ")
+		act = strings.ReplaceAll(act, "|", `\|`)
+		fmt.Fprintf(&sb, "| %s | %s | %s | %s | %s | Pending Verification |\n", f.ID, f.Category, f.Severity, desc, act)
+	}
+
+	return sb.String()
+}
+
 // PlanBundle contains staged metadata for an isolated plan review.
 type PlanBundle struct {
 	TaskID    string    `json:"task_id"`
@@ -131,6 +223,7 @@ type DiscoveryBundle struct {
 type ReviewBundle struct {
 	TaskID    string    `json:"task_id"`
 	Lens      string    `json:"lens"`
+	Loop      int       `json:"loop,omitempty"`
 	TaskDir   string    `json:"task_dir"`
 	BundleDir string    `json:"bundle_dir"`
 	CreatedAt time.Time `json:"created_at"`
@@ -396,6 +489,15 @@ func StageDiscoveryBundle(root, taskID, findingsContent, rubricContent string, n
 
 // StageReviewBundle stages an isolated, frozen review bundle for Phase C.2 code review triad.
 func StageReviewBundle(root, taskID, lens string, now ...time.Time) (*ReviewBundle, error) {
+	return StageReviewBundleWithLoop(root, taskID, lens, 1, now...)
+}
+
+// StageReviewBundleWithLoop stages an isolated, frozen review bundle for a specific remediation loop.
+func StageReviewBundleWithLoop(root, taskID, lens string, loop int, now ...time.Time) (*ReviewBundle, error) {
+	if loop < 1 || loop > 3 {
+		return nil, fmt.Errorf("invalid loop %d (expected 1, 2, or 3 per 3-loop circuit breaker)", loop)
+	}
+
 	normTaskID := strings.ToUpper(strings.TrimSpace(taskID))
 	if !taskIDPattern.MatchString(normTaskID) {
 		return nil, fmt.Errorf("invalid task ID format %q (expected format like T-001)", taskID)
@@ -479,15 +581,30 @@ func StageReviewBundle(root, taskID, lens string, now ...time.Time) (*ReviewBund
 		filepath.ToSlash(filepath.Join(bundleDirRel, "rubric.md")),
 	}
 
+	// 5. findings_to_verify.md: staged for remediation loops (loop > 1)
+	if loop > 1 {
+		reviewContent := readDoc(taskRelDir, "review.md", rootHandle)
+		findings, _ := ExtractFindingsToVerify(reviewContent)
+		if len(findings) > 0 {
+			findingsText := FormatFindingsToVerify(findings, loop)
+			findingsRel := filepath.Join(bundleDirRel, "findings_to_verify.md")
+			if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(findingsRel), []byte(findingsText), 0o644); err != nil {
+				return nil, fmt.Errorf("writing findings_to_verify.md: %w", err)
+			}
+			stagedFiles = append(stagedFiles, filepath.ToSlash(filepath.Join(bundleDirRel, "findings_to_verify.md")))
+		}
+	}
+
 	createdAt := time.Now().UTC()
 	if len(now) > 0 && !now[0].IsZero() {
 		createdAt = now[0].UTC()
 	}
 
-	// 4. manifest.json
+	// 6. manifest.json
 	bundle := &ReviewBundle{
 		TaskID:    normTaskID,
 		Lens:      normLens,
+		Loop:      loop,
 		TaskDir:   taskRelDir,
 		BundleDir: filepath.ToSlash(bundleDirRel),
 		CreatedAt: createdAt,
@@ -559,10 +676,17 @@ func FormatReviewPrompt(bundle *ReviewBundle, root string) (string, error) {
 		}
 	}
 
-	fmt.Fprintf(&sb, "# Handover: Stateless Subagent Code Review for %s (%s)\n\n", bundle.TaskID, lensTitle)
-	fmt.Fprintf(&sb, "You are acting as an **Independent Subagent Reviewer (%s)** for task `%s`.\n", lensTitle, bundle.TaskID)
-	sb.WriteString("Your mandate is to impartially audit the implementation before GATE 2 human review.\n")
-	sb.WriteString("**You are an independent reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
+	if bundle.Loop > 1 {
+		fmt.Fprintf(&sb, "# Handover: Stateless Remediation Review (Loop %d) for %s (%s)\n\n", bundle.Loop, bundle.TaskID, lensTitle)
+		fmt.Fprintf(&sb, "You are acting as an **Independent Subagent Reviewer (%s)** for task `%s` on remediation **Loop %d**.\n", lensTitle, bundle.TaskID, bundle.Loop)
+		sb.WriteString("Your mandate is to impartially audit the remediated candidate implementation before GATE 2 human review.\n")
+		sb.WriteString("**You are an independent, tabula-rasa reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
+	} else {
+		fmt.Fprintf(&sb, "# Handover: Stateless Subagent Code Review for %s (%s)\n\n", bundle.TaskID, lensTitle)
+		fmt.Fprintf(&sb, "You are acting as an **Independent Subagent Reviewer (%s)** for task `%s`.\n", lensTitle, bundle.TaskID)
+		sb.WriteString("Your mandate is to impartially audit the implementation before GATE 2 human review.\n")
+		sb.WriteString("**You are an independent reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
+	}
 
 	sb.WriteString("## SDD Anthem & Principles\n")
 	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
@@ -571,6 +695,9 @@ func FormatReviewPrompt(bundle *ReviewBundle, root string) (string, error) {
 	fmt.Fprintf(&sb, "- **Bundle Directory:** `%s/`\n", bundle.BundleDir)
 	fmt.Fprintf(&sb, "- **Frozen Specification:** `%s/spec.md` (requirements and plan)\n", bundle.BundleDir)
 	fmt.Fprintf(&sb, "- **Traceability Ledger:** `%s/ledger.md` (unanchored requirements ledger to complete before reading diff.patch)\n", bundle.BundleDir)
+	if bundle.Loop > 1 {
+		fmt.Fprintf(&sb, "- **Findings to Verify:** `%s/findings_to_verify.md` (objective checklist of previous defects to verify)\n", bundle.BundleDir)
+	}
 	fmt.Fprintf(&sb, "- **Git Diff Patch:** `%s/diff.patch` (working tree changes and untracked files)\n", bundle.BundleDir)
 	fmt.Fprintf(&sb, "- **Review Rubric:** `%s/rubric.md` (canonical role skill instructions for %s)\n", bundle.BundleDir, bundle.Lens)
 	fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n\n", bundle.BundleDir)
@@ -580,13 +707,24 @@ func FormatReviewPrompt(bundle *ReviewBundle, root string) (string, error) {
 	sb.WriteString("- 🟡 **Warning (Attention Suggested):** Sub-optimal pattern, edge case risk, missing doc or comment.\n")
 	sb.WriteString("- 🟢 **Minor (Safe / Informational):** Style, minor naming or non-critical improvement.\n\n")
 
-	sb.WriteString("## Review Instructions\n")
-	fmt.Fprintf(&sb, "1. **Unanchored Traceability Scan (Step 1):** Open `%s/ledger.md` and verify each requirement against the codebase symbols and test suites before inspecting `%s/diff.patch`. Fill in Code Symbol, Positive Test, and Negative / Boundary Test Evidence. Any unmapped requirement or missing test is an immediate 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
-	fmt.Fprintf(&sb, "2. **Diff Quality Audit (Step 2):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md`.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
-	fmt.Fprintf(&sb, "3. Record all findings, the completed Requirements Traceability Ledger, and sign-off in `%s/review.md`.\n", bundle.TaskDir)
-	sb.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")
-	sb.WriteString("   - Per Rule F-001, all findings (🔴 Blockers, 🟡 Warnings, 🟢 Minors) must be cataloged clearly; the worker agent is required to resolve all findings or provide explicit justification before GATE 2.\n")
-	sb.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution (including your lens name).\n")
+	if bundle.Loop > 1 {
+		sb.WriteString("## Review Instructions (Remediation Loop)\n")
+		fmt.Fprintf(&sb, "1. **Unanchored Traceability Scan (Step 1):** Open `%s/ledger.md` and verify each requirement against the codebase symbols and test suites before inspecting `%s/diff.patch`. Fill in Code Symbol, Positive Test, and Negative / Boundary Test Evidence. Any unmapped requirement or missing test is an immediate 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&sb, "2. **Defect Remediation Verification (Step 2):** Open `%s/findings_to_verify.md` and inspect `%s/diff.patch` to verify whether each previous defect has been genuinely resolved in code. Do not accept conversational developer explanations or unverified assertions.\n", bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&sb, "3. **Diff Quality Audit (Step 3):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md` to ensure no new regressions, plan drift, or security flaws were introduced during remediation.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&sb, "4. Record all findings, the completed Requirements Traceability Ledger, and sign-off in `%s/review.md`.\n", bundle.TaskDir)
+		sb.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")
+		sb.WriteString("   - Per Rule F-001, all findings (🔴 Blockers, 🟡 Warnings, 🟢 Minors) must be cataloged clearly; the worker agent is required to resolve all findings or provide explicit justification before GATE 2.\n")
+		sb.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution (including your lens name).\n")
+	} else {
+		sb.WriteString("## Review Instructions\n")
+		fmt.Fprintf(&sb, "1. **Unanchored Traceability Scan (Step 1):** Open `%s/ledger.md` and verify each requirement against the codebase symbols and test suites before inspecting `%s/diff.patch`. Fill in Code Symbol, Positive Test, and Negative / Boundary Test Evidence. Any unmapped requirement or missing test is an immediate 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&sb, "2. **Diff Quality Audit (Step 2):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md`.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&sb, "3. Record all findings, the completed Requirements Traceability Ledger, and sign-off in `%s/review.md`.\n", bundle.TaskDir)
+		sb.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")
+		sb.WriteString("   - Per Rule F-001, all findings (🔴 Blockers, 🟡 Warnings, 🟢 Minors) must be cataloged clearly; the worker agent is required to resolve all findings or provide explicit justification before GATE 2.\n")
+		sb.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution (including your lens name).\n")
+	}
 
 	return sb.String(), nil
 }

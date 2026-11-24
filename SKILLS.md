@@ -304,3 +304,24 @@ To systematically eliminate the LLM "Diff Framing" anchoring bias and omission b
   - Every `R-xxx` declared in `requirements.md` is accounted for in the table.
   - No cells contain placeholders (`<...>`, `TODO`, `n/a`, `pending`).
   - All statuses are strictly `Verified`.
+
+## 16. Ephemeral Tabula-Rasa Reviewer Lifecycle & Zero-Negotiation Standard
+
+To eliminate the LLM "Repair-Loop Justification Bleed" and cognitive anchoring bias where reviewers anchor on developer excuses rather than objective specifications, SDD establishes strict reviewer ephemerality and zero-negotiation loop isolation (`T-058`, `D-049`):
+
+### 1. Ephemeral Subagent Spawning (Zero Session Reuse)
+- **Single-Loop Lifecycle:** Reviewer subagents are strictly single-turn auditors. Reusing reviewer subagent conversations (`send_message` across remediation loops) is strictly forbidden.
+- **Fresh Dispatch Per Loop:** Each remediation loop (Loop 2 and Loop 3) requires dispatching brand new, independent subagent instances (`invoke_subagent`) operating in clean tabula-rasa contexts without conversational memory of prior interactions.
+- **Circuit Breaker Ceiling:** Bounded by the 3-loop circuit breaker (Loop 1 initial audit + up to 2 remediation audits).
+
+### 2. Zero-Negotiation Loop Isolation
+- **Elimination of Justification Bleed:** Developer prose, excuses, rationales, apologies, and chat negotiation transcripts must NEVER be injected into remediation review bundles or reviewer prompts.
+- **Objective Finding Checklists:** For remediation loops (loop > 1), `sdd prompt review <TASK_ID> --loop <N>` stages `.sdd/review/<TASK_ID>/code/findings_to_verify.md`, extracting pure defect IDs, severities, defect descriptions, and suggested actions without developer commentary.
+- **Objective Audit Inputs:** Fresh reviewers evaluate candidate code exclusively against:
+  1. Original frozen specification (`spec.md`).
+  2. Unanchored requirements traceability ledger (`ledger.md`).
+  3. Objective checklist of previous findings to verify (`findings_to_verify.md`).
+  4. Refreshed candidate diff (`diff.patch`).
+
+### 3. Mechanical Verification (`sdd check`)
+- Rule `remediation-hygiene` scans `review.md` in active (non-`done`) tasks and fails if conversational negotiation chatter, developer justifications, or chat artifacts (e.g. `User:`, `Agent:`, `I fixed this because`, `Sorry for the oversight`) are detected in the findings register.

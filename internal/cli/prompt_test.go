@@ -213,3 +213,62 @@ func TestPromptReview_StatelessBundle(t *testing.T) {
 		}
 	}
 }
+
+func TestPromptReview_Loop(t *testing.T) {
+	root := setupPromptTestProject(t, "T-088", "review-test")
+
+	// Add sample findings to review.md
+	reviewPath := filepath.Join(root, "tasks", "features", "T-088-review-test", "review.md")
+	reviewContent := `# Review
+## 3. Risk & Findings Register
+| ID | Category | Severity | Finding | Suggested Action | Status |
+|---|---|---|---|---|---|
+| F-001 | Spec | 🔴 Blocker | Missing error check | Handle error | Resolved |
+`
+	if err := os.WriteFile(reviewPath, []byte(reviewContent), 0644); err != nil {
+		t.Fatalf("writing review.md: %v", err)
+	}
+
+	// 1. Invalid loop bounds
+	var outBuf, errBuf bytes.Buffer
+	env := IO{In: strings.NewReader(""), Out: &outBuf, Err: &errBuf}
+
+	if code := runPromptReview([]string{"T-088", "--loop", "0", "--dir", root}, env); code != 2 {
+		t.Errorf("expected code 2 for --loop 0, got %d", code)
+	}
+	errBuf.Reset()
+	if code := runPromptReview([]string{"T-088", "--loop", "4", "--dir", root}, env); code != 2 {
+		t.Errorf("expected code 2 for --loop 4, got %d", code)
+	}
+
+	// 2. Loop 2 text output
+	outBuf.Reset()
+	errBuf.Reset()
+	if code := runPromptReview([]string{"T-088", "--loop", "2", "--lens", "spec", "--dir", root}, env); code != 0 {
+		t.Fatalf("runPromptReview --loop 2 failed: %d: %s", code, errBuf.String())
+	}
+	outText := outBuf.String()
+	if !strings.Contains(outText, "Remediation Review (Loop 2)") {
+		t.Errorf("expected Remediation Review (Loop 2) in prompt output:\n%s", outText)
+	}
+	if !strings.Contains(outText, "findings_to_verify.md") {
+		t.Errorf("expected findings_to_verify.md in prompt output:\n%s", outText)
+	}
+	if !strings.Contains(outText, "Defect Remediation Verification") {
+		t.Errorf("expected Defect Remediation Verification step in prompt output:\n%s", outText)
+	}
+
+	// 3. Loop 2 JSON output
+	outBuf.Reset()
+	errBuf.Reset()
+	if code := runPromptReview([]string{"T-088", "--loop", "2", "--lens", "spec", "--dir", root, "--json"}, env); code != 0 {
+		t.Fatalf("runPromptReview --loop 2 --json failed: %d: %s", code, errBuf.String())
+	}
+	var ctx ReviewPromptContext
+	if err := json.Unmarshal(outBuf.Bytes(), &ctx); err != nil {
+		t.Fatalf("failed to unmarshal JSON: %v", err)
+	}
+	if ctx.Loop != 2 {
+		t.Errorf("expected ctx.Loop == 2, got %d", ctx.Loop)
+	}
+}
