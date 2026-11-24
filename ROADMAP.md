@@ -178,7 +178,7 @@ Status: living document · Last updated: 2026-10-26
 |---|---|---|---|---|---|---|
 | T-057 | Unanchored Requirements Traceability Ledger and omission-first review protocol | M | T-052, T-056 | Requirements Traceability Ledger standard in skills/code-review/, review bundle update with ledger.md, Step 1 omission scan before diff.patch, negative-path test execution evidence, and sdd check mechanical validation | D-049 | Done |
 | T-058 | Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation | M | T-057 | Forbid subagent session reuse across remediation loops, re-stage candidate diffs without developer prose, isolate pure finding IDs, and update coordinator review loop instructions | D-049 | Done |
-| T-059 | Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch | M | T-058 | Extend .sdd/roles.json with model_tier, reasoning_effort, and recommended_family; multi-model prompt and export orchestration manifests | D-049 | Awaiting review |
+| T-059 | Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch | M | T-058 | Extend .sdd/roles.json with model_tier, reasoning_effort, and recommended_family; multi-model prompt and export orchestration manifests | D-049 | Done |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -204,15 +204,17 @@ Unfamiliar technology derails projects. To prevent that:
 
 ## 8. Next action
 
-1. M0 through M13 are complete (55 tasks delivered).
-2. Release v1.9.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 14: Cognitive Bias Immunity, Unanchored Auditing & Heterogeneous Model Routing (2/3 complete, 67%).
-4. Active task: T-059 (Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch, Awaiting review) under M14.
+1. M0 through M14 are complete (58 tasks delivered).
+2. Release v1.10.0 tagged and cross-platform release binaries built.
+3. Active milestone: none (Milestone 14 complete).
+4. Active task: none.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-24 | Release v1.10.0: cross-platform static binaries (darwin, linux, windows), template version 2.7.0, unanchored traceability ledger, ephemeral reviewer lifecycle, and heterogeneous model routing |
+| 2026-11-24 | T-059: Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch done (Milestone 14 complete) |
 | 2026-11-24 | T-059: Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch awaiting review |
 | 2026-11-24 | T-059: Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch specifying |
 | 2026-11-24 | T-058: Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation done |

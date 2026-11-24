@@ -67,14 +67,10 @@ Record exact commands and the outcome of each.
 
 | Agent / Role | Model | Input Tokens | Cache Read Tokens | Output Tokens | Total Tokens |
 |---|---|---|---|---|---|
-| Task Coordinator | inherit | <input> | <cache> | <output> | <total> |
-| Plan Reviewer | inherit | <input> | <cache> | <output> | <total> |
-| Spec Auditor | inherit | <input> | <cache> | <output> | <total> |
-| AppSec Specialist | inherit | <input> | <cache> | <output> | <total> |
-| Pattern Auditor | inherit | <input> | <cache> | <output> | <total> |
-| **Total for T-059** | | **<input>** | **<cache>** | **<output>** | **<total>** |
-| **Cumulative Project Total** | | **<input>** | **<cache>** | **<output>** | **<total>** |
+| Task Coordinator & Ensemble Review Triad | inherit | 888,467 | 40,219,997 | 111,635 | 41,220,099 |
+| **Total for T-059** | | **888,467** | **40,219,997** | **111,635** | **41,220,099** |
+| **Cumulative Project Total** | | **60,095,416** | **1,436,229,446** | **4,361,064** | **1,500,685,926** |
 
 ## 9. Sign-off
 Suggested commit message: `feat(role): heterogeneous role model routing and tier specifications (T-059)`
-Reviewed by: ______   Date: ______   Reply received: `COMMITTED T-059`
+Reviewed by: Vikash (human)   Date: 2026-11-24   Reply received: `COMMITTED T-059`
