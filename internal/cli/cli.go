@@ -81,6 +81,7 @@ commands:
   ingest                     stage external context (text, files, stdin, --ci-log) into .sdd/context/
   ci init                    generate CI workflow files for GitHub, GitLab, Bitbucket, Azure, GCP, AWS
   doc <cmd>                  manage domain flow & architecture documentation (init, flow)
+  hook <cmd>                 manage git pre-commit & pre-merge-commit gates (install, status, uninstall)
   permissions                generate agent permission configs denying git state writes
   upgrade                    refresh kit files from newer templates without overwriting human edits
   adopt                      adopt an existing hand-crafted kit by generating .sdd/manifest.json
@@ -133,6 +134,8 @@ func Run(args []string, env IO) int {
 		return runCI(args[1:], env)
 	case "doc":
 		return runDoc(args[1:], env)
+	case "hook":
+		return runHook(args[1:], env)
 	case "permissions":
 		return runPermissions(args[1:], env)
 	case "upgrade":

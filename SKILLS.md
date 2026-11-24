@@ -253,3 +253,32 @@ The `discovery-challenger` auditor must never begin by reading the analyst's fin
 
 ### 3. Scratchpad Citation Hygiene Guard
 All tracked markdown documentation (`MISSION.md`, `TECH_STACK.md`, `ROADMAP.md`, `SKILLS.md`, `README.md`, and task folders) must cite persistent repository paths or commands. Citing ephemeral scratchpad paths (`scratch/`, `/tmp/`, `.sdd/tmp/`, `.system_generated/`) violates Rule `citation-hygiene` in `sdd check`.
+
+## 14. Hard Git Commit Gate and Repository Hook Architecture
+
+SDD enforces the "Human Only Commits" rule (Hard Rule 2) mechanically through repository Git hooks provisioned via `sdd hook install` (`T-051`, `D-043`):
+
+### 1. Branch-Aware Commit and Merge Policies
+- **Protected Branches (`main`, `master`):**
+  - Direct autonomous agent commits and unverified direct merges are strictly blocked.
+  - Interactive commits and merges by human maintainers require confirmation via `/dev/tty` (`[sdd hook] Direct commit/merge to main requires human approval. Proceed? (y/N)`).
+  - Automated CI or programmatic scripts must supply explicit authorization token `SDD_HUMAN_APPROVED=1`.
+  - Non-interactive sessions without the authorization token exit with code 1.
+- **Task Branches (`task/*`, `feature/*`, `bugfix/*`, `hotfix/*`, worktrees):**
+  - Autonomous commits by worker agents are permitted per Hard Rule 13 to support iterative development and test saves.
+
+### 2. Gate 1 Discipline Enforcement (`sdd hook check-gate1`)
+- On task, feature, bugfix, and hotfix branches, the pre-commit hook runs `sdd hook check-gate1 --branch "$BRANCH"`.
+- If staged files include application source code outside `tasks/` (e.g. `*.go`, `*.py`, `*.java`, `*.ts`, `cmd/`, `internal/`), the checker verifies that the corresponding task `plan.md` has been approved (`Status: Approved` or `Status: Implementing`).
+- Staging application code prior to Gate 1 approval aborts the commit with a Gate 1 violation.
+
+### 3. Mechanical Kit Consistency Audit
+- During `git commit`, the pre-commit hook runs `sdd check --strict`.
+- If consistency checks (contract parity, link resolution, table syntax, coverage ledger) fail, the commit is aborted.
+- Humans can bypass mechanical checks in emergencies via `git commit --no-verify` or `SDD_SKIP_CHECK=1`.
+
+### 4. Git Worktree Compatibility & Chaining Lifecycle
+- **Dynamic Path Resolution:** Hooks query `git rev-parse --git-path hooks` to resolve the active hooks directory across isolated worktrees (`.sdd/worktrees/`) where `.git` is a gitdir reference file.
+- **Non-Destructive Chaining:** Pre-existing foreign hooks are moved to `*.sdd-orig` and chained via `exec "$ORIG_HOOK" "$@"`. Re-installing SDD hooks is strictly idempotent and never overwrites existing `.sdd-orig` backups.
+- **Clean Uninstallation:** `sdd hook uninstall` removes SDD hooks and restores original hooks. Refuses to delete unrecognized foreign hooks without `--force`.
+- **Coordinator Merge Integration:** `sdd task merge` qualifies merges and injects `SDD_HUMAN_APPROVED=1` into `git merge`, enabling turnkey merge qualification into `main`.

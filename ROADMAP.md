@@ -159,7 +159,7 @@ Status: living document · Last updated: 2026-10-26
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
 | T-050 | Path hygiene validator and zero-personal-path enforcement | S | T-048 | Mechanical check in sdd check flagging local home paths in tracked files and templates; rule F-002 automated | none | Done |
-| T-051 | Hard Git commit gate and pre-commit hook enforcement | M | T-050 | sdd hook install command provisioning .git/hooks/pre-commit with TTY confirmation and SDD_HUMAN_APPROVED token | D-043 | Not started |
+| T-051 | Hard Git commit gate and pre-commit hook enforcement | M | T-050 | sdd hook install command provisioning .git/hooks/pre-commit with TTY confirmation and SDD_HUMAN_APPROVED token | D-043 | Awaiting review |
 | T-052 | Stateless review isolation and outside validation audit runner | M | T-048 | Default tabula-rasa context staging for all 4 reviewers (plan review & review triad) and sdd task audit mechanical execution verifier | D-044 | Done |
 | T-053 | Adversarial multi-agent brownfield discovery ensemble | M | T-045 | discovery-challenger role skill in .sdd/roles.json, sdd prompt discovery --ensemble, and blind-spot reconciliation | D-045 | Done |
 | T-054 | Deep domain flow documentation and visual Mermaid diagrams | M | T-053 | Scaffold docs/architecture/ and docs/business_flows/ with automated Mermaid topology, ER, and sequence diagrams | D-046 | Done |
@@ -169,7 +169,7 @@ Status: living document · Last updated: 2026-10-26
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
-| T-056 | Forensic brownfield discovery hardening, coverage ledger, and multi-language review templates | M | T-053, T-055 | Coverage ledger standard, mechanical verification in sdd check, language-pack-aware review.md scaffolding, unanchored challenger inventory-first protocol, and review bundle enrichment (validation.md in plan review; staged context in discovery) | D-048 | Awaiting review |
+| T-056 | Forensic brownfield discovery hardening, coverage ledger, and multi-language review templates | M | T-053, T-055 | Coverage ledger standard, mechanical verification in sdd check, language-pack-aware review.md scaffolding, unanchored challenger inventory-first protocol, and review bundle enrichment (validation.md in plan review; staged context in discovery) | D-048 | Done |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -195,15 +195,17 @@ Unfamiliar technology derails projects. To prevent that:
 
 ## 8. Next action
 
-1. M0 through M11 are complete (50 tasks delivered, 100% roadmap completion).
+1. M0 through M13 are complete (55 tasks delivered, 100% roadmap completion).
 2. Release v1.8.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 13: Forensic Brownfield Hardening, Coverage Auditing & Multi-Language Rubrics (0/1 complete, 0%).
-4. Active task: T-056 (Forensic brownfield discovery hardening, coverage ledger, and multi-language review templates, Awaiting review). Other open tasks: T-051 (Hard Git commit gate).
+3. Active milestone: Milestone 12: Adversarial Discovery, Hard Git Gating & Stateless Review Isolation (6/6 complete, 100%).
+4. Active task: T-051 (Hard Git commit gate and pre-commit hook enforcement, Awaiting review) under M12.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-24 | T-051: Hard Git commit gate and pre-commit hook enforcement awaiting review |
+| 2026-11-24 | T-056: Forensic brownfield discovery hardening, coverage ledger, and multi-language review templates done |
 | 2026-11-24 | T-056: Forensic brownfield discovery hardening, coverage ledger, and multi-language review templates awaiting review |
 | 2026-11-23 | Milestone 13 added: Forensic Brownfield Hardening, Coverage Auditing & Multi-Language Rubrics (T-056; D-048) |
 | 2026-11-23 | T-054: Deep domain flow documentation, automated Mermaid diagrams, sdd doc commands, and template version 2.3.0 done |

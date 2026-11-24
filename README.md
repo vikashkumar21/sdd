@@ -88,7 +88,11 @@ sdd task state purge T-003 --force            # remove task state store from .sd
 sdd task deconflict                           # analyze plan file collisions across in-flight tasks
 sdd task deconflict T-003 T-004               # analyze collisions between specific tasks (--json, --all)
 sdd task merge T-003 --dry-run                # qualify pre-merge matrix, blast radius, flake guard, and simulate merge
-sdd task merge T-003                          # merge task branch into main after 0 blockers & regression sweeps
+sdd task merge T-003                          # merge task branch into main after 0 blockers & regression sweeps (passes SDD_HUMAN_APPROVED=1 token)
+sdd hook install                              # provision branch-aware Git pre-commit & pre-merge-commit hooks (Hard Rule 2 mechanical lock)
+sdd hook install --force                      # overwrite existing SDD hooks (preserves foreign hooks in *.sdd-orig)
+sdd hook status                               # inspect hook installation state, target paths, and chaining (--json supported)
+sdd hook uninstall --yes                      # safely remove SDD hooks and restore foreign chained hooks
 sdd task audit T-003                          # mechanically execute verification commands outside agent narrative (--json, --verbose)
 sdd review audit T-003                        # backwards-compatible alias for sdd task audit
 sdd feature new T-003 upgrade-command --from-jira issue.json # seed requirements from Jira and stage into context

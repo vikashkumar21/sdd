@@ -159,3 +159,75 @@ func TestExecuteMerge(t *testing.T) {
 		t.Errorf("expected merged.txt to exist on %s after merge: %v", targetBranch, err)
 	}
 }
+
+func TestExecuteMerge_TokenInjection(t *testing.T) {
+	dir, run := setupTestGitRepo(t)
+
+	targetBranch := "master"
+	if _, err := runGit(dir, "rev-parse", "--verify", "main"); err == nil {
+		targetBranch = "main"
+	}
+
+	// Install a pre-merge-commit hook that requires SDD_HUMAN_APPROVED=1
+	hooksDir := filepath.Join(dir, ".git", "hooks")
+	if err := os.MkdirAll(hooksDir, 0o755); err != nil {
+		t.Fatalf("failed to create hooks dir: %v", err)
+	}
+	hookScript := `#!/bin/sh
+if [ "$SDD_HUMAN_APPROVED" != "1" ]; then
+    echo "MERGE_BLOCKED_NO_TOKEN" >&2
+    exit 1
+fi
+echo "TOKEN_VERIFIED" > "` + filepath.Join(dir, "merge_hook_token.log") + `"
+exit 0
+`
+	preMergePath := filepath.Join(hooksDir, "pre-merge-commit")
+	if err := os.WriteFile(preMergePath, []byte(hookScript), 0o755); err != nil {
+		t.Fatalf("failed to write pre-merge-commit hook: %v", err)
+	}
+
+	// Create feature branch
+	run("checkout", "-b", "feature/T-005-token")
+	_ = os.WriteFile(filepath.Join(dir, "token_feature.txt"), []byte("token feature\n"), 0o644)
+	run("add", "token_feature.txt")
+	run("commit", "-m", "feature with token hook")
+
+	// Verify direct git merge on targetBranch fails without SDD_HUMAN_APPROVED
+	run("checkout", targetBranch)
+	directMergeCmd := exec.Command("git", "merge", "--no-ff", "-m", "unauthorized merge", "feature/T-005-token")
+	directMergeCmd.Dir = dir
+	directMergeCmd.Env = []string{
+		"PATH=" + os.Getenv("PATH"),
+		"HOME=" + os.Getenv("HOME"),
+		// Explicitly no SDD_HUMAN_APPROVED
+	}
+	out, err := directMergeCmd.CombinedOutput()
+	if err == nil {
+		t.Fatalf("expected direct merge without token to fail via pre-merge-commit hook, got success: %s", string(out))
+	}
+	if !strings.Contains(string(out), "MERGE_BLOCKED_NO_TOKEN") {
+		t.Logf("direct merge output: %s", string(out))
+	}
+	// Abort failed merge if git left it in merging state
+	_, _ = runGit(dir, "merge", "--abort")
+
+	// Now execute merge through ExecuteMerge, which injects SDD_HUMAN_APPROVED=1
+	if err := ExecuteMerge(dir, "feature/T-005-token", targetBranch, "feat: authorized merge"); err != nil {
+		t.Fatalf("ExecuteMerge failed despite token injection: %v", err)
+	}
+
+	// Verify token log was written
+	tokenLogPath := filepath.Join(dir, "merge_hook_token.log")
+	content, err := os.ReadFile(tokenLogPath)
+	if err != nil {
+		t.Fatalf("expected merge hook to write token log: %v", err)
+	}
+	if !strings.Contains(string(content), "TOKEN_VERIFIED") {
+		t.Errorf("expected TOKEN_VERIFIED in token log, got: %s", string(content))
+	}
+
+	// Verify feature file exists on targetBranch
+	if _, err := os.Stat(filepath.Join(dir, "token_feature.txt")); err != nil {
+		t.Errorf("expected token_feature.txt to exist after qualified merge: %v", err)
+	}
+}
