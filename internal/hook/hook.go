@@ -105,19 +105,19 @@ fi
 
 # 4. Gate 1 Discipline Check (Task, Feature, Bugfix, Hotfix branches)
 if echo "$BRANCH" | grep -Eq '^(task/|feature/|bugfix/|hotfix/)[A-Za-z0-9]+-[0-9]+'; then
-    if command -v sdd >/dev/null 2>&1; then
-        sdd hook check-gate1 --branch "$BRANCH" || exit 1
-    elif [ -x "./bin/sdd" ]; then
+    if [ -x "./bin/sdd" ]; then
         ./bin/sdd hook check-gate1 --branch "$BRANCH" || exit 1
+    elif command -v sdd >/dev/null 2>&1; then
+        sdd hook check-gate1 --branch "$BRANCH" || exit 1
     fi
 fi
 
 # 5. Pre-commit Kit Consistency Audit (commits only)
 if [ "$HOOK_NAME" = "pre-commit" ] && [ "$SDD_SKIP_CHECK" != "1" ]; then
-    if command -v sdd >/dev/null 2>&1; then
-        sdd check --strict || exit 1
-    elif [ -x "./bin/sdd" ]; then
+    if [ -x "./bin/sdd" ]; then
         ./bin/sdd check --strict || exit 1
+    elif command -v sdd >/dev/null 2>&1; then
+        sdd check --strict || exit 1
     fi
 fi
 
