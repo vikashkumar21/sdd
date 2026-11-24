@@ -9,7 +9,13 @@ Status: Pending | Changes requested | Approved
 Reviewer: <Agent Name / Human>
 Commit / Diff Ref: <HEAD / diff summary>
 
-## 1. Multi-Lens Ensemble Review
+## 1. Requirements Traceability Ledger
+
+| Req ID | Requirement Statement | Code Symbol & File | Positive Test Evidence | Negative / Boundary Test Evidence | Status |
+|---|---|---|---|---|---|
+| R-001 | <Requirement statement> | <Code Symbol & File> | <Positive test assertion> | <Negative / boundary test> | Verified |
+
+## 2. Multi-Lens Ensemble Review
 
 ### 🔎 Spec Auditor Lens
 - [ ] Patch resolves the defect without introducing side effects
@@ -25,9 +31,9 @@ Commit / Diff Ref: <HEAD / diff summary>
 - [ ] Complies with approved decisions in TECH_STACK.md (D-xxx)
 - [ ] Complies with active feedback rules in SKILLS.md §8 (F-xxx)
 - [ ] Concurrency & memory safety verified (no data races or leaks)
-- [ ] Clean linting and language idioms preserved
+- [ ] Language standards: Effective Go conventions, context.Context first, clean linting (make lint)
 
-## 2. Risk & Findings Register
+## 3. Risk & Findings Register
 
 | ID | Category | Severity | Finding | Suggested Action | Status |
 |---|---|---|---|---|---|
@@ -38,11 +44,11 @@ Commit / Diff Ref: <HEAD / diff summary>
 - 🟡 **Warning (Attention Suggested):** Sub-optimal pattern, edge case risk, missing doc or comment.
 - 🟢 **Minor (Safe / Informational):** Style, minor naming or micro-optimization.
 
-## 3. Reusable Knowledge & Feedback Synthesis
+## 4. Reusable Knowledge & Feedback Synthesis
 - [ ] Did this defect reveal a broader recurring pattern?
   - If general: record an F-xxx rule in SKILLS.md §8 (Human feedback rules) or scaffold a skill via `sdd skill new`.
   - If bug-specific: resolved in this change set.
 
-## 4. Review Sign-off
+## 5. Review Sign-off
 Outcome: Approved | Changes requested
 Notes: <summary of review evaluation>

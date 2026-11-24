@@ -282,3 +282,25 @@ SDD enforces the "Human Only Commits" rule (Hard Rule 2) mechanically through re
 - **Non-Destructive Chaining:** Pre-existing foreign hooks are moved to `*.sdd-orig` and chained via `exec "$ORIG_HOOK" "$@"`. Re-installing SDD hooks is strictly idempotent and never overwrites existing `.sdd-orig` backups.
 - **Clean Uninstallation:** `sdd hook uninstall` removes SDD hooks and restores original hooks. Refuses to delete unrecognized foreign hooks without `--force`.
 - **Coordinator Merge Integration:** `sdd task merge` qualifies merges and injects `SDD_HUMAN_APPROVED=1` into `git merge`, enabling turnkey merge qualification into `main`.
+
+## 15. Requirements Traceability Ledger and Omission-First Review Protocol
+
+To systematically eliminate the LLM "Diff Framing" anchoring bias and omission blindness during code review, SDD codifies the unanchored traceability ledger protocol (`T-057`, `D-049`):
+
+### 1. Two-Step Review Protocol
+1. **Step 1: Unanchored Traceability Scan (Before Opening `diff.patch`):**
+   - Reviewer subagents receive `.sdd/review/<TASK_ID>/code/ledger.md` pre-seeded with all `R-xxx` statements extracted from `requirements.md`.
+   - The auditor must verify the candidate codebase symbols and test suites to populate the ledger columns (`Code Symbol & File`, `Positive Test Evidence`, `Negative / Boundary Test Evidence`, and `Status`).
+   - Any requirement without concrete implementation symbols, positive test evidence, or negative test evidence for error/branching logic is an immediate 🔴 **Blocker** (`Omission`).
+2. **Step 2: Incremental Diff Quality Audit (After Ledger Completion):**
+   - Only after all requirements are accounted for does the reviewer open `diff.patch` to audit code quality, style, security, and patterns.
+
+### 2. Mandatory Negative-Path Test Proof
+- For every requirement involving input validation, permission checks, boundary constraints, error handling, or failure recovery, automated tests must execute and assert that failure paths reject invalid input and abort cleanly.
+
+### 3. Mechanical Verification (`sdd check`)
+- Rule `traceability-ledger` verifies that:
+  - `## 1. Requirements Traceability Ledger` exists in completed reviews.
+  - Every `R-xxx` declared in `requirements.md` is accounted for in the table.
+  - No cells contain placeholders (`<...>`, `TODO`, `n/a`, `pending`).
+  - All statuses are strictly `Verified`.

@@ -41,14 +41,14 @@ type InstallReport struct {
 
 // StatusReport details the current hook installation status.
 type StatusReport struct {
-	Installed          bool     `json:"installed"`
-	HooksDir           string   `json:"hooks_dir"`
-	PreCommitExists    bool     `json:"pre_commit_exists"`
-	PreMergeExists     bool     `json:"pre_merge_exists"`
-	IsSDDHook          bool     `json:"is_sdd_hook"`
-	Executable         bool     `json:"executable"`
-	Chained            bool     `json:"chained"`
-	OriginalHooks      []string `json:"original_hooks,omitempty"`
+	Installed       bool     `json:"installed"`
+	HooksDir        string   `json:"hooks_dir"`
+	PreCommitExists bool     `json:"pre_commit_exists"`
+	PreMergeExists  bool     `json:"pre_merge_exists"`
+	IsSDDHook       bool     `json:"is_sdd_hook"`
+	Executable      bool     `json:"executable"`
+	Chained         bool     `json:"chained"`
+	OriginalHooks   []string `json:"original_hooks,omitempty"`
 }
 
 // UninstallOptions configures hook uninstallation.
@@ -395,7 +395,7 @@ func CheckGate1(root, branch string) (*Gate1Report, error) {
 		return &Gate1Report{
 			Compliant: false,
 			TaskID:    taskID,
-			Reason: fmt.Sprintf("GATE 1 VIOLATION: task %s has application code staged, but plan.md is not approved (Hard Rule 1).\nRun 'sdd prompt plan-review %s' to audit the plan and obtain human approval.", taskID, taskID),
+			Reason:    fmt.Sprintf("GATE 1 VIOLATION: task %s has application code staged, but plan.md is not approved (Hard Rule 1).\nRun 'sdd prompt plan-review %s' to audit the plan and obtain human approval.", taskID, taskID),
 		}, nil
 	}
 

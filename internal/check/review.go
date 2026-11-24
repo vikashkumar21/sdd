@@ -5,12 +5,14 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/vikashkumar21/sdd/internal/audit"
 	"github.com/vikashkumar21/sdd/internal/roadmap"
 )
 
 var (
 	reviewStatusRe   = regexp.MustCompile(`(?i)^Status:\s*([^\r\n]+)`)
 	reviewReviewerRe = regexp.MustCompile(`(?i)^Reviewer:\s*([^\r\n]+)`)
+	reqIDPattern     = regexp.MustCompile(`^R-\d{3,}$`)
 )
 
 func (c *checker) checkReviewDocument(rel string, taskStatus string) {
@@ -27,6 +29,7 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 	var reviewStatus string
 	var reviewer string
 	var reviewerLine int
+	var currentHeading string
 	inFrontmatter := false
 
 	for scanner.Scan() {
@@ -44,6 +47,10 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 				inFrontmatter = false
 			}
 			continue
+		}
+
+		if strings.HasPrefix(trimmed, "#") {
+			currentHeading = strings.ToLower(trimmed)
 		}
 
 		// 1. Check review status header
@@ -82,7 +89,13 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 
 		// 2. Check for unresolved findings (Blockers, Warnings, Minors per Rule F-001)
 		if strings.HasPrefix(trimmed, "|") && !strings.Contains(trimmed, "---") {
+			if strings.Contains(currentHeading, "traceability") {
+				continue
+			}
 			parts := splitTableRow(trimmed)
+			if len(parts) >= 7 && strings.EqualFold(strings.TrimSpace(parts[1]), "req id") {
+				continue
+			}
 			// Format: | ID | Category | Severity | Finding | Suggested Action | Status |
 			if len(parts) >= 7 {
 				id := strings.TrimSpace(parts[1])
@@ -177,6 +190,163 @@ func (c *checker) checkReviewDocument(rel string, taskStatus string) {
 			}
 		}
 	}
+
+	// 6. Verify Requirements Traceability Ledger
+	c.checkReviewTraceabilityLedger(rel, content, taskStatus, reviewStatus)
+}
+
+type ledgerRowInfo struct {
+	line        int
+	id          string
+	statement   string
+	codeSymbol  string
+	posEvidence string
+	negEvidence string
+	status      string
+}
+
+func (c *checker) checkReviewTraceabilityLedger(rel, content, taskStatus, reviewStatus string) {
+	reviewPath := rel + "/review.md"
+	normTaskStatus := roadmap.Kind(taskStatus)
+	hasLedger := strings.Contains(content, "Requirements Traceability Ledger")
+
+	isApproved := reviewStatus == "approved"
+	if !hasLedger {
+		if normTaskStatus == "awaiting review" && isApproved {
+			c.add(Error, reviewPath, 0, "traceability-ledger", "task is awaiting review with Approved review.md but is missing ## Requirements Traceability Ledger")
+		}
+		return
+	}
+
+	// Load requirements.md if present
+	reqPath := rel + "/requirements.md"
+	reqContent, hasReqs := c.load(reqPath)
+	var expectedReqs []audit.RequirementItem
+	if hasReqs {
+		expectedReqs, _ = audit.ExtractRequirements(reqContent)
+	}
+
+	ledgerRows := make(map[string]ledgerRowInfo)
+	var headerLine int
+	scanner := bufio.NewScanner(strings.NewReader(content))
+	lineNum := 0
+	inLedgerSection := false
+
+	for scanner.Scan() {
+		lineNum++
+		line := scanner.Text()
+		trimmed := strings.TrimSpace(line)
+
+		if strings.HasPrefix(trimmed, "#") {
+			if strings.Contains(trimmed, "Requirements Traceability Ledger") {
+				inLedgerSection = true
+				continue
+			} else if inLedgerSection {
+				inLedgerSection = false
+			}
+		}
+
+		if !inLedgerSection {
+			continue
+		}
+
+		if strings.HasPrefix(trimmed, "|") {
+			parts := splitTableRow(trimmed)
+			if len(parts) >= 2 && strings.Contains(strings.ToLower(parts[1]), "req id") {
+				headerLine = lineNum
+				continue
+			}
+			if strings.Contains(trimmed, "---") {
+				continue
+			}
+
+			if len(parts) >= 7 {
+				reqID := strings.TrimSpace(parts[1])
+				if !reqIDPattern.MatchString(reqID) {
+					continue
+				}
+				statement := strings.TrimSpace(parts[2])
+				codeSymbol := strings.TrimSpace(parts[3])
+				posEvidence := strings.TrimSpace(parts[4])
+				negEvidence := strings.TrimSpace(parts[5])
+				status := strings.TrimSpace(parts[6])
+
+				ledgerRows[reqID] = ledgerRowInfo{
+					line:        lineNum,
+					id:          reqID,
+					statement:   statement,
+					codeSymbol:  codeSymbol,
+					posEvidence: posEvidence,
+					negEvidence: negEvidence,
+					status:      status,
+				}
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		c.add(Error, reviewPath, 0, "traceability-ledger", "reading review.md: %v", err)
+	}
+
+	if headerLine == 0 {
+		c.add(Error, reviewPath, 0, "traceability-ledger", "review.md contains Requirements Traceability Ledger section but table header is missing or malformed")
+		return
+	}
+
+	// If review is approved, perform strict completeness & omission checks
+	if isApproved || normTaskStatus == "awaiting review" {
+		checked := make(map[string]bool)
+		for _, expReq := range expectedReqs {
+			checked[expReq.ID] = true
+			row, exists := ledgerRows[expReq.ID]
+			if !exists {
+				c.add(Error, reviewPath, headerLine, "traceability-ledger", "requirement %s (%s) from requirements.md is omitted from Requirements Traceability Ledger", expReq.ID, expReq.Statement)
+				continue
+			}
+			c.validateLedgerRow(reviewPath, row)
+		}
+		for id, row := range ledgerRows {
+			if !checked[id] {
+				c.validateLedgerRow(reviewPath, row)
+			}
+		}
+	}
+}
+
+func (c *checker) validateLedgerRow(reviewPath string, row ledgerRowInfo) {
+	if isPlaceholderEvidence(row.codeSymbol) {
+		c.add(Error, reviewPath, row.line, "traceability-ledger", "row %s: Code Symbol & File is missing or placeholder (%q)", row.id, row.codeSymbol)
+	}
+	if isPlaceholderEvidence(row.posEvidence) {
+		c.add(Error, reviewPath, row.line, "traceability-ledger", "row %s: Positive Test Evidence is missing or placeholder (%q)", row.id, row.posEvidence)
+	}
+	if isPlaceholderEvidence(row.negEvidence) {
+		c.add(Error, reviewPath, row.line, "traceability-ledger", "row %s: Negative / Boundary Test Evidence is missing or placeholder (%q)", row.id, row.negEvidence)
+	}
+	lowerStatus := strings.ToLower(row.status)
+	if strings.Contains(lowerStatus, "omission") || strings.Contains(lowerStatus, "missing") {
+		c.add(Error, reviewPath, row.line, "traceability-ledger", "row %s: requirement marked %q in Requirements Traceability Ledger", row.id, row.status)
+	} else if !strings.EqualFold(row.status, "verified") {
+		c.add(Error, reviewPath, row.line, "traceability-ledger", "row %s: status is %q (expected 'Verified')", row.id, row.status)
+	}
+}
+
+func isPlaceholderEvidence(val string) bool {
+	trimmed := strings.TrimSpace(val)
+	if trimmed == "" {
+		return true
+	}
+	lower := strings.ToLower(trimmed)
+	if lower == "pending" || lower == "todo" || lower == "n/a" || lower == "none" || lower == "-" || lower == "tbd" {
+		return true
+	}
+	if strings.HasPrefix(trimmed, "<") && strings.HasSuffix(trimmed, ">") {
+		return true
+	}
+	if strings.Contains(lower, "pending implementation") || strings.Contains(lower, "<paste") {
+		return true
+	}
+	return false
 }
 
 // splitTableRow splits a table row into cells, properly ignoring escaped pipes

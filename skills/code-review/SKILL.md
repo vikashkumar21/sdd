@@ -36,6 +36,23 @@ Every code review in Phase C.2 deploys three independent subagents in parallel, 
    - **Concurrency Safety:** Verify goroutine lifecycles, race detector compliance, and zero data races.
    - **Continuous Learning:** Active feedback rules in `SKILLS.md` §8 (`F-xxx`) complied with; recurring patterns captured.
 
+## Unanchored Requirements Traceability Ledger & Omission-First Review Protocol
+
+To eliminate the LLM "Diff Framing" anchoring bias (where reviewers critique existing code but overlook omissions, edge cases, and missing tests), SDD mandates the **Omission-First Review Protocol** (`D-049`):
+
+### Step 1: Unanchored Traceability Scan (Before reading diff.patch)
+1. Open `.sdd/review/<TASK_ID>/code/ledger.md` (or `requirements.md`).
+2. For every requirement (`R-xxx`), search the codebase independently to locate:
+   - **Code Symbol & File:** The concrete functions, types, and files implementing the requirement.
+   - **Positive Test Evidence:** Automated test name proving the happy path.
+   - **Negative / Boundary Test Evidence:** Automated test name proving failure, validation, boundary, or gating paths.
+3. If ANY requirement lacks code symbols, positive tests, or negative/boundary tests:
+   - It is an immediate 🔴 **Blocker** (`Omission`).
+4. Transfer the completed ledger into `## 1. Requirements Traceability Ledger` in `tasks/<typology>/T-xxx-<slug>/review.md`.
+
+### Step 2: Incremental Diff Quality Audit (After ledger completion)
+Only after every `R-xxx` is accounted for in Step 1, proceed to inspect `diff.patch` against `spec.md` using the respective lens rubrics (Spec, AppSec, Pattern).
+
 ## Batch Remediation & Conflict Resolution
 - **Single Remediator:** Review subagents are strictly read-only auditors; only the primary worker agent modifies code.
 - **Batched Remediation:** When multiple lenses report changes, the primary agent consolidates all findings into a single fix pass, consuming 1 loop in the 3-loop circuit breaker.

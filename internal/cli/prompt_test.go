@@ -165,11 +165,20 @@ func TestPromptReview_StatelessBundle(t *testing.T) {
 		if !strings.Contains(promptOutput, ".sdd/review/T-088/code/diff.patch") {
 			t.Errorf("prompt output missing bundle diff.patch reference for lens %s:\n%s", lens, promptOutput)
 		}
+		if !strings.Contains(promptOutput, ".sdd/review/T-088/code/ledger.md") {
+			t.Errorf("prompt output missing bundle ledger.md reference for lens %s:\n%s", lens, promptOutput)
+		}
+		if !strings.Contains(promptOutput, "Unanchored Traceability Scan") {
+			t.Errorf("prompt output missing Unanchored Traceability Scan for lens %s:\n%s", lens, promptOutput)
+		}
 
 		// Verify bundle was staged on disk
 		bundleDir := filepath.Join(root, ".sdd", "review", "T-088", "code")
 		if _, err := os.Stat(filepath.Join(bundleDir, "spec.md")); err != nil {
 			t.Errorf("expected staged spec.md in %s", bundleDir)
+		}
+		if _, err := os.Stat(filepath.Join(bundleDir, "ledger.md")); err != nil {
+			t.Errorf("expected staged ledger.md in %s", bundleDir)
 		}
 		if _, err := os.Stat(filepath.Join(bundleDir, "diff.patch")); err != nil {
 			t.Errorf("expected staged diff.patch in %s", bundleDir)

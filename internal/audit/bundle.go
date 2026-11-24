@@ -23,6 +23,91 @@ const maxUntrackedFileSize = 1024 * 1024 // 1MB limit for untracked files in dif
 const maxDocSize = 1024 * 1024           // 1MB limit for task documents
 
 var taskIDPattern = regexp.MustCompile(`^T-\d{3,}$`)
+var reqIDPattern = regexp.MustCompile(`^R-\d{3,}$`)
+
+// RequirementItem represents a functional or non-functional requirement extracted from requirements.md.
+type RequirementItem struct {
+	ID           string `json:"id"`
+	Statement    string `json:"statement"`
+	Priority     string `json:"priority,omitempty"`
+	Verification string `json:"verification,omitempty"`
+}
+
+// ExtractRequirements parses markdown content of requirements.md and extracts all R-xxx items.
+func ExtractRequirements(content string) ([]RequirementItem, error) {
+	if strings.TrimSpace(content) == "" {
+		return nil, nil
+	}
+
+	var reqs []RequirementItem
+	seen := make(map[string]bool)
+
+	lines := strings.Split(content, "\n")
+	for _, line := range lines {
+		trimmed := strings.TrimSpace(line)
+		if !strings.HasPrefix(trimmed, "|") {
+			continue
+		}
+		parts := strings.Split(trimmed, "|")
+		if len(parts) < 3 {
+			continue
+		}
+		id := strings.TrimSpace(parts[1])
+		if !reqIDPattern.MatchString(id) {
+			continue
+		}
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+
+		statement := strings.TrimSpace(parts[2])
+		priority := ""
+		if len(parts) > 3 {
+			priority = strings.TrimSpace(parts[3])
+		}
+		verification := ""
+		if len(parts) > 4 {
+			verification = strings.TrimSpace(parts[4])
+		}
+
+		reqs = append(reqs, RequirementItem{
+			ID:           id,
+			Statement:    statement,
+			Priority:     priority,
+			Verification: verification,
+		})
+	}
+
+	sort.Slice(reqs, func(i, j int) bool {
+		var numA, numB int
+		_, errA := fmt.Sscanf(reqs[i].ID, "R-%d", &numA)
+		_, errB := fmt.Sscanf(reqs[j].ID, "R-%d", &numB)
+		if errA == nil && errB == nil && numA != numB {
+			return numA < numB
+		}
+		return reqs[i].ID < reqs[j].ID
+	})
+
+	return reqs, nil
+}
+
+// FormatTraceabilityLedger formats requirements into an unanchored markdown ledger template.
+func FormatTraceabilityLedger(reqs []RequirementItem) string {
+	var sb strings.Builder
+	sb.WriteString("# Requirements Traceability Ledger\n\n")
+	sb.WriteString("> **Omission-First Review Protocol:** Complete this ledger by inspecting candidate code and test symbols BEFORE reading `diff.patch`. Any unmapped requirement or missing test is an immediate 🔴 Blocker.\n\n")
+	sb.WriteString("| Req ID | Requirement Statement | Code Symbol & File | Positive Test Evidence | Negative / Boundary Test Evidence | Status |\n")
+	sb.WriteString("|---|---|---|---|---|---|\n")
+
+	for _, req := range reqs {
+		statement := strings.ReplaceAll(req.Statement, "\n", " ")
+		statement = strings.ReplaceAll(statement, "|", `\|`)
+		fmt.Fprintf(&sb, "| %s | %s | | | | Open |\n", req.ID, statement)
+	}
+
+	return sb.String()
+}
 
 // PlanBundle contains staged metadata for an isolated plan review.
 type PlanBundle struct {
@@ -362,7 +447,15 @@ func StageReviewBundle(root, taskID, lens string, now ...time.Time) (*ReviewBund
 		return nil, fmt.Errorf("writing spec.md: %w", err)
 	}
 
-	// 2. diff.patch: git diff including untracked new files
+	// 2. ledger.md: unanchored requirements traceability ledger
+	reqItems, _ := ExtractRequirements(reqContent)
+	ledgerText := FormatTraceabilityLedger(reqItems)
+	ledgerRel := filepath.Join(bundleDirRel, "ledger.md")
+	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(ledgerRel), []byte(ledgerText), 0o644); err != nil {
+		return nil, fmt.Errorf("writing ledger.md: %w", err)
+	}
+
+	// 3. diff.patch: git diff including untracked new files
 	diffText, err := extractGitDiff(root)
 	if err != nil {
 		diffText = fmt.Sprintf("# Note: could not extract git diff: %v\n", err)
@@ -372,7 +465,7 @@ func StageReviewBundle(root, taskID, lens string, now ...time.Time) (*ReviewBund
 		return nil, fmt.Errorf("writing diff.patch: %w", err)
 	}
 
-	// 3. rubric.md: role skill for lens
+	// 4. rubric.md: role skill for lens
 	roleSkill := resolveReviewRubric(root, normLens)
 	rubricRel := filepath.Join(bundleDirRel, "rubric.md")
 	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(rubricRel), []byte(strings.TrimSpace(roleSkill)+"\n"), 0o644); err != nil {
@@ -381,6 +474,7 @@ func StageReviewBundle(root, taskID, lens string, now ...time.Time) (*ReviewBund
 
 	stagedFiles := []string{
 		filepath.ToSlash(filepath.Join(bundleDirRel, "spec.md")),
+		filepath.ToSlash(filepath.Join(bundleDirRel, "ledger.md")),
 		filepath.ToSlash(filepath.Join(bundleDirRel, "diff.patch")),
 		filepath.ToSlash(filepath.Join(bundleDirRel, "rubric.md")),
 	}
@@ -476,6 +570,7 @@ func FormatReviewPrompt(bundle *ReviewBundle, root string) (string, error) {
 	sb.WriteString("## Staged Review Bundle Artifacts\n")
 	fmt.Fprintf(&sb, "- **Bundle Directory:** `%s/`\n", bundle.BundleDir)
 	fmt.Fprintf(&sb, "- **Frozen Specification:** `%s/spec.md` (requirements and plan)\n", bundle.BundleDir)
+	fmt.Fprintf(&sb, "- **Traceability Ledger:** `%s/ledger.md` (unanchored requirements ledger to complete before reading diff.patch)\n", bundle.BundleDir)
 	fmt.Fprintf(&sb, "- **Git Diff Patch:** `%s/diff.patch` (working tree changes and untracked files)\n", bundle.BundleDir)
 	fmt.Fprintf(&sb, "- **Review Rubric:** `%s/rubric.md` (canonical role skill instructions for %s)\n", bundle.BundleDir, bundle.Lens)
 	fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n\n", bundle.BundleDir)
@@ -486,8 +581,9 @@ func FormatReviewPrompt(bundle *ReviewBundle, root string) (string, error) {
 	sb.WriteString("- 🟢 **Minor (Safe / Informational):** Style, minor naming or non-critical improvement.\n\n")
 
 	sb.WriteString("## Review Instructions\n")
-	fmt.Fprintf(&sb, "1. Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md`.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
-	fmt.Fprintf(&sb, "2. Record all findings and sign-off in `%s/review.md`.\n", bundle.TaskDir)
+	fmt.Fprintf(&sb, "1. **Unanchored Traceability Scan (Step 1):** Open `%s/ledger.md` and verify each requirement against the codebase symbols and test suites before inspecting `%s/diff.patch`. Fill in Code Symbol, Positive Test, and Negative / Boundary Test Evidence. Any unmapped requirement or missing test is an immediate 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
+	fmt.Fprintf(&sb, "2. **Diff Quality Audit (Step 2):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md`.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
+	fmt.Fprintf(&sb, "3. Record all findings, the completed Requirements Traceability Ledger, and sign-off in `%s/review.md`.\n", bundle.TaskDir)
 	sb.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")
 	sb.WriteString("   - Per Rule F-001, all findings (🔴 Blockers, 🟡 Warnings, 🟢 Minors) must be cataloged clearly; the worker agent is required to resolve all findings or provide explicit justification before GATE 2.\n")
 	sb.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution (including your lens name).\n")

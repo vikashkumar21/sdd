@@ -171,6 +171,14 @@ Status: living document · Last updated: 2026-10-26
 |---|---|---|---|---|---|---|
 | T-056 | Forensic brownfield discovery hardening, coverage ledger, and multi-language review templates | M | T-053, T-055 | Coverage ledger standard, mechanical verification in sdd check, language-pack-aware review.md scaffolding, unanchored challenger inventory-first protocol, and review bundle enrichment (validation.md in plan review; staged context in discovery) | D-048 | Done |
 
+### M14 — Cognitive Bias Immunity, Unanchored Auditing & Heterogeneous Model Routing
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-057 | Unanchored Requirements Traceability Ledger and omission-first review protocol | M | T-052, T-056 | Requirements Traceability Ledger standard in skills/code-review/, review bundle update with ledger.md, Step 1 omission scan before diff.patch, negative-path test execution evidence, and sdd check mechanical validation | D-049 | Awaiting review |
+| T-058 | Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation | M | T-057 | Forbid subagent session reuse across remediation loops, re-stage candidate diffs without developer prose, isolate pure finding IDs, and update coordinator review loop instructions | D-049 | Not started |
+| T-059 | Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch | M | T-058 | Extend .sdd/roles.json with model_tier, reasoning_effort, and recommended_family; multi-model prompt and export orchestration manifests | D-049 | Not started |
+
 ## 5. Unknown-technology protocol (spikes)
 
 Unfamiliar technology derails projects. To prevent that:
@@ -195,15 +203,16 @@ Unfamiliar technology derails projects. To prevent that:
 
 ## 8. Next action
 
-1. M0 through M13 are complete (55 tasks delivered, 100% roadmap completion).
+1. M0 through M13 are complete (55 tasks delivered).
 2. Release v1.9.0 tagged and cross-platform release binaries built.
-3. Active milestone: none (all milestones M0–M13 complete).
-4. Active task: none.
+3. Active milestone: Milestone 14: Cognitive Bias Immunity, Unanchored Auditing & Heterogeneous Model Routing (0/3 complete, 0%).
+4. Active task: T-057 (Unanchored Requirements Traceability Ledger and omission-first review protocol, Awaiting review) under M14.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-24 | Milestone 14 added: Cognitive Bias Immunity, Unanchored Auditing & Heterogeneous Model Routing (T-057 to T-059; D-049) |
 | 2026-11-24 | Release v1.9.0: multi-platform static binaries (darwin, linux, windows), template version 2.4.0, hard git commit gate, pre-commit hook enforcement, coverage ledger validation, adversarial discovery, and multi-language review templates |
 | 2026-11-24 | T-051: Hard Git commit gate and pre-commit hook enforcement done (Milestone 12 complete) |
 | 2026-11-24 | T-051: Hard Git commit gate and pre-commit hook enforcement awaiting review |

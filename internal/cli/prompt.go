@@ -837,6 +837,7 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 		sb.WriteString("An isolated, frozen review bundle has been staged for tabula-rasa evaluation with zero conversational history:\n")
 		fmt.Fprintf(&sb, "- **Bundle Directory:** `%s/`\n", bundle.BundleDir)
 		fmt.Fprintf(&sb, "- **Frozen Specification:** `%s/spec.md` (frozen requirements and plan)\n", bundle.BundleDir)
+		fmt.Fprintf(&sb, "- **Traceability Ledger:** `%s/ledger.md` (unanchored requirements ledger to complete before reading diff.patch)\n", bundle.BundleDir)
 		fmt.Fprintf(&sb, "- **Git Diff Patch:** `%s/diff.patch` (working tree changes and untracked files)\n", bundle.BundleDir)
 		fmt.Fprintf(&sb, "- **Review Rubric:** `%s/rubric.md` (canonical role skill instructions for %s)\n", bundle.BundleDir, bundle.Lens)
 		fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n\n", bundle.BundleDir)
@@ -887,12 +888,14 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 
 	sb.WriteString("## Review Instructions\n")
 	if bundle != nil {
-		fmt.Fprintf(&sb, "1. Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md` (or inspect changed files against `%s/requirements.md` and `%s/plan.md`).\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir, taskDir, taskDir)
+		fmt.Fprintf(&sb, "1. **Step 1 (Unanchored Traceability Scan):** Open `%s/ledger.md` and verify each requirement against codebase implementation and tests before opening `%s/diff.patch`. Ensure every requirement has concrete code symbols, positive test evidence, and negative/boundary test evidence. Any missing requirement is an automatic 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&sb, "2. **Step 2 (Diff Quality & Lens Audit):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md`.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
 	} else {
-		fmt.Fprintf(&sb, "1. Inspect the git diff and changed files against `%s/requirements.md` and `%s/plan.md`.\n", taskDir, taskDir)
+		fmt.Fprintf(&sb, "1. **Step 1 (Unanchored Traceability Scan):** Inspect candidate implementation and tests against `%s/requirements.md` before reading git diff. Ensure every requirement has concrete code symbols, positive test evidence, and negative/boundary test evidence.\n", taskDir)
+		fmt.Fprintf(&sb, "2. **Step 2 (Diff Quality & Lens Audit):** Inspect the git diff and changed files against `%s/requirements.md` and `%s/plan.md`.\n", taskDir, taskDir)
 	}
-	fmt.Fprintf(&sb, "2. Verify each point listed under **Lens Focus & Verification Questions**.\n")
-	fmt.Fprintf(&sb, "3. Record all findings and sign-off in `%s/review.md`.\n", taskDir)
+	fmt.Fprintf(&sb, "3. Verify each point listed under **Lens Focus & Verification Questions**.\n")
+	fmt.Fprintf(&sb, "4. Record all findings, the completed Requirements Traceability Ledger, and sign-off in `%s/review.md`.\n", taskDir)
 	sb.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")
 	sb.WriteString("   - Per Rule F-001, all findings (🔴 Blockers, 🟡 Warnings, 🟢 Minors) must be cataloged clearly; the worker agent is required to resolve all findings or provide explicit justification before GATE 2.\n")
 	sb.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution (including your lens name).\n")

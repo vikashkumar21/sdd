@@ -206,3 +206,153 @@ func TestStageDiscoveryBundle_SymlinkEscape(t *testing.T) {
 		t.Fatalf("expected symlink rejection for task directory, got: %v", err)
 	}
 }
+
+func TestExtractRequirements(t *testing.T) {
+	mdContent := `# Requirements — T-057
+Status: Active
+
+## 4. Functional requirements
+| ID | Requirement (SHALL …) | Priority | Verification |
+|---|---|---|---|
+| R-001 | The system SHALL define ledger schema. | MUST | test / inspection |
+| R-002 | The system SHALL extract requirements and stage ledger.md. | MUST | test |
+| R-003 | The system SHALL enforce omission-first review protocol. | MUST | inspection |
+| R-010 | The system SHALL handle edge cases gracefully. | SHOULD | test |
+`
+
+	reqs, err := ExtractRequirements(mdContent)
+	if err != nil {
+		t.Fatalf("ExtractRequirements failed: %v", err)
+	}
+	if len(reqs) != 4 {
+		t.Fatalf("expected 4 requirements, got %d", len(reqs))
+	}
+
+	expectedIDs := []string{"R-001", "R-002", "R-003", "R-010"}
+	for i, expID := range expectedIDs {
+		if reqs[i].ID != expID {
+			t.Errorf("reqs[%d].ID = %q, want %q", i, reqs[i].ID, expID)
+		}
+	}
+	if reqs[0].Statement != "The system SHALL define ledger schema." {
+		t.Errorf("reqs[0].Statement = %q", reqs[0].Statement)
+	}
+	if reqs[0].Priority != "MUST" {
+		t.Errorf("reqs[0].Priority = %q", reqs[0].Priority)
+	}
+	if reqs[0].Verification != "test / inspection" {
+		t.Errorf("reqs[0].Verification = %q", reqs[0].Verification)
+	}
+}
+
+func TestExtractRequirements_EmptyAndMalformed(t *testing.T) {
+	// Empty content
+	reqs, err := ExtractRequirements("")
+	if err != nil {
+		t.Fatalf("expected nil error on empty content, got: %v", err)
+	}
+	if len(reqs) != 0 {
+		t.Errorf("expected 0 reqs on empty content, got %d", len(reqs))
+	}
+
+	// Content without R-xxx
+	noReqContent := `# Notes
+| Feature | Status |
+|---|---|
+| Core | Active |
+`
+	reqs, err = ExtractRequirements(noReqContent)
+	if err != nil {
+		t.Fatalf("expected nil error, got: %v", err)
+	}
+	if len(reqs) != 0 {
+		t.Errorf("expected 0 reqs, got %d", len(reqs))
+	}
+
+	// Duplicate requirements & ordering
+	dupContent := `
+| ID | Statement | Priority | Verification |
+|---|---|---|---|
+| R-003 | Third requirement | MUST | test |
+| R-001 | First requirement | MUST | test |
+| R-001 | First requirement duplicate | MUST | test |
+| R-002 | Second requirement | MUST | test |
+`
+	reqs, err = ExtractRequirements(dupContent)
+	if err != nil {
+		t.Fatalf("ExtractRequirements failed: %v", err)
+	}
+	if len(reqs) != 3 {
+		t.Fatalf("expected 3 unique requirements, got %d", len(reqs))
+	}
+	if reqs[0].ID != "R-001" || reqs[1].ID != "R-002" || reqs[2].ID != "R-003" {
+		t.Errorf("expected sorted unique requirements, got: %+v", reqs)
+	}
+}
+
+func TestFormatTraceabilityLedger(t *testing.T) {
+	reqs := []RequirementItem{
+		{ID: "R-001", Statement: "System SHALL do A."},
+		{ID: "R-002", Statement: "System SHALL support B | C."},
+	}
+
+	ledger := FormatTraceabilityLedger(reqs)
+	if !strings.Contains(ledger, "# Requirements Traceability Ledger") {
+		t.Errorf("ledger missing header:\n%s", ledger)
+	}
+	if !strings.Contains(ledger, "| Req ID | Requirement Statement | Code Symbol & File | Positive Test Evidence | Negative / Boundary Test Evidence | Status |") {
+		t.Errorf("ledger missing table header:\n%s", ledger)
+	}
+	if !strings.Contains(ledger, "| R-001 | System SHALL do A. | | | | Open |") {
+		t.Errorf("ledger missing R-001 row:\n%s", ledger)
+	}
+	// Pipe should be escaped
+	if !strings.Contains(ledger, `| R-002 | System SHALL support B \| C. | | | | Open |`) {
+		t.Errorf("ledger missing escaped pipe in R-002 row:\n%s", ledger)
+	}
+}
+
+func TestStageReviewBundle_LedgerStaged(t *testing.T) {
+	root := setupTestProject(t, "T-099", "sample-task")
+	fixedTime := time.Date(2026, 11, 24, 10, 0, 0, 0, time.UTC)
+
+	bundle, err := StageReviewBundle(root, "T-099", "spec", fixedTime)
+	if err != nil {
+		t.Fatalf("StageReviewBundle failed: %v", err)
+	}
+
+	ledgerPath := filepath.Join(root, bundle.BundleDir, "ledger.md")
+	data, err := os.ReadFile(ledgerPath)
+	if err != nil {
+		t.Fatalf("missing staged ledger.md: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "# Requirements Traceability Ledger") {
+		t.Errorf("staged ledger.md missing header: %s", content)
+	}
+	if !strings.Contains(content, "| R-001 | System SHALL pass | | | | Open |") {
+		t.Errorf("staged ledger.md missing R-001 row: %s", content)
+	}
+
+	// Verify manifest includes ledger.md
+	manifestPath := filepath.Join(root, bundle.BundleDir, "manifest.json")
+	manifestBytes, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("reading manifest.json: %v", err)
+	}
+	if !strings.Contains(string(manifestBytes), "ledger.md") {
+		t.Errorf("manifest.json missing ledger.md: %s", string(manifestBytes))
+	}
+
+	// Verify prompt mentions ledger.md and unanchored step
+	prompt, err := FormatReviewPrompt(bundle, root)
+	if err != nil {
+		t.Fatalf("FormatReviewPrompt failed: %v", err)
+	}
+	if !strings.Contains(prompt, "Traceability Ledger") || !strings.Contains(prompt, "ledger.md") {
+		t.Errorf("prompt missing ledger reference:\n%s", prompt)
+	}
+	if !strings.Contains(prompt, "Unanchored Traceability Scan (Step 1)") {
+		t.Errorf("prompt missing Unanchored Traceability Scan step:\n%s", prompt)
+	}
+}
