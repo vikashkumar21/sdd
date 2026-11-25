@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -158,14 +159,20 @@ func TestPromptReview_StatelessBundle(t *testing.T) {
 			t.Fatalf("runPromptReview(%s) failed with code %d: %s", lens, code, errBuf.String())
 		}
 
+		expectedSubdir := lens
+		if lens == "all" {
+			expectedSubdir = "code"
+		}
+		expectedBundleDirRel := fmt.Sprintf(".sdd/review/T-088/%s", expectedSubdir)
+
 		promptOutput := outBuf.String()
 		if !strings.Contains(promptOutput, "Stateless Review Bundle (.sdd/review/)") {
 			t.Errorf("prompt output missing stateless bundle section for lens %s:\n%s", lens, promptOutput)
 		}
-		if !strings.Contains(promptOutput, ".sdd/review/T-088/code/diff.patch") {
+		if !strings.Contains(promptOutput, expectedBundleDirRel+"/diff.patch") {
 			t.Errorf("prompt output missing bundle diff.patch reference for lens %s:\n%s", lens, promptOutput)
 		}
-		if !strings.Contains(promptOutput, ".sdd/review/T-088/code/ledger.md") {
+		if !strings.Contains(promptOutput, expectedBundleDirRel+"/ledger.md") {
 			t.Errorf("prompt output missing bundle ledger.md reference for lens %s:\n%s", lens, promptOutput)
 		}
 		if !strings.Contains(promptOutput, "Unanchored Traceability Scan") {
@@ -173,7 +180,7 @@ func TestPromptReview_StatelessBundle(t *testing.T) {
 		}
 
 		// Verify bundle was staged on disk
-		bundleDir := filepath.Join(root, ".sdd", "review", "T-088", "code")
+		bundleDir := filepath.Join(root, ".sdd", "review", "T-088", expectedSubdir)
 		if _, err := os.Stat(filepath.Join(bundleDir, "spec.md")); err != nil {
 			t.Errorf("expected staged spec.md in %s", bundleDir)
 		}
@@ -205,13 +212,20 @@ func TestPromptReview_StatelessBundle(t *testing.T) {
 		if ctx.TaskID != "T-088" {
 			t.Errorf("expected TaskID T-088, got %s", ctx.TaskID)
 		}
-		if ctx.BundleDir != ".sdd/review/T-088/code" {
-			t.Errorf("expected BundleDir .sdd/review/T-088/code, got %s", ctx.BundleDir)
+		if ctx.BundleDir != expectedBundleDirRel {
+			t.Errorf("expected BundleDir %s, got %s", expectedBundleDirRel, ctx.BundleDir)
 		}
 		if len(ctx.BundleFiles) == 0 {
 			t.Errorf("expected non-empty BundleFiles for lens %s", lens)
 		}
+		if ctx.RawDiffBytes < 0 || ctx.FilteredDiffBytes < 0 || ctx.DiffSavingsPercent < 0.0 {
+			t.Errorf("invalid telemetry in ctx: raw=%d, filtered=%d, savings=%f", ctx.RawDiffBytes, ctx.FilteredDiffBytes, ctx.DiffSavingsPercent)
+		}
 	}
+}
+
+func TestPromptReview_LensScoped(t *testing.T) {
+	TestPromptReview_StatelessBundle(t)
 }
 
 func TestPromptReview_Loop(t *testing.T) {

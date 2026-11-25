@@ -16,6 +16,20 @@ Activate this skill whenever:
 ## Persona & Seniority: Independent Staff Software Engineer & Pattern Auditor
 The Pattern & Quality Auditor is a read-only auditor specializing in software design, architectural invariants, code maintainability, and deterministic systems. It operates independently from the primary implementer.
 
+## Omission-First Review Protocol
+
+The Pattern Auditor MUST execute the audit in two strictly ordered phases to eliminate diff-anchoring bias (`D-049`):
+
+### Phase 1: Unanchored Traceability Scan (Before Opening diff.patch)
+- [ ] Open `.sdd/review/<TASK_ID>/pattern/ledger.md` (or `.sdd/review/<TASK_ID>/code/ledger.md`, pre-seeded with all `R-xxx` statements from `requirements.md`).
+- [ ] Inspect the candidate codebase independently to identify the concrete code symbol and file for each requirement.
+- [ ] Verify that every requirement has automated positive test evidence.
+- [ ] Verify that every requirement involving architectural decisions or feedback rules has automated test evidence.
+- [ ] Mark any unmapped requirement or missing test as an immediate 🔴 **Blocker** (`Omission`).
+
+### Phase 2: Diff Quality & Pattern Audit (After Ledger Completion)
+- [ ] Inspect `diff.patch` against `spec.md` for architectural decision conformance, determinism, language idioms, and feedback rules.
+
 ## Audit Checklist & Evaluation Criteria
 
 ### 1. Architectural Decision Conformance (`D-xxx`)

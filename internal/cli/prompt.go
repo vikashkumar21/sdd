@@ -21,24 +21,29 @@ var taskIDPattern = regexp.MustCompile(`^[A-Za-z]+-\d+$`)
 
 // ReviewPromptContext represents the structured context bundle for subagent reviews.
 type ReviewPromptContext struct {
-	TaskID        string                       `json:"taskId"`
-	TaskDir       string                       `json:"taskDir"`
-	Typology      string                       `json:"typology"`
-	Lens          string                       `json:"lens"`
-	Loop          int                          `json:"loop,omitempty"`
-	LensFocus     []string                     `json:"lensFocus,omitempty"`
-	RoleSkill     string                       `json:"roleSkill,omitempty"`
-	ModelRouting  *role.ModelRouting           `json:"model_routing,omitempty"`
-	TriadRouting  map[string]role.ModelRouting `json:"triad_model_routing,omitempty"`
-	Requirements  string                       `json:"requirements,omitempty"`
-	Plan          string                       `json:"plan,omitempty"`
-	Validation    string                       `json:"validation,omitempty"`
-	Review        string                       `json:"review,omitempty"`
-	ChangedFiles  []string                     `json:"changedFiles"`
-	FeedbackRules string                       `json:"feedbackRules"`
-	BundleDir     string                       `json:"bundleDir,omitempty"`
-	BundleFiles   []string                     `json:"bundleFiles,omitempty"`
-	Prompt        string                       `json:"prompt"`
+	TaskID             string                       `json:"taskId"`
+	TaskDir            string                       `json:"taskDir"`
+	Typology           string                       `json:"typology"`
+	Lens               string                       `json:"lens"`
+	Loop               int                          `json:"loop,omitempty"`
+	LensFocus          []string                     `json:"lensFocus,omitempty"`
+	RoleSkill          string                       `json:"roleSkill,omitempty"`
+	ModelRouting       *role.ModelRouting           `json:"model_routing,omitempty"`
+	TriadRouting       map[string]role.ModelRouting `json:"triad_model_routing,omitempty"`
+	Requirements       string                       `json:"requirements,omitempty"`
+	Plan               string                       `json:"plan,omitempty"`
+	Validation         string                       `json:"validation,omitempty"`
+	Review             string                       `json:"review,omitempty"`
+	ChangedFiles       []string                     `json:"changedFiles"`
+	FeedbackRules      string                       `json:"feedbackRules"`
+	BundleDir          string                       `json:"bundleDir,omitempty"`
+	BundleFiles        []string                     `json:"bundleFiles,omitempty"`
+	RawDiffBytes       int                          `json:"rawDiffBytes"`
+	FilteredDiffBytes  int                          `json:"filteredDiffBytes"`
+	DiffSavingsPercent float64                      `json:"diffSavingsPercent"`
+	RawFilesCount      int                          `json:"rawFilesCount"`
+	FilteredFilesCount int                          `json:"filteredFilesCount"`
+	Prompt             string                       `json:"prompt"`
 }
 
 // PlanReviewPromptContext represents the structured context bundle for pre-GATE 1 plan reviews.
@@ -590,10 +595,7 @@ func runPromptReview(args []string, env IO) int {
 		return 2
 	}
 
-	normLens := strings.ToLower(strings.TrimSpace(*lensFlag))
-	if normLens == "appsec" {
-		normLens = "security"
-	}
+	normLens := audit.NormalizeLens(*lensFlag)
 	switch normLens {
 	case "spec", "security", "pattern", "all":
 		// valid
@@ -691,30 +693,42 @@ func runPromptReview(args []string, env IO) int {
 
 	var bundleDir string
 	var bundleFiles []string
+	var rawBytes, filteredBytes, rawFiles, filteredFiles int
+	var savingsPercent float64
 	if bundle != nil {
 		bundleDir = bundle.BundleDir
 		bundleFiles = bundle.Files
+		rawBytes = bundle.RawDiffBytes
+		filteredBytes = bundle.FilteredDiffBytes
+		savingsPercent = bundle.DiffSavingsPercent
+		rawFiles = bundle.RawFilesCount
+		filteredFiles = bundle.FilteredFilesCount
 	}
 
 	ctx := ReviewPromptContext{
-		TaskID:        rawTaskID,
-		TaskDir:       taskDirRel,
-		Typology:      typology,
-		Lens:          normLens,
-		Loop:          *loopFlag,
-		LensFocus:     lensFocus,
-		RoleSkill:     roleSkill,
-		ModelRouting:  &activeRouting,
-		TriadRouting:  triadRouting,
-		Requirements:  requirements,
-		Plan:          plan,
-		Validation:    validation,
-		Review:        review,
-		ChangedFiles:  changedFiles,
-		FeedbackRules: feedbackRules,
-		BundleDir:     bundleDir,
-		BundleFiles:   bundleFiles,
-		Prompt:        promptText,
+		TaskID:             rawTaskID,
+		TaskDir:            taskDirRel,
+		Typology:           typology,
+		Lens:               normLens,
+		Loop:               *loopFlag,
+		LensFocus:          lensFocus,
+		RoleSkill:          roleSkill,
+		ModelRouting:       &activeRouting,
+		TriadRouting:       triadRouting,
+		Requirements:       requirements,
+		Plan:               plan,
+		Validation:         validation,
+		Review:             review,
+		ChangedFiles:       changedFiles,
+		FeedbackRules:      feedbackRules,
+		BundleDir:          bundleDir,
+		BundleFiles:        bundleFiles,
+		RawDiffBytes:       rawBytes,
+		FilteredDiffBytes:  filteredBytes,
+		DiffSavingsPercent: savingsPercent,
+		RawFilesCount:      rawFiles,
+		FilteredFilesCount: filteredFiles,
+		Prompt:             promptText,
 	}
 
 	if *jsonFlag {
@@ -978,7 +992,11 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 		}
 		fmt.Fprintf(&sb, "- **Git Diff Patch:** `%s/diff.patch` (working tree changes and untracked files)\n", bundle.BundleDir)
 		fmt.Fprintf(&sb, "- **Review Rubric:** `%s/rubric.md` (canonical role skill instructions for %s)\n", bundle.BundleDir, bundle.Lens)
-		fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n\n", bundle.BundleDir)
+		fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n", bundle.BundleDir)
+		if bundle.DiffSavingsPercent > 0.0 {
+			fmt.Fprintf(&sb, "- **Diff Optimization:** %d bytes filtered from %d raw bytes (%.1f%% token savings across %d files)\n", bundle.FilteredDiffBytes, bundle.RawDiffBytes, bundle.DiffSavingsPercent, bundle.FilteredFilesCount)
+		}
+		sb.WriteString("\n")
 		sb.WriteString("**You are an independent reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
 	}
 

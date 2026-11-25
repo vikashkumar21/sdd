@@ -21,7 +21,7 @@ The Spec Auditor is a read-only auditor specializing in functional verification,
 The Spec Auditor MUST execute the audit in two strictly ordered phases to eliminate diff-anchoring bias (`D-049`):
 
 ### Phase 1: Unanchored Traceability Scan (Before Opening diff.patch)
-- [ ] Open `.sdd/review/<TASK_ID>/code/ledger.md` (pre-seeded with all `R-xxx` statements from `requirements.md`).
+- [ ] Open `.sdd/review/<TASK_ID>/spec/ledger.md` (or `.sdd/review/<TASK_ID>/code/ledger.md`, pre-seeded with all `R-xxx` statements from `requirements.md`).
 - [ ] Inspect the candidate codebase independently to identify the concrete code symbol and file for each requirement.
 - [ ] Verify that every requirement has automated positive test evidence.
 - [ ] Verify that every requirement involving validation, branching, error handling, or security gates has automated negative/boundary test evidence.

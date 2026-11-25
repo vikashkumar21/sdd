@@ -9,6 +9,7 @@
 - safe brownfield proposal files (`README.md.sdd-new`) preserving existing project documentation untouched
 - a `.sdd/manifest.json` recording what was generated
 - heterogeneous agent role routing and tier-calibrated dispatch in `.sdd/roles.json` with copy-pasteable `invoke_subagent` snippets in `sdd prompt` commands (`Model: "flash"` for routine verification, reducing token usage by $\ge 60\%$)
+- lens-scoped review bundles and deterministic diff filtering in `.sdd/review/<TASK_ID>/<lens>/` (`spec/`, `security/`, `pattern/`), eliminating directory collisions and reducing Review Triad context tokens by 30–70%
 
 The workflow it installs: the agent drafts requirements and a plan, **the human approves before any code**, the agent implements and verifies, and **the human reviews and commits**. The anthem: *always be deterministic, and take human approval or decisions to accomplish that determinism.*
 
@@ -112,10 +113,10 @@ sdd prompt implement T-003                    # generate turnkey Phase B impleme
 sdd prompt implement T-003 --role qa          # generate implementation prompt enriched with QA automation skill
 sdd prompt implement T-003 --role devops      # generate implementation prompt enriched with DevOps / SRE skill
 sdd prompt review T-003                       # generate turnkey subagent review prompt for Phase C.2 independent audit (Rule F-001)
-sdd prompt review T-003 --lens spec          # review focused on requirements traceability & plan boundaries
-sdd prompt review T-003 --lens security      # review focused on AppSec, threat surface, input validation & secrets
-sdd prompt review T-003 --lens pattern       # review focused on architecture decisions, determinism & language idioms
-sdd prompt review T-003 --lens all           # ensemble review covering all three lenses (default)
+sdd prompt review T-003 --lens spec          # review focused on requirements traceability & plan boundaries (.sdd/review/T-003/spec/)
+sdd prompt review T-003 --lens security      # review focused on AppSec, threat surface, input validation & secrets (.sdd/review/T-003/security/, 50%+ diff savings)
+sdd prompt review T-003 --lens pattern       # review focused on architecture decisions, determinism & language idioms (.sdd/review/T-003/pattern/, 40%+ diff savings)
+sdd prompt review T-003 --lens all           # monolithic fallback review covering all lenses (.sdd/review/T-003/code/)
 sdd prompt review T-003 --loop 2             # generate tabula-rasa remediation prompt with isolated finding checklist (loops 1-3)
 sdd prompt review T-003 --json               # structured review context bundle with lens metadata for Agent SDKs
 sdd prompt repair T-003                       # generate turnkey auto-repair prompt for bugfix reproduction & resolution
@@ -221,7 +222,7 @@ sdd self-update --yes                     # proceed without interactive confirma
 SDD eliminates author agent self-approval bias and conversational anchoring through native tabula-rasa reviewer isolation and mechanical validation auditing:
 - **Stateless Review Isolation by Default:**
   - `sdd prompt plan-review <T-xxx>` freezes requirements and implementation plan into `.sdd/review/<T-xxx>/plan/spec.md`, stages canonical plan-reviewer instructions into `rubric.md`, and outputs an isolated, tabula-rasa prompt stripped of historical conversational baggage.
-  - `sdd prompt review <T-xxx> [--lens <lens>]` extracts working tree diffs and newly created untracked files into `.sdd/review/<T-xxx>/code/diff.patch`, stages frozen specifications in `spec.md`, pre-seeds the unanchored `ledger.md`, and sets up isolated bundles for each Review Triad auditor (Spec Auditor, AppSec Specialist, Pattern Auditor).
+  - `sdd prompt review <T-xxx> [--lens <lens>]` extracts working tree diffs, tailors `diff.patch` per reviewer lens (`spec`, `security`, `pattern`) to save 30–70% of redundant context tokens, stages frozen specifications in `spec.md`, pre-seeds `ledger.md`, and sets up isolated directories (`.sdd/review/<T-xxx>/<lens>/`) preventing filesystem collisions across the Review Triad.
   - Transient review bundles are stored in `.sdd/review/` and automatically excluded from version control and RAG indexing.
 - **Unanchored Requirements Traceability Ledger & Omission-First Protocol:**
   - `sdd prompt review <T-xxx>` parses task requirements and auto-generates `.sdd/review/<T-xxx>/code/ledger.md` pre-populated with all `R-xxx` requirement statements.
