@@ -200,6 +200,10 @@ Before any merge into main:
 3. Simulate git merge in an isolated throwaway worktree: sdd task merge --simulate <T-xxx> (or sdd task merge <task-id> --dry-run).
 4. Run full blast-radius regression test suite on the simulated merge commit.
 5. Present merge qualification summary to the human for approval (APPROVED MERGE T-xxx / COMMITTED T-xxx).
+
+### 7. Progressive Disclosure & Context Orientation Protocol
+- **Orient First:** Before ingesting large living documents, run sdd passport (or sdd status --compact) to obtain a high-density, low-token (<= 500 tokens) project passport summarizing mission, polyglot stack, active milestone, active/next tasks, feedback rules, and living document pointers.
+- **On-Demand Loading:** Load full living documents (MISSION.md, TECH_STACK.md, ROADMAP.md, SKILLS.md, README.md) on-demand only as needed for the active task, minimizing session startup tokens by up to ~94%.
 `
 
 // ExportOptions holds parameters for exporting canonical SDD skills.

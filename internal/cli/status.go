@@ -3,6 +3,7 @@ package cli
 import (
 	"path/filepath"
 
+	"github.com/vikashkumar21/sdd/internal/passport"
 	"github.com/vikashkumar21/sdd/internal/status"
 )
 
@@ -10,6 +11,7 @@ func runStatus(args []string, env IO) int {
 	fs := newFlagSet("status", env)
 	dir := fs.String("dir", ".", "project root")
 	jsonOut := fs.Bool("json", false, "output status as structured JSON")
+	compact := fs.Bool("compact", false, "output compact project passport micro-index")
 
 	pos, err := parseInterspersed(fs, args)
 	if err != nil {
@@ -24,6 +26,25 @@ func runStatus(args []string, env IO) int {
 	if err != nil {
 		fprintf(env.Err, "sdd status: %v\n", err)
 		return 1
+	}
+
+	if *compact {
+		p, err := passport.Generate(root, env.now().UTC())
+		if err != nil {
+			fprintf(env.Err, "sdd status: %v\n", err)
+			return 1
+		}
+		if *jsonOut {
+			data, err := p.RenderJSON()
+			if err != nil {
+				fprintf(env.Err, "sdd status: %v\n", err)
+				return 1
+			}
+			fprintln(env.Out, data)
+			return 0
+		}
+		fprint(env.Out, p.RenderMarkdown())
+		return 0
 	}
 
 	ps, err := status.Scan(root)

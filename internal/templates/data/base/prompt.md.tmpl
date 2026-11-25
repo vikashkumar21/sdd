@@ -7,8 +7,9 @@ Role orchestration: As Task Coordinator, you orchestrate task lifecycle transiti
 ## 1. Step 0 - read the project (read-only), in this order
 
 1. {{.AgentFile}} - your operating contract (identical rules in {{join .AgentFiles ", "}})
-2. MISSION.md, 3. TECH_STACK.md, 4. ROADMAP.md, 5. SKILLS.md, 6. README.md
-7. tasks/<typology>/_templates/*.md and, for the focus task, tasks/<typology>/T-xxx-<slug>/requirements.md, plan.md, validation.md, review.md
+2. Orient first with the project passport micro-index (`sdd passport` or `sdd status --compact`)
+3. For the focus task: tasks/<typology>/T-xxx-<slug>/requirements.md, plan.md, validation.md, review.md
+4. Load full living documents on-demand as needed: MISSION.md (scope, principles), TECH_STACK.md (stack, architecture, Decision register §6, verified facts §7), ROADMAP.md (milestones, tasks, statuses), SKILLS.md (standards §1, feedback rules §8), README.md (quickstart)
 
 {{.AgentFile}} governs everything. This prompt only briefs you. If they conflict, the contract wins and you report the conflict.
 

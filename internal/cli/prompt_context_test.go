@@ -47,6 +47,7 @@ func TestPromptWithStagedContext(t *testing.T) {
 		"Staged external context (.sdd/context/)",
 		"meeting-transcript",
 		"Extraction and synthesis instructions:",
+		"sdd passport",
 		"MISSION.md",
 		"TECH_STACK.md",
 		"ROADMAP.md",

@@ -89,6 +89,7 @@ internal/fsutil/      atomic file writes
 internal/install/     cross-platform user-level binary self-installation and PATH configuration
 internal/permissions/ agent permission manifest generation (.claude, .cursor, .gemini)
 internal/docflow/     domain flow & visual architecture documentation engine (init, flow)
+internal/passport/    deterministic project passport and micro-index generator for progressive disclosure
 internal/repair/      safe interactive mechanical repair engine (contract parity, table alignment)
 internal/suppress/    finding waivers and baseline suppression register (.sdd/suppressions.json)
 internal/version/     build version (set with -ldflags)
@@ -213,6 +214,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-25 | Subagent model tier routing (Model: "flash" for standard tier roles spec-auditor, pattern-auditor, qa, devops; Model: "inherit"/"pro" for frontier/advanced roles), tier enforcement in coordinator skill & contracts, invoke_subagent dispatch snippets in sdd prompt, mechanical coordinator-tier-dispatch check, and template version 2.8.0 verified | Run in internal/check, internal/cli, internal/templates, and internal/upgrade tests (T-060) | M15 |
 | 2026-11-25 | Lens-scoped review bundles (.sdd/review/<TASK_ID>/<lens>/), deterministic diff filtering engine (FilterGitDiffByLens), remediation finding filtering (FilterFindingsForLens), manifest diff telemetry, 30–70% context token savings, and template version 2.9.0 verified | Run in internal/audit, internal/cli, internal/templates, and internal/upgrade tests (T-061) | M15 |
 | 2026-11-25 | Provider-aligned prompt prefix caching (>=1,024 tokens / >=4,096 bytes invariant static prefixes across Anthropic, OpenAI, Gemini), dynamic suffix pinning, cross-task & multi-loop byte-stability, and template version 2.10.0 verified (noting Claude 3.5 Haiku 2,048-token floor) | Run in internal/cli and internal/templates tests (T-062) | M15 |
+| 2026-11-25 | Living document progressive disclosure, sdd passport (--json, --dir), sdd status --compact, contract Rule 1 micro-index protocol, mechanical passport-consistency check, <=500 token ceiling, and template version 2.11.0 verified | Run in internal/passport, internal/cli, internal/check, and internal/templates tests (T-063) | M15 |
 
 ## 8. Dependency register
 

@@ -269,6 +269,7 @@ func (c *checker) run() {
 	c.checkRoles()
 	c.checkCoordinatorTierDispatch(agents)
 	c.checkWorktrees(tasks)
+	c.checkPassportConsistency(tasks)
 }
 
 func (c *checker) checkWorktrees(tasks []roadmap.Task) {
