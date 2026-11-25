@@ -1,14 +1,4 @@
 {
   "schema": 1,
-  "worktrees": [
-    {
-      "task_id": "T-060",
-      "typology": "feature",
-      "slug": "subagent-model-routing",
-      "branch": "feature/T-060-subagent-model-routing",
-      "path": ".sdd/worktrees/T-060-subagent-model-routing",
-      "base_ref": "HEAD",
-      "created_at": "2026-11-25T03:56:45Z"
-    }
-  ]
+  "worktrees": []
 }

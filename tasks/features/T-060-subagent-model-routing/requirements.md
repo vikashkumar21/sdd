@@ -1,13 +1,13 @@
 ---
-status: draft
+status: active
 ---
 # Requirements — T-060 Subagent model routing, tier enforcement, and calibrated reasoning dispatch
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
-Status: Draft | Approved (pending GATE 1)
+Status: Approved 2026-11-25
 Roadmap ref: `ROADMAP.md` T-060
-Decision ref: `TECH_STACK.md` D-050 (Proposed)
+Decision ref: `TECH_STACK.md` D-050 (Approved 2026-11-25)
 
 ## 1. Goal
 

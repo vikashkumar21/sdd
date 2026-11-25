@@ -1,11 +1,11 @@
 ---
-status: draft
+status: active
 ---
 # Plan — T-060 Subagent model routing, tier enforcement, and calibrated reasoning dispatch
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
-Status: Draft | Awaiting approval (GATE 1)
+Status: Approved 2026-11-25
 
 ## 1. Approach summary
 
@@ -15,7 +15,7 @@ Operationalize the heterogeneous model routing specifications introduced in `T-0
 
 | ID | Decision | Options | Recommendation | Status |
 |---|---|---|---|---|
-| D-050 | Token consumption mitigation, context hygiene, and provider-aligned caching architecture | Option A: Subagent model routing & tier enforcement in skills and contracts, lens-scoped review bundles, provider-aligned prompt prefix caching, living document progressive disclosure, and native transcript telemetry ingestion. Option B: Ad-hoc manual prompts without contract or mechanical enforcement. | Option A (determinstic, enforceable, measurable token savings) | Proposed (at Gate 1) |
+| D-050 | Token consumption mitigation, context hygiene, and provider-aligned caching architecture | Option A: Subagent model routing & tier enforcement in skills and contracts, lens-scoped review bundles, provider-aligned prompt prefix caching, living document progressive disclosure, and native transcript telemetry ingestion. Option B: Ad-hoc manual prompts without contract or mechanical enforcement. | Option A (determinstic, enforceable, measurable token savings) | Approved 2026-11-25 |
 
 ## 3. Design
 
@@ -119,4 +119,4 @@ None (100% standard library per `D-007`).
 - **F-003:** Track and record session token consumption via `sdd record-tokens T-060`, document metrics in `validation.md`, and report at Gate 2.
 
 ## 10. Approval record
-Approved by: Vikash (human)   Date: ______   Phrase received: `APPROVED T-060`
+Approved by: Vikash (human)   Date: 2026-11-25   Phrase received: `APPROVED T-060`
