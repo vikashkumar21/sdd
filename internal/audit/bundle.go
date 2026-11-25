@@ -795,6 +795,15 @@ func extractGitDiff(root string) (string, error) {
 		}
 	}
 
+	// If working tree diff against HEAD is empty, check branch diff against main
+	if len(bytes.TrimSpace(out)) == 0 {
+		cmdBranch := exec.CommandContext(ctx, "git", "diff", "main...HEAD")
+		cmdBranch.Dir = root
+		if bOut, bErr := cmdBranch.Output(); bErr == nil && len(bytes.TrimSpace(bOut)) > 0 {
+			out = bOut
+		}
+	}
+
 	var sb strings.Builder
 	sb.Write(out)
 
