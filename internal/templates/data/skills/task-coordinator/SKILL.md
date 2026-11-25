@@ -50,12 +50,35 @@ The Task Coordinator acts as a Staff Orchestrator and Technical Project Lead. It
 - **Rule F-001 Compliance:** The Task Coordinator ensures all findings (Blockers, Warnings, Minors) are resolved or explicitly justified before Gate 2 close.
 - **3-Loop Circuit Breaker:** At most 3 review-fix iterations. If Blockers persist after attempt 3, halt, mark the task `Blocked`, and escalate to the human.
 
-### 5. Heterogeneous Role Model Routing & Tier Allocation
-- **Cognitive Bias & Token Budget Optimization:** Homogeneous dispatch (running every subagent on the most expensive frontier model) wastes tokens on verification and creates shared cognitive blind spots. The Task Coordinator routes agent dispatches according to abstract capability tiers and reasoning effort calibrated in `.sdd/roles.json` (`D-049`):
-  - **`frontier` (High Reasoning):** Complex architectural synthesis, threat modeling, forensic discovery, and orchestration (`coordinator`, `architect`, `codebase-analyst`, `discovery-challenger`, `appsec-specialist`). Recommended family: `claude-opus / gemini-pro / o1`.
-  - **`advanced` (Medium-High Reasoning):** Detailed plan auditing and production code authoring (`plan-reviewer`, `implementer`). Recommended family: `claude-sonnet / gemini-pro / o3-mini`.
-  - **`standard` (Medium-Low Reasoning):** Requirements traceability, pattern checking, test automation, and CI pipelines (`spec-auditor`, `pattern-auditor`, `qa`, `devops`). Recommended family: `claude-sonnet / gemini-flash / gpt-4o`.
-  - **`fast` (Low/No Reasoning):** Rapid sanity checking, mechanical repairs, and deterministic table formatting. Recommended family: `claude-haiku / gemini-flash / gpt-4o-mini`.
+### 5. Heterogeneous Role Model Routing & Tier Enforcement
+- **Cognitive Bias & Token Budget Optimization:** Homogeneous dispatch (running every subagent on the most expensive frontier model) wastes tokens on routine verification and creates shared cognitive blind spots. The Task Coordinator strictly routes agent dispatches according to abstract capability tiers and reasoning effort calibrated in `.sdd/roles.json` (`D-049`, `D-050`):
+  - **`frontier` (High Reasoning):** Complex architectural synthesis, threat modeling, forensic discovery, and orchestration (`coordinator`, `architect`, `codebase-analyst`, `discovery-challenger`, `appsec-specialist`). Tool parameter: `Model: "inherit"` (or `"pro"`). Recommended family: `claude-opus / gemini-pro / o1`.
+  - **`advanced` (Medium-High Reasoning):** Detailed plan auditing and production code authoring (`plan-reviewer`, `implementer`). Tool parameter: `Model: "inherit"` (or `"pro"`). Recommended family: `claude-sonnet / gemini-pro / o3-mini`.
+  - **`standard` (Medium-Low Reasoning / High Verification Speed):** Requirements traceability, pattern checking, test automation, and CI pipelines (`spec-auditor`, `pattern-auditor`, `qa`, `devops`). Tool parameter: `Model: "flash"` (or `"haiku"` / `"gpt-4o"`). Recommended family: `claude-haiku / gemini-flash / gpt-4o`.
+  - **`fast` (Low/No Reasoning):** Rapid sanity checking, mechanical repairs, and deterministic table formatting. Tool parameter: `Model: "flash_lite"` (or `"haiku"` / `"gpt-4o-mini"`). Recommended family: `claude-haiku / gemini-flash_lite / gpt-4o-mini`.
+- **Mandatory `Model` Parameter Enforcement:** When calling `invoke_subagent` (or equivalent tool), the Task Coordinator MUST explicitly supply the `Model` parameter matching the target role's capability tier. The Task Coordinator is strictly forbidden from defaulting to frontier inheritance (`Model` omitted or `"inherit"`) for `standard` tier roles (`spec-auditor`, `pattern-auditor`, `qa`, `devops`).
+- **Concrete Invocation Snippets:**
+  - **Spec Auditor (Standard Tier):**
+    ```text
+    invoke_subagent(Role="Independent Spec Auditor", Model="flash", Prompt="...")
+    ```
+  - **AppSec Specialist (Frontier Tier):**
+    ```text
+    invoke_subagent(Role="Independent AppSec Specialist", Model="inherit", Prompt="...")
+    ```
+  - **Pattern Auditor (Standard Tier):**
+    ```text
+    invoke_subagent(Role="Independent Pattern & Quality Auditor", Model="flash", Prompt="...")
+    ```
+  - **Plan Reviewer (Advanced Tier):**
+    ```text
+    invoke_subagent(Role="Independent Plan Reviewer", Model="inherit", Prompt="...")
+    ```
+  - **QA & DevOps (Standard Tier):**
+    ```text
+    invoke_subagent(Role="QA Verification Engineer", Model="flash", Prompt="...")
+    invoke_subagent(Role="DevOps Operations Engineer", Model="flash", Prompt="...")
+    ```
 - **Provider-Agnostic Dispatch:** Model routing guidance emitted by `sdd prompt` informs both human supervisors and automated Agent SDK orchestrators, allowing provider switching without hard vendor lock-in.
 
 ### 6. Pre-Merge Qualification & Gate 2 Presentation

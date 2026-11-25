@@ -8,8 +8,8 @@ import (
 )
 
 func TestVersion(t *testing.T) {
-	if Version != "2.7.0" {
-		t.Errorf("Version = %q, want 2.7.0", Version)
+	if Version != "2.8.0" {
+		t.Errorf("Version = %q, want 2.8.0", Version)
 	}
 }
 
@@ -54,6 +54,9 @@ func TestContractTemplateCoordinatorAndWorkflow(t *testing.T) {
 		"Spec Auditor (`spec-auditor`)",
 		"AppSec Specialist (`appsec-specialist`)",
 		"Pattern Auditor (`pattern-auditor`)",
+		"Tier-Calibrated Subagent Dispatch",
+		"standard model tier",
+		"frontier model tier",
 		"Two-tier agent hierarchy & role dispatch",
 		".sdd/roles.json",
 		"tasks/<typology>/",

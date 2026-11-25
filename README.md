@@ -8,6 +8,7 @@
 - a root `.ragignore` excluding ephemeral and build artifacts from RAG/vector indexing
 - safe brownfield proposal files (`README.md.sdd-new`) preserving existing project documentation untouched
 - a `.sdd/manifest.json` recording what was generated
+- heterogeneous agent role routing and tier-calibrated dispatch in `.sdd/roles.json` with copy-pasteable `invoke_subagent` snippets in `sdd prompt` commands (`Model: "flash"` for routine verification, reducing token usage by $\ge 60\%$)
 
 The workflow it installs: the agent drafts requirements and a plan, **the human approves before any code**, the agent implements and verifies, and **the human reviews and commits**. The anthem: *always be deterministic, and take human approval or decisions to accomplish that determinism.*
 

@@ -42,6 +42,7 @@ Status: living document · Last updated: 2026-10-26
 | M12 | Adversarial Discovery, Hard Git Gating & Stateless Review Isolation | T-050 – T-055 | 25 | Path hygiene check, sdd hook install hard git gate, stateless review isolation harness, adversarial discovery challenger, visual domain flow diagrams, and default token telemetry |
 | M13 | Forensic Brownfield Hardening, Coverage Auditing & Multi-Language Rubrics | T-056 | 6 | Coverage ledger standard, mechanical verification in sdd check, language-pack review templates, unanchored challenger inventorying, and enriched review bundles |
 | M14 | Cognitive Bias Immunity, Unanchored Auditing & Heterogeneous Model Routing | T-057 – T-059 | 15 | Unanchored traceability ledger, ephemeral reviewer lifecycle, zero-negotiation loop isolation, heterogeneous role model routing in .sdd/roles.json |
+| M15 | Token Optimization, Context Hygiene & Provider Caching | T-060 – T-064 | 22 | Subagent model tier routing, lens-scoped review bundles, provider-aligned prefix caching, living doc micro-index, native transcript ingestion |
 
 ## 4. Tasks
 
@@ -180,6 +181,16 @@ Status: living document · Last updated: 2026-10-26
 | T-058 | Ephemeral tabula-rasa reviewer lifecycle and zero-negotiation loop isolation | M | T-057 | Forbid subagent session reuse across remediation loops, re-stage candidate diffs without developer prose, isolate pure finding IDs, and update coordinator review loop instructions | D-049 | Done |
 | T-059 | Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch | M | T-058 | Extend .sdd/roles.json with model_tier, reasoning_effort, and recommended_family; multi-model prompt and export orchestration manifests | D-049 | Done |
 
+### M15 — Token Optimization, Context Hygiene & Provider Caching
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-060 | Subagent model routing, tier enforcement, and calibrated reasoning dispatch | M | T-059 | Orchestrator and coordinator skills mandate model tier pinning in invoke_subagent, calibrated reasoning effort, and sdd check verification | D-050 | Awaiting review |
+| T-061 | Lens-scoped review bundles and diff filtering | M | T-060 | Internal audit bundle generator produces tailored diff and spec slices per reviewer lens (spec/security/pattern), reducing redundant Review Triad context | D-050 | Not started |
+| T-062 | Provider-aligned prompt prefix caching and dynamic suffix pinning | M | T-061 | Reorganize all sdd prompt templates to enforce invariant >=1024 token prefixes with dynamic metadata pinned to suffix for optimal Anthropic/OpenAI/Gemini KV cache hits | D-050 | Not started |
+| T-063 | Living document progressive disclosure and Rule 1 micro-index | M | T-062 | Compact project passport/status index for low-token session startup, fetching full living documents on-demand | D-050 | Not started |
+| T-064 | Native IDE transcript discovery and ingestion in sdd record-tokens | S | T-060 | Auto-discovery and JSONL parsing of IDE conversation transcripts in sdd record-tokens, eliminating manual extraction scripts | D-050 | Not started |
+
 ## 5. Unknown-technology protocol (spikes)
 
 Unfamiliar technology derails projects. To prevent that:
@@ -206,13 +217,16 @@ Unfamiliar technology derails projects. To prevent that:
 
 1. M0 through M14 are complete (58 tasks delivered).
 2. Release v1.10.0 tagged and cross-platform release binaries built.
-3. Active milestone: none (Milestone 14 complete).
-4. Active task: none.
+3. Active milestone: Milestone 15: Token Optimization, Context Hygiene & Provider Caching (0/5 complete, 0%).
+4. Active task: T-060 (Subagent model routing, tier enforcement, and calibrated reasoning dispatch, Awaiting review) under M15.
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-25 | T-060: Subagent model routing, tier enforcement, and calibrated reasoning dispatch awaiting review |
+| 2026-11-25 | T-060: Subagent model routing, tier enforcement, and calibrated reasoning dispatch specifying |
+| 2026-11-25 | Milestone 15 added: Token Optimization, Context Hygiene & Provider Caching (T-060 to T-064; D-050) |
 | 2026-11-24 | Release v1.10.0: cross-platform static binaries (darwin, linux, windows), template version 2.7.0, unanchored traceability ledger, ephemeral reviewer lifecycle, and heterogeneous model routing |
 | 2026-11-24 | T-059: Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch done (Milestone 14 complete) |
 | 2026-11-24 | T-059: Heterogeneous role model routing, tier specifications, and provider-agnostic dispatch awaiting review |

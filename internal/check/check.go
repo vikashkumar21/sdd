@@ -267,6 +267,7 @@ func (c *checker) run() {
 	c.checkPermissions()
 	c.checkAgentSkills()
 	c.checkRoles()
+	c.checkCoordinatorTierDispatch(agents)
 	c.checkWorktrees(tasks)
 }
 

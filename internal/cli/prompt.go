@@ -218,6 +218,47 @@ func extractApprovedDecisions(root string) []string {
 	return decisions
 }
 
+func resolveSubagentModelParam(tier string) string {
+	switch strings.ToLower(strings.TrimSpace(tier)) {
+	case "standard":
+		return "flash"
+	case "fast":
+		return "flash_lite"
+	case "frontier", "advanced":
+		return "inherit"
+	default:
+		return "inherit"
+	}
+}
+
+func roleTitleFor(roleName string) string {
+	switch strings.ToLower(strings.TrimSpace(roleName)) {
+	case "spec-auditor":
+		return "Independent Spec Auditor"
+	case "appsec-specialist":
+		return "Independent AppSec Specialist"
+	case "pattern-auditor":
+		return "Independent Pattern & Quality Auditor"
+	case "plan-reviewer":
+		return "Independent Plan Reviewer"
+	case "implementer":
+		return "Senior Software Engineer (Implementer)"
+	case "qa":
+		return "Senior QA Automation Engineer (QA)"
+	case "devops":
+		return "Senior DevOps / SRE Engineer (DevOps)"
+	case "codebase-analyst":
+		return "Codebase Discovery Analyst"
+	case "discovery-challenger":
+		return "Adversarial Discovery Challenger"
+	default:
+		if strings.TrimSpace(roleName) == "" {
+			return "Subagent"
+		}
+		return roleName
+	}
+}
+
 func formatModelRoutingSection(r role.ModelRouting, roleName string) string {
 	var sb strings.Builder
 	sb.WriteString("## Model Routing Guidance\n")
@@ -227,6 +268,11 @@ func formatModelRoutingSection(r role.ModelRouting, roleName string) string {
 	fmt.Fprintf(&sb, "- **Model Tier:** %s\n", r.Tier)
 	fmt.Fprintf(&sb, "- **Reasoning Effort:** %s\n", r.ReasoningEffort)
 	fmt.Fprintf(&sb, "- **Recommended Family:** %s\n", r.RecommendedFamily)
+	fmt.Fprintf(&sb, "- **Subagent Model Parameter:** `Model=%q`\n\n", resolveSubagentModelParam(r.Tier))
+	sb.WriteString("### Subagent Invocation Snippet\n")
+	sb.WriteString("```text\n")
+	fmt.Fprintf(&sb, "invoke_subagent(\n  Role=%q,\n  Model=%q,\n  Prompt=\"...\"\n)\n", roleTitleFor(roleName), resolveSubagentModelParam(r.Tier))
+	sb.WriteString("```\n")
 	return sb.String()
 }
 
@@ -238,14 +284,23 @@ func formatTriadModelRoutingSection(spec, sec, pat role.ModelRouting) string {
 	fmt.Fprintf(&sb, "  - Model Tier: %s\n", spec.Tier)
 	fmt.Fprintf(&sb, "  - Reasoning Effort: %s\n", spec.ReasoningEffort)
 	fmt.Fprintf(&sb, "  - Recommended Family: %s\n", spec.RecommendedFamily)
+	fmt.Fprintf(&sb, "  - Subagent Model Parameter: `Model=%q`\n", resolveSubagentModelParam(spec.Tier))
 	sb.WriteString("- **AppSec Specialist (appsec-specialist):**\n")
 	fmt.Fprintf(&sb, "  - Model Tier: %s\n", sec.Tier)
 	fmt.Fprintf(&sb, "  - Reasoning Effort: %s\n", sec.ReasoningEffort)
 	fmt.Fprintf(&sb, "  - Recommended Family: %s\n", sec.RecommendedFamily)
+	fmt.Fprintf(&sb, "  - Subagent Model Parameter: `Model=%q`\n", resolveSubagentModelParam(sec.Tier))
 	sb.WriteString("- **Pattern Auditor (pattern-auditor):**\n")
 	fmt.Fprintf(&sb, "  - Model Tier: %s\n", pat.Tier)
 	fmt.Fprintf(&sb, "  - Reasoning Effort: %s\n", pat.ReasoningEffort)
 	fmt.Fprintf(&sb, "  - Recommended Family: %s\n", pat.RecommendedFamily)
+	fmt.Fprintf(&sb, "  - Subagent Model Parameter: `Model=%q`\n\n", resolveSubagentModelParam(pat.Tier))
+	sb.WriteString("### Subagent Invocation Snippets (Review Triad)\n")
+	sb.WriteString("```text\n")
+	fmt.Fprintf(&sb, "// 1. Spec Auditor (Standard Tier)\ninvoke_subagent(\n  Role=%q,\n  Model=%q,\n  Prompt=\"...\"\n)\n\n", roleTitleFor("spec-auditor"), resolveSubagentModelParam(spec.Tier))
+	fmt.Fprintf(&sb, "// 2. AppSec Specialist (Frontier Tier)\ninvoke_subagent(\n  Role=%q,\n  Model=%q,\n  Prompt=\"...\"\n)\n\n", roleTitleFor("appsec-specialist"), resolveSubagentModelParam(sec.Tier))
+	fmt.Fprintf(&sb, "// 3. Pattern Auditor (Standard Tier)\ninvoke_subagent(\n  Role=%q,\n  Model=%q,\n  Prompt=\"...\"\n)\n", roleTitleFor("pattern-auditor"), resolveSubagentModelParam(pat.Tier))
+	sb.WriteString("```\n")
 	return sb.String()
 }
 
@@ -448,13 +503,7 @@ func detectOperationalSkills(planContent string) []string {
 func buildImplementPrompt(taskID, taskDir, typology, targetRole, roleSkill string, activatedSkills, plannedFiles []string, feedbackRules string, decisions []string, routing role.ModelRouting) string {
 	var sb strings.Builder
 
-	roleTitle := "Senior Software Engineer (Implementer)"
-	switch targetRole {
-	case "qa":
-		roleTitle = "Senior QA Automation Engineer (QA)"
-	case "devops":
-		roleTitle = "Senior DevOps / SRE Engineer (DevOps)"
-	}
+	roleTitle := roleTitleFor(targetRole)
 
 	fmt.Fprintf(&sb, "# Handover: Phase B Implementation for %s (%s)\n\n", taskID, roleTitle)
 	fmt.Fprintf(&sb, "You are acting as the **%s** for task `%s` (%s).\n", roleTitle, taskID, typology)

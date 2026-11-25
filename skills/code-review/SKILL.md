@@ -36,6 +36,12 @@ Every code review in Phase C.2 deploys three independent subagents in parallel, 
    - **Concurrency Safety:** Verify goroutine lifecycles, race detector compliance, and zero data races.
    - **Continuous Learning:** Active feedback rules in `SKILLS.md` §8 (`F-xxx`) complied with; recurring patterns captured.
 
+## Reviewer Model Tier Calibration & Token Conservation
+To balance deep adversarial inspection with economic token discipline, Review Triad subagents are routed to calibrated model tiers (`D-049`, `D-050`):
+- **🔎 Spec Auditor (Standard Tier — `Model: "flash"` / `haiku` / `gpt-4o`):** Standard model tier with low reasoning effort. Performs deterministic requirements traceability scanning, omission checks, and boundary enforcement against structured tables.
+- **🛡️ AppSec Specialist (Frontier Tier — `Model: "inherit"` / `pro` / `opus` / `o1`):** Frontier model tier with high reasoning effort. Performs deep adversarial threat analysis, taint tracking, filesystem confinement audits, and security edge case discovery.
+- **📐 Pattern & Quality Auditor (Standard Tier — `Model: "flash"` / `haiku` / `gpt-4o`):** Standard model tier with low reasoning effort. Performs architectural decision (`D-xxx`) validation, active feedback rule (`F-xxx`) compliance, and Go idiom/style checks.
+
 ## Unanchored Requirements Traceability Ledger & Omission-First Review Protocol
 
 To eliminate the LLM "Diff Framing" anchoring bias (where reviewers critique existing code but overlook omissions, edge cases, and missing tests), SDD mandates the **Omission-First Review Protocol** (`D-049`):

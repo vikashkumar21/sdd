@@ -289,6 +289,9 @@ func TestPromptReview_ModelRouting(t *testing.T) {
 	if !strings.Contains(outText, "- **Role:** spec-auditor") || !strings.Contains(outText, "- **Model Tier:** standard") {
 		t.Errorf("expected spec-auditor standard tier in prompt output:\n%s", outText)
 	}
+	if !strings.Contains(outText, `Model="flash"`) || !strings.Contains(outText, `Role="Independent Spec Auditor"`) {
+		t.Errorf("expected invoke_subagent snippet with Model=\"flash\" for spec-auditor:\n%s", outText)
+	}
 
 	// 2. JSON output for lens=spec
 	outBuf.Reset()
@@ -307,6 +310,28 @@ func TestPromptReview_ModelRouting(t *testing.T) {
 		t.Errorf("unexpected model_routing: %+v", ctx.ModelRouting)
 	}
 
+	// 2b. Text output for lens=security
+	outBuf.Reset()
+	errBuf.Reset()
+	if code := runPromptReview([]string{"T-059", "--lens", "security", "--dir", root}, env); code != 0 {
+		t.Fatalf("runPromptReview security failed: %d: %s", code, errBuf.String())
+	}
+	secText := outBuf.String()
+	if !strings.Contains(secText, "- **Role:** appsec-specialist") || !strings.Contains(secText, `Model="inherit"`) {
+		t.Errorf("expected appsec-specialist frontier tier with Model=\"inherit\":\n%s", secText)
+	}
+
+	// 2c. Text output for lens=pattern
+	outBuf.Reset()
+	errBuf.Reset()
+	if code := runPromptReview([]string{"T-059", "--lens", "pattern", "--dir", root}, env); code != 0 {
+		t.Fatalf("runPromptReview pattern failed: %d: %s", code, errBuf.String())
+	}
+	patText := outBuf.String()
+	if !strings.Contains(patText, "- **Role:** pattern-auditor") || !strings.Contains(patText, `Model="flash"`) {
+		t.Errorf("expected pattern-auditor standard tier with Model=\"flash\":\n%s", patText)
+	}
+
 	// 3. Text output for lens=all (triad routing)
 	outBuf.Reset()
 	errBuf.Reset()
@@ -319,6 +344,9 @@ func TestPromptReview_ModelRouting(t *testing.T) {
 	}
 	if !strings.Contains(allText, "Spec Auditor (spec-auditor)") || !strings.Contains(allText, "AppSec Specialist (appsec-specialist)") {
 		t.Errorf("expected triad roles in guidance:\n%s", allText)
+	}
+	if !strings.Contains(allText, `Model="flash"`) || !strings.Contains(allText, `Model="inherit"`) {
+		t.Errorf("expected triad subagent invocation snippets with flash and inherit:\n%s", allText)
 	}
 
 	// 4. JSON output for lens=all
@@ -354,6 +382,9 @@ func TestPromptPlanReview_ModelRouting(t *testing.T) {
 	if !strings.Contains(outText, "- **Role:** plan-reviewer") || !strings.Contains(outText, "- **Model Tier:** advanced") {
 		t.Errorf("expected plan-reviewer advanced tier in prompt output:\n%s", outText)
 	}
+	if !strings.Contains(outText, `Model="inherit"`) || !strings.Contains(outText, `Role="Independent Plan Reviewer"`) {
+		t.Errorf("expected plan-reviewer invoke_subagent snippet with Model=\"inherit\":\n%s", outText)
+	}
 
 	// JSON output
 	outBuf.Reset()
@@ -388,6 +419,31 @@ func TestPromptImplement_ModelRouting(t *testing.T) {
 	if !strings.Contains(outText, "- **Role:** implementer") || !strings.Contains(outText, "- **Model Tier:** advanced") {
 		t.Errorf("expected implementer advanced tier in prompt output:\n%s", outText)
 	}
+	if !strings.Contains(outText, `Model="inherit"`) || !strings.Contains(outText, `Role="Senior Software Engineer (Implementer)"`) {
+		t.Errorf("expected implementer invoke_subagent snippet with Model=\"inherit\":\n%s", outText)
+	}
+
+	// 1b. Text output for role=qa (standard tier)
+	var qaOutBuf, qaErrBuf bytes.Buffer
+	qaEnv := IO{In: strings.NewReader(""), Out: &qaOutBuf, Err: &qaErrBuf}
+	if code := runPromptImplement([]string{"T-059", "--role", "qa", "--dir", root}, qaEnv); code != 0 {
+		t.Fatalf("runPromptImplement --role qa failed: %d: %s", code, qaErrBuf.String())
+	}
+	qaText := qaOutBuf.String()
+	if !strings.Contains(qaText, `Model="flash"`) || !strings.Contains(qaText, `Role="Senior QA Automation Engineer (QA)"`) {
+		t.Errorf("expected qa invoke_subagent snippet with Model=\"flash\":\n%s", qaText)
+	}
+
+	// 1c. Text output for role=devops (standard tier)
+	var devopsOutBuf, devopsErrBuf bytes.Buffer
+	devopsEnv := IO{In: strings.NewReader(""), Out: &devopsOutBuf, Err: &devopsErrBuf}
+	if code := runPromptImplement([]string{"T-059", "--role", "devops", "--dir", root}, devopsEnv); code != 0 {
+		t.Fatalf("runPromptImplement --role devops failed: %d: %s", code, devopsErrBuf.String())
+	}
+	devopsText := devopsOutBuf.String()
+	if !strings.Contains(devopsText, `Model="flash"`) || !strings.Contains(devopsText, `Role="Senior DevOps / SRE Engineer (DevOps)"`) {
+		t.Errorf("expected devops invoke_subagent snippet with Model=\"flash\":\n%s", devopsText)
+	}
 
 	// JSON output
 	outBuf.Reset()
@@ -404,5 +460,65 @@ func TestPromptImplement_ModelRouting(t *testing.T) {
 	}
 	if ctx.ModelRouting.Tier != "advanced" || ctx.ModelRouting.ReasoningEffort != "medium" {
 		t.Errorf("unexpected implement model routing: %+v", ctx.ModelRouting)
+	}
+}
+
+func TestResolveSubagentModelParam(t *testing.T) {
+	tests := []struct {
+		tier     string
+		expected string
+	}{
+		{"standard", "flash"},
+		{"fast", "flash_lite"},
+		{"frontier", "inherit"},
+		{"advanced", "inherit"},
+		{"  STANDARD  ", "flash"},
+		{"  FAST  ", "flash_lite"},
+		{"  FRONTIER  ", "inherit"},
+		{"  ADVANCED  ", "inherit"},
+		{"", "inherit"},
+		{"   ", "inherit"},
+		{"unknown-tier", "inherit"},
+		{"custom", "inherit"},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run("tier_"+tc.tier, func(t *testing.T) {
+			got := resolveSubagentModelParam(tc.tier)
+			if got != tc.expected {
+				t.Errorf("resolveSubagentModelParam(%q) = %q, want %q", tc.tier, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestRoleTitleFor(t *testing.T) {
+	tests := []struct {
+		roleName string
+		expected string
+	}{
+		{"spec-auditor", "Independent Spec Auditor"},
+		{"appsec-specialist", "Independent AppSec Specialist"},
+		{"pattern-auditor", "Independent Pattern & Quality Auditor"},
+		{"plan-reviewer", "Independent Plan Reviewer"},
+		{"implementer", "Senior Software Engineer (Implementer)"},
+		{"qa", "Senior QA Automation Engineer (QA)"},
+		{"devops", "Senior DevOps / SRE Engineer (DevOps)"},
+		{"codebase-analyst", "Codebase Discovery Analyst"},
+		{"discovery-challenger", "Adversarial Discovery Challenger"},
+		{"", "Subagent"},
+		{"   ", "Subagent"},
+		{"custom-specialist", "custom-specialist"},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run("role_"+tc.roleName, func(t *testing.T) {
+			got := roleTitleFor(tc.roleName)
+			if got != tc.expected {
+				t.Errorf("roleTitleFor(%q) = %q, want %q", tc.roleName, got, tc.expected)
+			}
+		})
 	}
 }

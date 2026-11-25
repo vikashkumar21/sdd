@@ -340,7 +340,7 @@ Role assignments in `.sdd/roles.json` declare calibrated model capability tiers 
    - Recommended family: `claude-sonnet / gemini-pro / o3-mini`.
 3. **`standard` (Medium-Low Reasoning):** Optimized for structured verification, requirements traceability, pattern compliance, unit test authoring, and CI recipes:
    - Canonical roles: `spec-auditor`, `pattern-auditor`, `qa`, `devops`.
-   - Recommended family: `claude-sonnet / gemini-flash / gpt-4o`.
+   - Recommended family: `claude-sonnet / gemini-flash / gpt-4o` (auditors) and `claude-haiku / gemini-flash / gpt-4o-mini` (operations).
 4. **`fast` (Low/No Reasoning):** Suited for deterministic mechanical repairs, table formatting, and rapid lint sweeps:
    - Recommended family: `claude-haiku / gemini-flash / gpt-4o-mini`.
 
@@ -351,3 +351,40 @@ Role assignments in `.sdd/roles.json` declare calibrated model capability tiers 
 ### 3. Mechanical Consistency & Upgrade Invariants
 - **Validation (`sdd check`):** Rules `roles-tier`, `roles-reasoning`, and `roles-family` verify that declared roles conform strictly to allowed enum tiers and effort levels.
 - **Non-Destructive Migration (`sdd upgrade`):** Upgrading older kits backfills missing model routing metadata on canonical roles without clobbering user overrides or custom role definitions.
+
+## 18. Tier-Calibrated Subagent Dispatch & Token Optimization Standard
+
+To prevent runaway token exhaustion and eliminate cognitive blind spots during multi-agent workflows, SDD mandates the **Tier-Calibrated Subagent Dispatch Standard** (`T-060`, `D-050`):
+
+### 1. The Economic & Cognitive Invariant
+- **Token Conservation:** Routing structured verification tasks (`spec-auditor`, `pattern-auditor`, `qa`, `devops`) to `standard` tier models (`flash` / `haiku` / `gpt-4o`) reduces session token expenditure by $\ge 60\%$ compared to uniform frontier invocation.
+- **Cognitive Diversity:** Deploying diverse model tiers across the Review Triad breaks correlated model blind spots, ensuring checklist and pattern compliance is scrutinized independently from frontier reasoning biases.
+- **Forced Parameterization:** The Task Coordinator is strictly forbidden from defaulting to uncalibrated frontier inheritance (omitting the `Model` parameter) for `standard` tier roles.
+
+### 2. Runtime Capability Tier Mappings
+When invoking subagents via `invoke_subagent` (or runtime equivalent):
+1. **`frontier` (High Reasoning):** `Model: "inherit"` (or `"pro"`).
+   - Roles: `coordinator`, `architect`, `codebase-analyst`, `discovery-challenger`, `appsec-specialist`.
+2. **`advanced` (Medium-High Reasoning):** `Model: "inherit"` (or `"pro"`).
+   - Roles: `plan-reviewer`, `implementer`.
+3. **`standard` (Medium-Low Reasoning / High Verification Speed):** `Model: "flash"` (or `"haiku"` / `"gpt-4o"`).
+   - Roles: `spec-auditor`, `pattern-auditor`, `qa`, `devops`.
+4. **`fast` (Low/No Reasoning):** `Model: "flash_lite"` (or `"haiku"` / `"gpt-4o-mini"`).
+   - Roles: mechanical formatting, table alignment, syntax linting sweeps.
+
+### 3. Turnkey Handover & Invocation Snippets
+All `sdd prompt` handover commands (`review`, `plan-review`, `implement`) output concrete, copy-pasteable execution blocks:
+```text
+// Antigravity / Gemini CLI Dispatch Example
+invoke_subagent(
+  Role="Independent Spec Auditor",
+  Model="flash",
+  Prompt="..."
+)
+```
+
+### 4. Mechanical Verification (`sdd check`)
+- Rule `coordinator-tier-dispatch` in `internal/check/` verifies that:
+  - `skills/task-coordinator/SKILL.md` declares model tier dispatch and mandates `flash` / standard tier dispatch for `spec-auditor` and `pattern-auditor`.
+  - Agent contracts (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`) codify tier-calibrated dispatch in Phase C.2 and Hard Rule 13.
+  - Legacy kits without coordinator skills pass cleanly without false positives.
