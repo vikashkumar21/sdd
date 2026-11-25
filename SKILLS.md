@@ -185,6 +185,20 @@ Review audits are conducted through three specialized lenses:
 - **3-Loop Circuit Breaker:** At most 3 review-fix iterations (1 initial audit + up to 2 fix attempts) between author and reviewer. If Blockers persist after 3 iterations, the agent MUST halt, mark the task `Blocked`, and escalate to the human.
 - **Review Artifact (`review.md`):** Review findings are recorded in `tasks/features/T-xxx-<slug>/review.md` (or typology equivalent under `tasks/`). If any unresolved 🔴 Blocker remains, `sdd check` flags an error and the task CANNOT proceed to GATE 2 commit.
 
+### 4. Lens-Scoped Review Bundles & Diff Filtering (Milestone 15)
+To eliminate directory write collisions and save 30–70% of redundant context tokens during Review Triad execution (`D-050`, `T-061`):
+- **Directory Isolation:** Review bundles are staged in dedicated subdirectories under `.sdd/review/<TASK_ID>/<lens>/`:
+  - `spec/` for `--lens spec`
+  - `security/` for `--lens security`
+  - `pattern/` for `--lens pattern`
+  - `code/` for `--lens all` (monolithic backwards-compatible fallback)
+- **Deterministic Diff Filtering (`FilterGitDiffByLens`):**
+  - `security`: Retains source code, scripts, configs, and dependency files; filters non-executable task markdown and doc changelogs (50%+ token savings).
+  - `pattern`: Retains source code, test files, architecture decisions, and coding standards; filters validation logs and roadmap changelogs (40%+ token savings).
+  - `spec`: Retains source code, test files, and task specifications; preserves file headers for boundary checking while eliding bloated doc diff bodies (25%+ token savings).
+- **Remediation Finding Isolation (`FilterFindingsForLens`):** During multi-loop reviews (Loop > 1), `findings_to_verify.md` filters findings by domain (`SPEC-`, `SEC-`, `PAT-` / `PQ-`), ensuring reviewers only audit findings pertinent to their lens. Unassigned findings are preserved across all lenses.
+- **Manifest Telemetry:** `manifest.json` records `raw_diff_bytes`, `filtered_diff_bytes`, `diff_savings_percent`, `raw_files_count`, and `filtered_files_count`.
+
 ### 4. Lens-Scoped Review Bundles & Diff Filtering
 To eliminate directory collisions and save 30–70% of redundant context tokens during Review Triad execution (`T-061`, `D-050`):
 - **Isolated Bundle Directories:** Staged review bundles are partitioned per lens under `.sdd/review/<TASK_ID>/<lens>/` (`spec/`, `security/`, `pattern/`, and `code/` for all), guaranteeing true parallel filesystem isolation.
