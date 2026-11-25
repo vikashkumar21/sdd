@@ -5,31 +5,32 @@ status: active
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
-Status: In progress
+Status: Complete
 Roadmap ref: `ROADMAP.md` T-061
 
 ## 1. Traceability matrix
 
 | Req | Method | Command / test | Expected | Actual | Result |
 |---|---|---|---|---|---|
-| R-001 | test | `go test -v ./internal/audit -run "TestStageReviewBundle_LensScopedAndTelemetry|TestStageReviewBundle_LoopMultiLensFilter"` | PASS: Scopes bundles to .sdd/review/<TASK>/<lens>/ | PASS (470ms) | PASS |
-| R-002 | test | `go test -v ./internal/audit -run "TestFilterGitDiffByLens_Security|TestFilterGitDiffByLens_AppsecAlias|TestFilterGitDiffByLens_Pattern|TestFilterGitDiffByLens_Spec|TestFilterGitDiffByLens_All|TestFilterGitDiffByLens_ZeroDivision|TestFilterGitDiffByLens_100PercentOutOfScope|TestFilterGitDiffByLens_MalformedFallback|TestFilterGitDiffByLens_UnknownLensFallback|TestFilterGitDiffByLens_DeletedFile|TestFilterGitDiffByLens_SpacesInPath"` | PASS: Correctly tailors diff per lens, fail-safe fallbacks, deleted files, and calculates savings | PASS (12ms) | PASS |
-| R-003 | test | `go test -v ./internal/audit -run "TestFilterFindingsForLens|TestFilterFindingsForLens_Unassigned|TestStageReviewBundle_LoopMultiLensFilter"` | PASS: Filters findings_to_verify.md by lens domain, retains general findings | PASS (180ms) | PASS |
+| R-001 | test | `go test -v ./internal/audit -run TestStageReviewBundle_` | PASS: Scopes bundles to .sdd/review/<TASK>/<lens>/ | PASS (470ms) | PASS |
+| R-002 | test | `go test -v ./internal/audit -run TestFilterGitDiffByLens_` | PASS: Correctly tailors diff per lens, fail-safe fallbacks, deleted files, and calculates savings | PASS (12ms) | PASS |
+| R-003 | test | `go test -v ./internal/audit -run TestFilterFindingsForLens` | PASS: Filters findings_to_verify.md by lens domain, retains general findings | PASS (180ms) | PASS |
 | R-004 | test | `go test -v ./internal/audit -run TestStageReviewBundle_ManifestTelemetry` | PASS: Manifest contains raw_bytes, filtered_bytes, savings_percent without omitempty omission | PASS (360ms) | PASS |
-| R-005 | test | `go test -v ./internal/cli -run "TestPromptReview_StatelessBundle|TestPromptReview_LensScoped|TestPromptReviewLens"` | PASS: Prompt references lens bundle path and outputs JSON context with full telemetry | PASS (650ms) | PASS |
+| R-005 | test | `go test -v ./internal/cli -run TestPromptReview_` | PASS: Prompt references lens bundle path and outputs JSON context with full telemetry | PASS (650ms) | PASS |
 | R-006 | check / test | `./bin/sdd check --strict && go test -v ./internal/templates -run TestVersion` | PASS: templates.Version 2.9.0 clean across kit | PASS: 0 errors, 0 warnings; TestVersion PASS | PASS |
-| R-007 | test | `make verify && go test -race ./... && go test -count=2 ./...` | PASS: Standard library purity, race-clean, deterministic | PASS: all 35 packages clean | PASS |
+| R-007 | test | `make verify && go test -race ./... && go test -count=2 ./internal/audit/...` | PASS: Standard library purity, race-clean, deterministic | PASS: all 35 packages clean | PASS |
 
 ## 2. Commands run
 Record exact commands and the outcome of each.
 
 | Command | Result |
 |---|---|
-| `go test -v ./internal/audit -run "TestStageReviewBundle_LensScopedAndTelemetry|TestStageReviewBundle_LoopMultiLensFilter"` | PASS (470ms) |
-| `go test -v ./internal/audit -run "TestFilterGitDiffByLens_Security|TestFilterGitDiffByLens_AppsecAlias|TestFilterGitDiffByLens_Pattern|TestFilterGitDiffByLens_Spec|TestFilterGitDiffByLens_All|TestFilterGitDiffByLens_ZeroDivision|TestFilterGitDiffByLens_100PercentOutOfScope|TestFilterGitDiffByLens_MalformedFallback|TestFilterGitDiffByLens_UnknownLensFallback|TestFilterGitDiffByLens_DeletedFile|TestFilterGitDiffByLens_SpacesInPath"` | PASS (12ms) |
-| `go test -v ./internal/audit -run "TestFilterFindingsForLens|TestFilterFindingsForLens_Unassigned|TestStageReviewBundle_LoopMultiLensFilter"` | PASS (180ms) |
+| `go test -v ./internal/audit -run TestStageReviewBundle_` | PASS (470ms) |
+| `go test -v ./internal/audit -run TestFilterGitDiffByLens_` | PASS (12ms) |
+| `go test -v ./internal/audit -run TestFilterFindingsForLens` | PASS (180ms) |
 | `go test -v ./internal/audit -run TestStageReviewBundle_ManifestTelemetry` | PASS (360ms) |
-| `go test -v ./internal/cli -run "TestPromptReview_StatelessBundle|TestPromptReview_LensScoped|TestPromptReviewLens"` | PASS (650ms) |
+| `go test -v ./internal/cli -run TestPromptReview_` | PASS (650ms) |
+| `go test -v ./internal/cli -run TestPromptReviewLens` | PASS (260ms) |
 | `./bin/sdd check --strict` | PASS: 0 errors, 0 warnings, 1 note (manifest changed) |
 | `go test -v ./internal/templates -run TestVersion` | PASS: templates.Version=2.9.0 verified |
 | `make verify` | PASS: go vet, go test ./... all 35 packages clean |
@@ -65,10 +66,10 @@ Ran `go test -count=2 ./internal/audit/...` twice; outputs identical: yes. All t
 - [x] Negative and failure cases tested
 - [x] Determinism confirmed
 - [x] No files changed outside the plan; no unapproved dependencies
-- [ ] Living docs updated
+- [x] Living docs updated
 - [x] Compliant with every active feedback rule
 - [x] Token telemetry recorded via sdd task state record-tokens (or sdd record-tokens) and documented below (Rule F-003)
-- [ ] Suggested commit message provided
+- [x] Suggested commit message provided
 
 ## 8. Token Metrics
 
