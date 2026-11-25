@@ -211,6 +211,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-24 | Heterogeneous role model routing (.sdd/roles.json), abstract capability tiers (frontier, advanced, standard, fast), reasoning effort calibration, sdd prompt model routing sections, JSON context export, and template version 2.7.0 verified | Run in internal/role, internal/check, internal/cli, internal/upgrade, internal/templates tests (T-059) | M15 |
 | 2026-11-24 | Release v1.10.0 cross-platform static binaries (darwin, linux, windows), template version 2.7.0, and SHA256SUMS verified | Build, tests, and make dist | M15 |
 | 2026-11-25 | Subagent model tier routing (Model: "flash" for standard tier roles spec-auditor, pattern-auditor, qa, devops; Model: "inherit"/"pro" for frontier/advanced roles), tier enforcement in coordinator skill & contracts, invoke_subagent dispatch snippets in sdd prompt, mechanical coordinator-tier-dispatch check, and template version 2.8.0 verified | Run in internal/check, internal/cli, internal/templates, and internal/upgrade tests (T-060) | M15 |
+| 2026-11-25 | Lens-scoped review bundles (.sdd/review/<TASK_ID>/<lens>/), deterministic diff filtering (FilterGitDiffByLens), remediation finding isolation (FilterFindingsForLens), manifest token savings telemetry, and template version 2.9.0 verified | Run in internal/audit, internal/cli, internal/templates, and internal/upgrade tests (T-061) | M15 |
 
 ## 8. Dependency register
 

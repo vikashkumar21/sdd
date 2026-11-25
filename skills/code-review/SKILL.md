@@ -47,7 +47,7 @@ To balance deep adversarial inspection with economic token discipline, Review Tr
 To eliminate the LLM "Diff Framing" anchoring bias (where reviewers critique existing code but overlook omissions, edge cases, and missing tests), SDD mandates the **Omission-First Review Protocol** (`D-049`):
 
 ### Step 1: Unanchored Traceability Scan (Before reading diff.patch)
-1. Open `.sdd/review/<TASK_ID>/code/ledger.md` (or `requirements.md`).
+1. Open `.sdd/review/<TASK_ID>/<lens>/ledger.md` (or `.sdd/review/<TASK_ID>/code/ledger.md`).
 2. For every requirement (`R-xxx`), search the codebase independently to locate:
    - **Code Symbol & File:** The concrete functions, types, and files implementing the requirement.
    - **Positive Test Evidence:** Automated test name proving the happy path.
@@ -92,6 +92,16 @@ To eliminate "Repair-Loop Justification Bleed" where developers sway reviewers w
 - Worker agents MUST resolve all findings (🔴 Blockers, 🟡 Warnings, and 🟢 Minors) reported during review before presenting to the human at GATE 2.
 - Any finding not remediated must have an explicit written justification with human approval recorded in `review.md`.
 - `review.md` can only achieve `Approved` sign-off when 0 Blockers, 0 unresolved Warnings, and 0 unresolved Minors remain.
+
+## Lens-Scoped Review Bundles & Diff Filtering
+
+To eliminate directory collisions and save 30–70% of redundant context tokens during Review Triad execution (`D-050`):
+- **Isolated Bundle Directories:** Review bundles are isolated per lens under `.sdd/review/<TASK_ID>/<lens>/` (`spec/`, `security/`, `pattern/`, and `code/` for all).
+- **Domain Diff Filtering:** `diff.patch` contents are deterministically filtered by lens:
+  - `security`: Retains executable code, scripts, configs, and dependency files; filters non-executable task markdown and doc changelogs.
+  - `pattern`: Retains source code, test files, architecture decisions, and coding standards; filters validation logs and roadmap changelogs.
+  - `spec`: Retains source code, test files, and task specifications; preserves file headers for boundary checking while eliding bloated doc diff bodies.
+- **Finding Isolation:** Remediation checklists (`findings_to_verify.md`) filter findings by lens domain (`SPEC-`, `SEC-`, `PAT-` / `PQ-`).
 
 ## 3-Loop Circuit Breaker
 - Maximum 3 review-fix iterations (1 initial audit + up to 2 fix attempts) between worker agent and reviewer triad.

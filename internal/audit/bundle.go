@@ -221,13 +221,18 @@ type DiscoveryBundle struct {
 
 // ReviewBundle contains staged metadata for an isolated code review triad.
 type ReviewBundle struct {
-	TaskID    string    `json:"task_id"`
-	Lens      string    `json:"lens"`
-	Loop      int       `json:"loop,omitempty"`
-	TaskDir   string    `json:"task_dir"`
-	BundleDir string    `json:"bundle_dir"`
-	CreatedAt time.Time `json:"created_at"`
-	Files     []string  `json:"files"`
+	TaskID             string    `json:"task_id"`
+	Lens               string    `json:"lens"`
+	Loop               int       `json:"loop,omitempty"`
+	TaskDir            string    `json:"task_dir"`
+	BundleDir          string    `json:"bundle_dir"`
+	CreatedAt          time.Time `json:"created_at"`
+	Files              []string  `json:"files"`
+	RawDiffBytes       int       `json:"raw_diff_bytes,omitempty"`
+	FilteredDiffBytes  int       `json:"filtered_diff_bytes,omitempty"`
+	DiffSavingsPercent float64   `json:"diff_savings_percent,omitempty"`
+	RawFilesCount      int       `json:"raw_files_count,omitempty"`
+	FilteredFilesCount int       `json:"filtered_files_count,omitempty"`
 }
 
 // EnsureGitignoreReview ensures .sdd/review/ is ignored in the root .gitignore.
@@ -504,6 +509,9 @@ func StageReviewBundleWithLoop(root, taskID, lens string, loop int, now ...time.
 	}
 
 	normLens := strings.ToLower(strings.TrimSpace(lens))
+	if normLens == "appsec" {
+		normLens = "security"
+	}
 	if normLens == "" {
 		normLens = "all"
 	}
@@ -523,7 +531,11 @@ func StageReviewBundleWithLoop(root, taskID, lens string, loop int, now ...time.
 	}
 	defer func() { _ = rootHandle.Close() }()
 
-	bundleDirRel := filepath.Join(".sdd", "review", normTaskID, "code")
+	bundleSubdir := normLens
+	if normLens == "all" {
+		bundleSubdir = "code"
+	}
+	bundleDirRel := filepath.Join(".sdd", "review", normTaskID, bundleSubdir)
 
 	fi, statErr := rootHandle.Lstat(filepath.FromSlash(taskRelDir))
 	if statErr != nil || !fi.IsDir() || (fi.Mode()&os.ModeSymlink != 0) {
@@ -557,11 +569,12 @@ func StageReviewBundleWithLoop(root, taskID, lens string, loop int, now ...time.
 		return nil, fmt.Errorf("writing ledger.md: %w", err)
 	}
 
-	// 3. diff.patch: git diff including untracked new files
-	diffText, err := extractGitDiff(root)
+	// 3. diff.patch: git diff filtered by lens
+	rawDiffText, err := extractGitDiff(root)
 	if err != nil {
-		diffText = fmt.Sprintf("# Note: could not extract git diff: %v\n", err)
+		rawDiffText = fmt.Sprintf("# Note: could not extract git diff: %v\n", err)
 	}
+	diffText, rawBytes, filteredBytes, rawFiles, filteredFiles, savingsPercent := FilterGitDiffByLens(rawDiffText, normLens)
 	diffRel := filepath.Join(bundleDirRel, "diff.patch")
 	if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(diffRel), []byte(diffText), 0o644); err != nil {
 		return nil, fmt.Errorf("writing diff.patch: %w", err)
@@ -585,8 +598,9 @@ func StageReviewBundleWithLoop(root, taskID, lens string, loop int, now ...time.
 	if loop > 1 {
 		reviewContent := readDoc(taskRelDir, "review.md", rootHandle)
 		findings, _ := ExtractFindingsToVerify(reviewContent)
-		if len(findings) > 0 {
-			findingsText := FormatFindingsToVerify(findings, loop)
+		filteredFindings := FilterFindingsForLens(findings, normLens)
+		if len(filteredFindings) > 0 {
+			findingsText := FormatFindingsToVerify(filteredFindings, loop)
 			findingsRel := filepath.Join(bundleDirRel, "findings_to_verify.md")
 			if err := fsutil.WriteAtomicRoot(rootHandle, filepath.FromSlash(findingsRel), []byte(findingsText), 0o644); err != nil {
 				return nil, fmt.Errorf("writing findings_to_verify.md: %w", err)
@@ -602,13 +616,18 @@ func StageReviewBundleWithLoop(root, taskID, lens string, loop int, now ...time.
 
 	// 6. manifest.json
 	bundle := &ReviewBundle{
-		TaskID:    normTaskID,
-		Lens:      normLens,
-		Loop:      loop,
-		TaskDir:   taskRelDir,
-		BundleDir: filepath.ToSlash(bundleDirRel),
-		CreatedAt: createdAt,
-		Files:     stagedFiles,
+		TaskID:             normTaskID,
+		Lens:               normLens,
+		Loop:               loop,
+		TaskDir:            taskRelDir,
+		BundleDir:          filepath.ToSlash(bundleDirRel),
+		CreatedAt:          createdAt,
+		Files:              stagedFiles,
+		RawDiffBytes:       rawBytes,
+		FilteredDiffBytes:  filteredBytes,
+		DiffSavingsPercent: savingsPercent,
+		RawFilesCount:      rawFiles,
+		FilteredFilesCount: filteredFiles,
 	}
 
 	manifestData, err := json.MarshalIndent(bundle, "", "  ")
@@ -712,7 +731,7 @@ func FormatReviewPrompt(bundle *ReviewBundle, root string) (string, error) {
 		fmt.Fprintf(&sb, "1. **Unanchored Traceability Scan (Step 1):** Open `%s/ledger.md` and verify each requirement against the codebase symbols and test suites before inspecting `%s/diff.patch`. Fill in Code Symbol, Positive Test, and Negative / Boundary Test Evidence. Any unmapped requirement or missing test is an immediate 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
 		fmt.Fprintf(&sb, "2. **Defect Remediation Verification (Step 2):** Open `%s/findings_to_verify.md` and inspect `%s/diff.patch` to verify whether each previous defect has been genuinely resolved in code. Do not accept conversational developer explanations or unverified assertions.\n", bundle.BundleDir, bundle.BundleDir)
 		fmt.Fprintf(&sb, "3. **Diff Quality Audit (Step 3):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md` to ensure no new regressions, plan drift, or security flaws were introduced during remediation.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
-		fmt.Fprintf(&sb, "4. Record all findings, the completed Requirements Traceability Ledger, and sign-off in `%s/review.md`.\n", bundle.TaskDir)
+		fmt.Fprintf(&sb, "4. Output all findings, the completed Requirements Traceability Ledger, and sign-off in your review report (the primary worker agent will batch all reviewer findings into `%s/review.md`).\n", bundle.TaskDir)
 		sb.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")
 		sb.WriteString("   - Per Rule F-001, all findings (🔴 Blockers, 🟡 Warnings, 🟢 Minors) must be cataloged clearly; the worker agent is required to resolve all findings or provide explicit justification before GATE 2.\n")
 		sb.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution (including your lens name).\n")
@@ -720,7 +739,7 @@ func FormatReviewPrompt(bundle *ReviewBundle, root string) (string, error) {
 		sb.WriteString("## Review Instructions\n")
 		fmt.Fprintf(&sb, "1. **Unanchored Traceability Scan (Step 1):** Open `%s/ledger.md` and verify each requirement against the codebase symbols and test suites before inspecting `%s/diff.patch`. Fill in Code Symbol, Positive Test, and Negative / Boundary Test Evidence. Any unmapped requirement or missing test is an immediate 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
 		fmt.Fprintf(&sb, "2. **Diff Quality Audit (Step 2):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md`.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
-		fmt.Fprintf(&sb, "3. Record all findings, the completed Requirements Traceability Ledger, and sign-off in `%s/review.md`.\n", bundle.TaskDir)
+		fmt.Fprintf(&sb, "3. Output all findings, the completed Requirements Traceability Ledger, and sign-off in your review report (the primary worker agent will batch all reviewer findings into `%s/review.md`).\n", bundle.TaskDir)
 		sb.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")
 		sb.WriteString("   - Per Rule F-001, all findings (🔴 Blockers, 🟡 Warnings, 🟢 Minors) must be cataloged clearly; the worker agent is required to resolve all findings or provide explicit justification before GATE 2.\n")
 		sb.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution (including your lens name).\n")

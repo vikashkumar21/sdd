@@ -463,3 +463,50 @@ func TestStageReviewBundle_Loop(t *testing.T) {
 		t.Errorf("prompt missing Defect Remediation Verification instruction:\n%s", prompt2)
 	}
 }
+
+func TestStageReviewBundle_LensScopedAndTelemetry(t *testing.T) {
+	root := setupTestProject(t, "T-061", "sample-task")
+	fixedTime := time.Date(2026, 11, 25, 12, 0, 0, 0, time.UTC)
+
+	// Stage all 3 lenses plus "all" concurrently
+	lenses := []string{"spec", "security", "pattern", "all", "appsec"}
+	for _, l := range lenses {
+		b, err := StageReviewBundleWithLoop(root, "T-061", l, 1, fixedTime)
+		if err != nil {
+			t.Fatalf("StageReviewBundleWithLoop(%s) failed: %v", l, err)
+		}
+
+		expectedSubdir := l
+		if l == "all" {
+			expectedSubdir = "code"
+		} else if l == "appsec" {
+			expectedSubdir = "security"
+		}
+		expectedDir := filepath.ToSlash(filepath.Join(".sdd", "review", "T-061", expectedSubdir))
+		if b.BundleDir != expectedDir {
+			t.Errorf("lens %s: expected BundleDir %s, got %s", l, expectedDir, b.BundleDir)
+		}
+
+		// Verify manifest.json contains telemetry fields
+		manifestPath := filepath.Join(root, b.BundleDir, "manifest.json")
+		data, err := os.ReadFile(manifestPath)
+		if err != nil {
+			t.Fatalf("reading manifest.json for lens %s: %v", l, err)
+		}
+
+		var decoded ReviewBundle
+		if err := json.Unmarshal(data, &decoded); err != nil {
+			t.Fatalf("unmarshaling manifest for lens %s: %v", l, err)
+		}
+
+		if decoded.Lens != l && !(l == "appsec" && decoded.Lens == "security") {
+			t.Errorf("expected manifest lens %s, got %s", l, decoded.Lens)
+		}
+		if decoded.RawDiffBytes < 0 || decoded.FilteredDiffBytes < 0 {
+			t.Errorf("invalid byte counts in manifest: raw=%d, filtered=%d", decoded.RawDiffBytes, decoded.FilteredDiffBytes)
+		}
+		if decoded.DiffSavingsPercent < 0.0 || decoded.DiffSavingsPercent > 100.0 {
+			t.Errorf("invalid diff savings percent: %f", decoded.DiffSavingsPercent)
+		}
+	}
+}

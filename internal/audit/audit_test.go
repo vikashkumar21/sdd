@@ -221,7 +221,10 @@ func TestStageReviewBundle(t *testing.T) {
 		if !bundle.CreatedAt.Equal(fixedTime) {
 			t.Errorf("expected CreatedAt %v, got %v", fixedTime, bundle.CreatedAt)
 		}
-		expectedBundleDir := ".sdd/review/T-099/code"
+		expectedBundleDir := filepath.ToSlash(filepath.Join(".sdd", "review", "T-099", lens))
+		if lens == "all" {
+			expectedBundleDir = ".sdd/review/T-099/code"
+		}
 		if bundle.BundleDir != expectedBundleDir {
 			t.Errorf("expected BundleDir %s, got %s", expectedBundleDir, bundle.BundleDir)
 		}
@@ -253,7 +256,7 @@ func TestStageReviewBundle(t *testing.T) {
 		if !strings.Contains(prompt, "Stateless Subagent Code Review for T-099") {
 			t.Errorf("unexpected prompt header:\n%s", prompt)
 		}
-		if !strings.Contains(prompt, ".sdd/review/T-099/code/diff.patch") {
+		if !strings.Contains(prompt, expectedBundleDir+"/diff.patch") {
 			t.Errorf("prompt missing diff.patch reference:\n%s", prompt)
 		}
 	}

@@ -221,7 +221,7 @@ sdd self-update --yes                     # proceed without interactive confirma
 SDD eliminates author agent self-approval bias and conversational anchoring through native tabula-rasa reviewer isolation and mechanical validation auditing:
 - **Stateless Review Isolation by Default:**
   - `sdd prompt plan-review <T-xxx>` freezes requirements and implementation plan into `.sdd/review/<T-xxx>/plan/spec.md`, stages canonical plan-reviewer instructions into `rubric.md`, and outputs an isolated, tabula-rasa prompt stripped of historical conversational baggage.
-  - `sdd prompt review <T-xxx> [--lens <lens>]` extracts working tree diffs and newly created untracked files into `.sdd/review/<T-xxx>/code/diff.patch`, stages frozen specifications in `spec.md`, pre-seeds the unanchored `ledger.md`, and sets up isolated bundles for each Review Triad auditor (Spec Auditor, AppSec Specialist, Pattern Auditor).
+  - `sdd prompt review <T-xxx> [--lens <lens>]` extracts working tree diffs, tailors `diff.patch` per reviewer lens (`spec`, `security`, `pattern`) to save 30–70% of redundant context tokens, stages frozen specifications in `spec.md`, pre-seeds `ledger.md`, and sets up isolated directories (`.sdd/review/<T-xxx>/<lens>/`) preventing filesystem collisions across the Review Triad.
   - Transient review bundles are stored in `.sdd/review/` and automatically excluded from version control and RAG indexing.
 - **Unanchored Requirements Traceability Ledger & Omission-First Protocol:**
   - `sdd prompt review <T-xxx>` parses task requirements and auto-generates `.sdd/review/<T-xxx>/code/ledger.md` pre-populated with all `R-xxx` requirement statements.
