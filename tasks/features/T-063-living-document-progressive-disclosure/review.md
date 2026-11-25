@@ -42,31 +42,34 @@ Commit / Diff Ref: feature/T-063-living-document-progressive-disclosure
 
 | ID | Category | Severity | Finding | Suggested Action | Status |
 |---|---|---|---|---|---|
-| SPEC-001 | Plan Confinement | 🔴 Blocker | `internal/skill/skill_test.go` modified outside plan Section 5 | Reverted; placed assertion in `internal/skill/export_test.go` | Resolved |
-| SPEC-002 | Test Coverage | 🔴 Blocker | Missing `internal/check/passport_test.go` unit test suite | Created `internal/check/passport_test.go` with 5 test cases | Resolved |
-| SPEC-003 | Prompt/Skill Sync | 🔴 Blocker | `internal/templates/data/skills/coordinator/SKILL.md` missing Section 7 | Added Section 7 progressive disclosure instructions | Resolved |
-| SPEC-004 | Test Quality | 🟡 Warning | Missing prompt string assertion for `sdd passport` in test suite | Added assertions in `templates_test.go`, `prompt_compact_test.go`, `prompt_context_test.go` | Resolved |
-| SPEC-005 | Test Determinism | 🟡 Warning | `passport_test.go` lacked fixed clock and CRLF normalization tests | Added `fixedTestTime`, CRLF invariance test, and zero clock normalization test | Resolved |
-| SPEC-006 | Contract Parity | 🟡 Warning | Redundant test in `check_test.go`; lack of contract template parity assertion | Added parity assertion between rendered `base/contract.md.tmpl` and agent files | Resolved |
-| SPEC-007 | Status Sync | 🟢 Minor | `ROADMAP.md` status desynchronized during intermediate review loop | Maintained synchronized `Implementing` status during active audit | Resolved |
-| SPEC-008 | Test Assertion | 🟡 Warning | Weak test assertions in `internal/check/passport_test.go` | Added real active-task sync, task mismatch, and generate error tests | Resolved |
-| SEC-001 | Input Bounds | 🔴 Blocker | Unbounded `os.ReadFile` in `internal/passport/passport.go` | Implemented `readBoundedFile` with `io.LimitReader` (16KB/32KB/64KB) | Resolved |
-| SEC-002 | Confinement | 🔴 Blocker | Permissive `os.OpenRoot` error skip & path traversal severity in `check/passport.go` | Fail-safe: immediate `passport-root` Error on root failure and `passport-link` Error on path escape | Resolved |
-| SEC-003 | Unicode Safety | 🟡 Warning | Multi-byte string slicing could corrupt UTF-8 runes | Switched to rune-aware `[]rune` slicing across all extraction helpers | Resolved |
-| SEC-004 | Budget Clamp | 🟡 Warning | RenderMarkdown lacked rune-level hard ceiling loop | Implemented rune-boundary hard ceiling loop ensuring $\le 2,000$ bytes and $\le 500$ tokens | Resolved |
-| SEC-005 | Test Gap | 🟢 Minor | Path traversal rejection lacked explicit negative test | Verified via `TestCheckPassport_PathEscape` in `internal/check/passport_test.go` | Resolved |
-| PAT-001 | Robustness | 🔴 Blocker | Unconditional inclusion of non-existent living docs | Filtered `p.LivingDocs` via `os.Stat` to existing files only | Resolved |
-| PAT-002 | Budget Clamp | 🔴 Blocker | Level 3 compaction did not guarantee $\le 2,000$ bytes hard ceiling | Added rune-boundary hard ceiling truncation loop | Resolved |
-| PAT-003 | Determinism | 🟡 Warning | `passport_test.go` used `time.Now()` | Injected deterministic `fixedTestTime` across all tests and benchmark | Resolved |
-| PAT-004 | Parsing Scope | 🟡 Warning | Feedback rules parser matched table headers outside register | Scoped table parser strictly under `feedbackRulesRe` and `rulesHdrRe` | Resolved |
-| PAT-005 | Contract Parity | 🟡 Warning | `check_test.go` lacked contract template rendered parity | Added rendered template parity test in `TestCheckContractsMatch` | Resolved |
-| PAT-006 | Prompt/Skill Sync | 🟡 Warning | Coordinator skill template omitted progressive disclosure | Synced Section 7 in `internal/templates/data/skills/coordinator/SKILL.md` | Resolved |
-| PAT-007 | Determinism | 🟢 Minor | CLI passed un-normalized `env.now()` | Passed `env.now().UTC()` in `runPassport` and `runStatus` | Resolved |
+| (none) | n/a | 🟢 Minor | All findings remediated across all 3 lenses | Ready for Gate 2 close | Resolved |
 
 - 🔴 **Blockers:** 0
 - 🟡 **Warnings:** 0
 - 🟢 **Minors:** 0
 All findings resolved per Rule F-001.
+
+### Remediated Findings History (Loop 1 & Loop 2 Remediation Batches):
+1. **SPEC-001 (Plan Confinement, Blocker):** `internal/skill/skill_test.go` modified outside plan Section 5. Remediated: Reverted; placed assertion in `internal/skill/export_test.go`. Status: `Resolved`.
+2. **SPEC-002 (Test Coverage, Blocker):** Missing `internal/check/passport_test.go` unit test suite. Remediated: Created `internal/check/passport_test.go` with 5 test cases. Status: `Resolved`.
+3. **SPEC-003 (Prompt/Skill Sync, Blocker):** `internal/templates/data/skills/coordinator/SKILL.md` missing Section 7. Remediated: Added Section 7 progressive disclosure instructions. Status: `Resolved`.
+4. **SPEC-004 (Test Quality, Warning):** Missing prompt string assertion for `sdd passport` in test suite. Remediated: Added assertions in `templates_test.go`, `prompt_compact_test.go`, `prompt_context_test.go`. Status: `Resolved`.
+5. **SPEC-005 (Test Determinism, Warning):** `passport_test.go` lacked fixed clock and CRLF normalization tests. Remediated: Added `fixedTestTime`, CRLF invariance test, and zero clock normalization test. Status: `Resolved`.
+6. **SPEC-006 (Contract Parity, Warning):** Redundant test in `check_test.go`; lack of contract template parity assertion. Remediated: Added parity assertion between rendered `base/contract.md.tmpl` and agent files. Status: `Resolved`.
+7. **SPEC-007 (Status Sync, Minor):** `ROADMAP.md` status desynchronized during intermediate review loop. Remediated: Maintained synchronized `Implementing` status during active audit. Status: `Resolved`.
+8. **SPEC-008 (Test Assertion, Warning):** Weak test assertions in `internal/check/passport_test.go`. Remediated: Added real active-task sync, task mismatch, and generate error tests. Status: `Resolved`.
+9. **SEC-001 (Input Bounds, Blocker):** Unbounded `os.ReadFile` in `internal/passport/passport.go`. Remediated: Implemented `readBoundedFile` with `io.LimitReader` (16KB/32KB/64KB). Status: `Resolved`.
+10. **SEC-002 (Confinement, Blocker):** Permissive `os.OpenRoot` error skip & path traversal severity in `check/passport.go`. Remediated: Fail-safe: immediate `passport-root` Error on root failure and `passport-link` Error on path escape. Status: `Resolved`.
+11. **SEC-003 (Unicode Safety, Warning):** Multi-byte string slicing could corrupt UTF-8 runes. Remediated: Switched to rune-aware `[]rune` slicing across all extraction helpers. Status: `Resolved`.
+12. **SEC-004 (Budget Clamp, Warning):** RenderMarkdown lacked rune-level hard ceiling loop. Remediated: Implemented rune-boundary hard ceiling loop ensuring $\le 2,000$ bytes and $\le 500$ tokens. Status: `Resolved`.
+13. **SEC-005 (Test Gap, Minor):** Path traversal rejection lacked explicit negative test. Remediated: Verified via `TestCheckPassport_PathEscape` in `internal/check/passport_test.go`. Status: `Resolved`.
+14. **PAT-001 (Robustness, Blocker):** Unconditional inclusion of non-existent living docs. Remediated: Filtered `p.LivingDocs` via `os.Stat` to existing files only. Status: `Resolved`.
+15. **PAT-002 (Budget Clamp, Blocker):** Level 3 compaction did not guarantee $\le 2,000$ bytes hard ceiling. Remediated: Added rune-boundary hard ceiling truncation loop. Status: `Resolved`.
+16. **PAT-003 (Determinism, Warning):** `passport_test.go` used `time.Now()`. Remediated: Injected deterministic `fixedTestTime` across all tests and benchmark. Status: `Resolved`.
+17. **PAT-004 (Parsing Scope, Warning):** Feedback rules parser matched table headers outside register. Remediated: Scoped table parser strictly under `feedbackRulesRe` and `rulesHdrRe`. Status: `Resolved`.
+18. **PAT-005 (Contract Parity, Warning):** `check_test.go` lacked contract template rendered parity. Remediated: Added rendered template parity test in `TestCheckContractsMatch`. Status: `Resolved`.
+19. **PAT-006 (Prompt/Skill Sync, Warning):** Coordinator skill template omitted progressive disclosure. Remediated: Synced Section 7 in `internal/templates/data/skills/coordinator/SKILL.md`. Status: `Resolved`.
+20. **PAT-007 (Determinism, Minor):** CLI passed un-normalized `env.now()`. Remediated: Passed `env.now().UTC()` in `runPassport` and `runStatus`. Status: `Resolved`.
 
 ## 4. Reusable Knowledge & Feedback Synthesis
 - [x] Did any review finding reveal a general pattern?
