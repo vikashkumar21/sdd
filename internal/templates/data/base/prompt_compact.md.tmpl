@@ -6,15 +6,17 @@ Operating Contract: {{.AgentFile}} (rules mirrored in {{join .AgentFiles ", "}})
 Orchestration: Dispatch canonical roles from `.sdd/roles.json` into isolated worktrees (`sdd task start <T-xxx>`). Workers autonomously commit on task branches; only human merges to main.
 Git Restriction: NEVER run writing git commands (`commit`, `push`, `tag`, `checkout`, `merge`). Human reviews and commits.
 
-## Active State
-{{if .FocusTask}}Focus task: {{.FocusTask}}.{{else}}No focus task given. Check open tasks or ask the human.{{end}}
-{{if .OpenTasks}}Open tasks:{{range .OpenTasks}} {{.ID}}({{.Status}}){{end}}{{end}}
-{{if .TaskContext}}Focus task context:{{range .TaskContext}} {{.ID}}(`{{.Path}}`){{end}}{{end}}
-
 ## Gates & Protocol
 - GATE 1 (Plan Approval): Reply must be exactly `APPROVED T-xxx`. Zero code before Gate 1.
 - GATE 2 (Close & Commit): Reply must be exactly `COMMITTED T-xxx`. Human reviews diff and commits.
 - Gate Report: 1. Where we are 2. What I did/propose 3. Files touched 4. Decisions needed 5. Risks 6. Exact reply expected.
+
+<!-- sdd:cache-boundary:end-prefix -->
+
+## Active State
+{{if .FocusTask}}Focus task: {{.FocusTask}}.{{else}}No focus task given. Check open tasks or ask the human.{{end}}
+{{if .OpenTasks}}Open tasks:{{range .OpenTasks}} {{.ID}}({{.Status}}){{end}}{{end}}
+{{if .TaskContext}}Focus task context:{{range .TaskContext}} {{.ID}}(`{{.Path}}`){{end}}{{end}}
 
 ## Human Inputs
 - Gate reply: NONE YET (replace with `APPROVED T-xxx`, `CHANGES T-xxx: <notes>`, or `COMMITTED T-xxx`)

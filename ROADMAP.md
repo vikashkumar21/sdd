@@ -186,8 +186,8 @@ Status: living document · Last updated: 2026-10-26
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
 | T-060 | Subagent model routing, tier enforcement, and calibrated reasoning dispatch | M | T-059 | Orchestrator and coordinator skills mandate model tier pinning in invoke_subagent, calibrated reasoning effort, and sdd check verification | D-050 | Done |
-| T-061 | Lens-scoped review bundles and diff filtering | M | T-060 | Internal audit bundle generator produces tailored diff and spec slices per reviewer lens (spec/security/pattern), reducing redundant Review Triad context | D-050 | Awaiting review |
-| T-062 | Provider-aligned prompt prefix caching and dynamic suffix pinning | M | T-061 | Reorganize all sdd prompt templates to enforce invariant >=1024 token prefixes with dynamic metadata pinned to suffix for optimal Anthropic/OpenAI/Gemini KV cache hits | D-050 | Not started |
+| T-061 | Lens-scoped review bundles and diff filtering | M | T-060 | Internal audit bundle generator produces tailored diff and spec slices per reviewer lens (spec/security/pattern), reducing redundant Review Triad context | D-050 | Done |
+| T-062 | Provider-aligned prompt prefix caching and dynamic suffix pinning | M | T-061 | Reorganize all sdd prompt templates to enforce invariant >=1024 token prefixes with dynamic metadata pinned to suffix for optimal Anthropic/OpenAI/Gemini KV cache hits | D-050 | Awaiting review |
 | T-063 | Living document progressive disclosure and Rule 1 micro-index | M | T-062 | Compact project passport/status index for low-token session startup, fetching full living documents on-demand | D-050 | Not started |
 | T-064 | Native IDE transcript discovery and ingestion in sdd record-tokens | S | T-060 | Auto-discovery and JSONL parsing of IDE conversation transcripts in sdd record-tokens, eliminating manual extraction scripts | D-050 | Not started |
 
@@ -217,13 +217,18 @@ Unfamiliar technology derails projects. To prevent that:
 
 1. M0 through M14 are complete (58 tasks delivered).
 2. Release v1.10.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 15: Token Optimization, Context Hygiene & Provider Caching (1/5 complete, 20%).
-4. Active task: none (next: T-061 Lens-scoped review bundles and diff filtering).
+3. Active milestone: Milestone 15: Token Optimization, Context Hygiene & Provider Caching (2/5 complete, 40%).
+4. Active task: T-062 Provider-aligned prompt prefix caching and dynamic suffix pinning (awaiting review).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-25 | T-062: Provider-aligned prompt prefix caching and dynamic suffix pinning awaiting review |
+| 2026-11-25 | T-062: Provider-aligned prompt prefix caching and dynamic suffix pinning implementing |
+| 2026-11-25 | T-062: Provider-aligned prompt prefix caching and dynamic suffix pinning awaiting plan approval |
+| 2026-11-25 | T-062: Provider-aligned prompt prefix caching and dynamic suffix pinning specifying |
+| 2026-11-25 | T-061: Lens-scoped review bundles and diff filtering done |
 | 2026-11-25 | T-061: Lens-scoped review bundles and diff filtering awaiting review |
 | 2026-11-25 | T-060: Subagent model routing, tier enforcement, and calibrated reasoning dispatch done |
 | 2026-11-25 | T-060: Subagent model routing, tier enforcement, and calibrated reasoning dispatch awaiting review |

@@ -8,8 +8,8 @@ import (
 )
 
 func TestVersion(t *testing.T) {
-	if Version != "2.9.0" {
-		t.Errorf("Version = %q, want 2.9.0", Version)
+	if Version != "2.10.0" {
+		t.Errorf("Version = %q, want 2.10.0", Version)
 	}
 }
 
@@ -254,5 +254,100 @@ func TestReviewTemplateLanguageStandards(t *testing.T) {
 				t.Errorf("%s for %s missing expected standards %q; got:\n%s", tmpl, tc.lang, tc.expected, rendered)
 			}
 		}
+	}
+}
+
+func TestPromptTemplateOrder(t *testing.T) {
+	set, err := New("")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 1. Verify standard prompt template (base/prompt.md.tmpl)
+	promptContent, err := set.Raw("base/prompt.md.tmpl")
+	if err != nil {
+		t.Fatalf("failed to read base/prompt.md.tmpl: %v", err)
+	}
+
+	const marker = "<!-- sdd:cache-boundary:end-prefix -->"
+	markerIdx := strings.Index(promptContent, marker)
+	if markerIdx == -1 {
+		t.Fatalf("base/prompt.md.tmpl missing cache boundary marker: %s", marker)
+	}
+
+	dynamicIdx := strings.Index(promptContent, "Dynamic Project State & Context")
+	if dynamicIdx == -1 {
+		t.Fatalf("base/prompt.md.tmpl missing Dynamic Project State & Context header")
+	}
+
+	if markerIdx > dynamicIdx {
+		t.Errorf("cache boundary marker (%d) must appear before dynamic context (%d)", markerIdx, dynamicIdx)
+	}
+
+	staticPrefix := promptContent[:markerIdx]
+	if len(staticPrefix) < 4096 {
+		t.Errorf("base/prompt.md.tmpl raw static prefix is %d bytes, want >= 4096 bytes", len(staticPrefix))
+	}
+
+	// Also verify rendered template without .Skills meets >= 4096 bytes floor
+	type promptTestData struct {
+		Project, Root, AgentName, AgentFile, Date string
+		AgentFiles                                []string
+		OpenTasks                                 []any
+		FocusTask                                 string
+		FocusTaskID                               string
+		StagedContext                             []any
+		TaskContext                               []any
+		Skills                                    []any
+		HasRefineSkills                           bool
+	}
+	rendered, err := set.Render("base/prompt.md.tmpl", promptTestData{
+		AgentName:  "Antigravity",
+		Project:    "sdd",
+		Root:       "/test/root",
+		AgentFile:  "AGENTS.md",
+		AgentFiles: []string{"CLAUDE.md", "GEMINI.md", "AGENTS.md"},
+		Date:       "2026-11-25",
+	})
+	if err != nil {
+		t.Fatalf("failed to render base/prompt.md.tmpl: %v", err)
+	}
+	renderedMarkerIdx := strings.Index(rendered, marker)
+	if renderedMarkerIdx == -1 {
+		t.Fatalf("rendered base/prompt.md missing cache boundary marker")
+	}
+	renderedPrefix := rendered[:renderedMarkerIdx]
+	if len(renderedPrefix) < 4096 {
+		t.Errorf("rendered base/prompt.md static prefix without skills is %d bytes, want >= 4096 bytes", len(renderedPrefix))
+	}
+
+	anthemIdx := strings.Index(promptContent, "ANTHEM")
+	rulesIdx := strings.Index(promptContent, "Hard rules")
+	if anthemIdx == -1 || rulesIdx == -1 || anthemIdx > markerIdx || rulesIdx > markerIdx {
+		t.Errorf("core contract sections must appear before cache boundary marker")
+	}
+
+	// 2. Verify compact prompt template (base/prompt_compact.md.tmpl)
+	compactContent, err := set.Raw("base/prompt_compact.md.tmpl")
+	if err != nil {
+		t.Fatalf("failed to read base/prompt_compact.md.tmpl: %v", err)
+	}
+
+	compactMarkerIdx := strings.Index(compactContent, marker)
+	if compactMarkerIdx == -1 {
+		t.Fatalf("base/prompt_compact.md.tmpl missing cache boundary marker: %s", marker)
+	}
+
+	gatesIdx := strings.Index(compactContent, "## Gates & Protocol")
+	activeStateIdx := strings.Index(compactContent, "## Active State")
+	if gatesIdx == -1 || activeStateIdx == -1 {
+		t.Fatalf("base/prompt_compact.md.tmpl missing Gates & Protocol or Active State")
+	}
+
+	if gatesIdx > compactMarkerIdx {
+		t.Errorf("## Gates & Protocol (%d) must appear before cache boundary marker (%d)", gatesIdx, compactMarkerIdx)
+	}
+	if compactMarkerIdx > activeStateIdx {
+		t.Errorf("cache boundary marker (%d) must appear before ## Active State (%d)", compactMarkerIdx, activeStateIdx)
 	}
 }

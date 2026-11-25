@@ -1339,8 +1339,11 @@ func TestPromptReview(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("expected exit 0 for prompt review, got %d: %s (err: %s)", r.code, r.out, r.err)
 	}
-	if !strings.Contains(r.out, "# Handover: Independent Subagent Code & Spec Review for T-001") {
+	if !strings.Contains(r.out, "# Handover: Independent Subagent Review Triad (Ensemble Review Triad)") {
 		t.Errorf("missing header in prompt: %s", r.out)
+	}
+	if !strings.Contains(r.out, "- **Task ID:** T-001") {
+		t.Errorf("missing Task ID in prompt: %s", r.out)
 	}
 	if !strings.Contains(r.out, "🔴 **Blocker") {
 		t.Errorf("missing rubric in prompt: %s", r.out)
@@ -1409,8 +1412,11 @@ func TestPromptReviewJSON(t *testing.T) {
 	if len(ctx.ChangedFiles) != 1 || ctx.ChangedFiles[0] != "cmd/hotfix.go" {
 		t.Errorf("expected cmd/hotfix.go in ChangedFiles, got %v", ctx.ChangedFiles)
 	}
-	if !strings.Contains(ctx.Prompt, "Handover: Independent Subagent Code & Spec Review for T-042") {
+	if !strings.Contains(ctx.Prompt, "Handover: Independent Subagent Review Triad (Ensemble Review Triad)") {
 		t.Errorf("Prompt field missing expected text: %s", ctx.Prompt)
+	}
+	if !strings.Contains(ctx.Prompt, "- **Task ID:** T-042") {
+		t.Errorf("missing Task ID in prompt: %s", ctx.Prompt)
 	}
 }
 
@@ -1524,8 +1530,11 @@ func TestPromptPlanReview(t *testing.T) {
 	if r.code != 0 {
 		t.Fatalf("expected exit 0 for prompt plan-review, got %d: %s (err: %s)", r.code, r.out, r.err)
 	}
-	if !strings.Contains(r.out, "# Handover: Independent Pre-GATE 1 Plan Review for T-010") {
+	if !strings.Contains(r.out, "# Handover: Independent Pre-GATE 1 Plan Review") {
 		t.Errorf("missing header in plan review prompt: %s", r.out)
+	}
+	if !strings.Contains(r.out, "- **Task ID:** T-010") {
+		t.Errorf("missing Task ID in plan review prompt: %s", r.out)
 	}
 	if !strings.Contains(r.out, "Plan Review Rubric") {
 		t.Errorf("missing rubric in plan review prompt: %s", r.out)

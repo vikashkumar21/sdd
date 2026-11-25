@@ -305,85 +305,87 @@ func buildDiscoveryPrompt(
 	roleSkill, reqs, plan string,
 	routing role.ModelRouting,
 ) string {
-	var sb strings.Builder
+	var prefix strings.Builder
 
-	targetHeader := filepath.Base(root)
-	if taskID != "" {
-		targetHeader = fmt.Sprintf("Task %s (%s)", taskID, taskDir)
+	prefix.WriteString("# Handover: Codebase Discovery & Forensic Extraction\n\n")
+	prefix.WriteString("You are acting as the **Codebase Analyst & Forensic Technical Auditor** for this project.\n")
+	prefix.WriteString("Your mandate is a **read-only forensic exploration** of an existing codebase.\n")
+	prefix.WriteString("You do **not** write application code; you map the codebase into structured specifications.\n\n")
+
+	prefix.WriteString("## SDD Anthem & Principles\n")
+	prefix.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
+
+	prefix.WriteString("1. **Read-Only Forensic Audit:** Do NOT write or modify application code. You are mapping architecture, design patterns, schemas, and technical debt.\n")
+	prefix.WriteString("2. **Deterministic Documentation:** Record verified facts with exact dates and inspection paths in living documents.\n")
+	prefix.WriteString("3. **Standard Library Purity & Dependency Governance:** Flag third-party packages, libraries, and licenses for human decision approval (`D-xxx`).\n\n")
+
+	if strings.TrimSpace(roleSkill) != "" {
+		prefix.WriteString("## Canonical Role Skill: Staff Reverse-Engineer & Technical Auditor (codebase-analyst)\n")
+		prefix.WriteString(strings.TrimSpace(roleSkill))
+		prefix.WriteString("\n\n")
 	}
 
-	fmt.Fprintf(&sb, "# Handover: Codebase Discovery & Forensic Extraction for %s\n\n", targetHeader)
-	sb.WriteString("You are acting as the **Codebase Analyst & Forensic Technical Auditor** for this project.\n")
-	sb.WriteString("Your mandate is a **read-only forensic exploration** of an existing codebase.\n")
-	sb.WriteString("You do **not** write application code; you map the codebase into structured specifications.\n\n")
+	prefix.WriteString("## Model Routing Guidance\n")
+	prefix.WriteString("- **Role:** codebase-analyst\n")
+	fmt.Fprintf(&prefix, "- **Model Tier:** %s\n", routing.Tier)
+	fmt.Fprintf(&prefix, "- **Reasoning Effort:** %s\n", routing.ReasoningEffort)
+	fmt.Fprintf(&prefix, "- **Recommended Family:** %s\n\n", routing.RecommendedFamily)
 
-	sb.WriteString("## SDD Anthem & Principles\n")
-	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
+	prefix.WriteString("## 4-Pillar Progressive Extraction Checklist\n")
+	prefix.WriteString("Execute this progressive extraction checklist systematically:\n\n")
+	prefix.WriteString("### 1. AST, Module Map & Runtime Defaults (Architecture & Topology)\n")
+	prefix.WriteString("- [ ] Directory topology and entry points (e.g. `cmd/`, `src/`, `main.go`, `index.ts`, `App.tsx`, `Application.java`).\n")
+	prefix.WriteString("- [ ] Compiler and runtime defaults: exact Java/Go/Node/Python version, GC ergonomics, default character encoding (UTF-8), locale/timezone assumptions, and TLS/keystore configurations.\n")
+	prefix.WriteString("- [ ] Package manifest audit (`go.mod`, `package.json`, `pom.xml`, `build.gradle`, `requirements.txt`, `pyproject.toml`).\n")
+	prefix.WriteString("- [ ] Build systems, compilation targets, and local developer toolchains (`Makefile`, scripts, Dockerfiles, compose specs).\n")
+	prefix.WriteString("- [ ] Mandatory Coverage Ledger: record every manifest and config file read, line ranges, and justifications for any skipped lines in a `## Coverage Ledger` table.\n\n")
 
-	sb.WriteString("1. **Read-Only Forensic Audit:** Do NOT write or modify application code. You are mapping architecture, design patterns, schemas, and technical debt.\n")
-	sb.WriteString("2. **Deterministic Documentation:** Record verified facts with exact dates and inspection paths in living documents.\n")
-	sb.WriteString("3. **Standard Library Purity & Dependency Governance:** Flag third-party packages, libraries, and licenses for human decision approval (`D-xxx`).\n\n")
+	prefix.WriteString("### 2. Container, CI & Build Inventory (Infrastructure & Artifacts)\n")
+	prefix.WriteString("- [ ] Container inventory: Dockerfiles, base images, multi-stage builds, root vs. non-root users, build arguments, and package manager layers.\n")
+	prefix.WriteString("- [ ] CI/CD pipeline inventory: GitHub Actions, Jenkinsfile, GitLab CI stages, ambient build environment dependencies.\n")
+	prefix.WriteString("- [ ] Native, vendor, and binary dependencies: C/C++ libraries, JNI bindings, native wrappers, precompiled binaries.\n")
+	prefix.WriteString("- [ ] Dependency age and End-of-Life (EOL) analysis across complete manifests.\n\n")
 
-	sb.WriteString("## Canonical Role Skill: Staff Reverse-Engineer & Technical Auditor (codebase-analyst)\n")
-	sb.WriteString(strings.TrimSpace(roleSkill))
-	sb.WriteString("\n\n")
+	prefix.WriteString("### 3. Data & State Modeling (Data Flow & Storage)\n")
+	prefix.WriteString("- [ ] Persistence engines, database schemas, migration files (Flyway, Liquibase, Prisma, Alembic), and ORM / ODM models.\n")
+	prefix.WriteString("- [ ] Client/server state management (Redux, Zustand, React Query, Pinia, internal buses, Spring beans).\n")
+	prefix.WriteString("- [ ] Caching layers (Redis, Memcached, in-memory LRU) and event queues / brokers (Kafka, RabbitMQ).\n")
+	prefix.WriteString("- [ ] Data validation schemas and serialization contracts (JSON Schema, Protobuf, Zod).\n\n")
 
-	sb.WriteString("## Model Routing Guidance\n")
-	sb.WriteString("- **Role:** codebase-analyst\n")
-	fmt.Fprintf(&sb, "- **Model Tier:** %s\n", routing.Tier)
-	fmt.Fprintf(&sb, "- **Reasoning Effort:** %s\n", routing.ReasoningEffort)
-	fmt.Fprintf(&sb, "- **Recommended Family:** %s\n\n", routing.RecommendedFamily)
+	prefix.WriteString("### 4. Anti-Patterns & Technical Debt (Hygiene & UI Systems)\n")
+	prefix.WriteString("- [ ] Fragile or unmaintained third-party dependencies (outdated versions, deprecated APIs).\n")
+	prefix.WriteString("- [ ] Unhandled error patterns, swallowed exceptions, empty catch blocks, unchecked panics.\n")
+	prefix.WriteString("- [ ] Concurrency risks: unowned goroutines/threads, shared mutable state without locks, race conditions.\n")
+	prefix.WriteString("- [ ] Security hazards: hardcoded secrets/tokens, missing input sanitization, insecure defaults.\n")
+	prefix.WriteString("- [ ] Undocumented quirks or tribal knowledge to seed the Pitfalls log.\n")
+	prefix.WriteString("- [ ] Frontend design systems & UI patterns: conditionally evaluate font families, CSS frameworks, color themes, and component hierarchy ONLY if frontend assets are present.\n\n")
 
-	sb.WriteString("## 4-Pillar Progressive Extraction Checklist\n")
-	sb.WriteString("Execute this progressive extraction checklist systematically:\n\n")
-	sb.WriteString("### 1. AST, Module Map & Runtime Defaults (Architecture & Topology)\n")
-	sb.WriteString("- [ ] Directory topology and entry points (e.g. `cmd/`, `src/`, `main.go`, `index.ts`, `App.tsx`, `Application.java`).\n")
-	sb.WriteString("- [ ] Compiler and runtime defaults: exact Java/Go/Node/Python version, GC ergonomics, default character encoding (UTF-8), locale/timezone assumptions, and TLS/keystore configurations.\n")
-	sb.WriteString("- [ ] Package manifest audit (`go.mod`, `package.json`, `pom.xml`, `build.gradle`, `requirements.txt`, `pyproject.toml`).\n")
-	sb.WriteString("- [ ] Build systems, compilation targets, and local developer toolchains (`Makefile`, scripts, Dockerfiles, compose specs).\n")
-	sb.WriteString("- [ ] Mandatory Coverage Ledger: record every manifest and config file read, line ranges, and justifications for any skipped lines in a `## Coverage Ledger` table.\n\n")
+	prefix.WriteString("## Brownfield Living Document Synthesis Protocol\n")
+	prefix.WriteString("Synthesize forensic findings directly into the project's living documents:\n")
+	prefix.WriteString("1. **`TECH_STACK.md`:**\n")
+	prefix.WriteString("   - Architecture & Directory Layout (§3, §4)\n")
+	prefix.WriteString("   - Decision Register (`D-xxx`) for discovered frameworks, runtimes, and libraries (§6)\n")
+	prefix.WriteString("   - Verified-Facts Log with dates and inspection sources (§7)\n")
+	prefix.WriteString("   - Dependency Register for package and external service contracts (§8)\n")
+	prefix.WriteString("2. **`SKILLS.md`:**\n")
+	prefix.WriteString("   - Discovered language standards, naming conventions, and idioms (§1)\n")
+	prefix.WriteString("   - Discovered quirks, gotchas, and architectural traps -> Pitfalls Log (§7)\n")
+	prefix.WriteString("3. **`ROADMAP.md`:**\n")
+	prefix.WriteString("   - Discovered technical debt, unmapped subsystems, and remediation items -> Parking Lot (§7)\n")
+	prefix.WriteString("4. **`docs/architecture/` & `docs/business_flows/`:**\n")
+	prefix.WriteString("   - Scaffold visual architecture & domain flows via `sdd doc init` and `sdd doc flow <name>`\n")
+	prefix.WriteString("   - Document system topology using Mermaid `flowchart TD` in `docs/architecture/overview.md`\n")
+	prefix.WriteString("   - Document entity relationships using Mermaid `erDiagram` in `docs/architecture/data_model.md`\n")
+	prefix.WriteString("   - Document critical domain flows and state transitions in `docs/business_flows/`\n\n")
 
-	sb.WriteString("### 2. Container, CI & Build Inventory (Infrastructure & Artifacts)\n")
-	sb.WriteString("- [ ] Container inventory: Dockerfiles, base images, multi-stage builds, root vs. non-root users, build arguments, and package manager layers.\n")
-	sb.WriteString("- [ ] CI/CD pipeline inventory: GitHub Actions, Jenkinsfile, GitLab CI stages, ambient build environment dependencies.\n")
-	sb.WriteString("- [ ] Native, vendor, and binary dependencies: C/C++ libraries, JNI bindings, native wrappers, precompiled binaries.\n")
-	sb.WriteString("- [ ] Dependency age and End-of-Life (EOL) analysis across complete manifests.\n\n")
+	var suffix strings.Builder
+	appendDiscoveryContextAndTask(&suffix, root, detectedLangs, manifests, buildCmd, testCmd, lintCmd, stagedContext, taskID, taskDir, typology, reqs, plan)
 
-	sb.WriteString("### 3. Data & State Modeling (Data Flow & Storage)\n")
-	sb.WriteString("- [ ] Persistence engines, database schemas, migration files (Flyway, Liquibase, Prisma, Alembic), and ORM / ODM models.\n")
-	sb.WriteString("- [ ] Client/server state management (Redux, Zustand, React Query, Pinia, internal buses, Spring beans).\n")
-	sb.WriteString("- [ ] Caching layers (Redis, Memcached, in-memory LRU) and event queues / brokers (Kafka, RabbitMQ).\n")
-	sb.WriteString("- [ ] Data validation schemas and serialization contracts (JSON Schema, Protobuf, Zod).\n\n")
-
-	sb.WriteString("### 4. Anti-Patterns & Technical Debt (Hygiene & UI Systems)\n")
-	sb.WriteString("- [ ] Fragile or unmaintained third-party dependencies (outdated versions, deprecated APIs).\n")
-	sb.WriteString("- [ ] Unhandled error patterns, swallowed exceptions, empty catch blocks, unchecked panics.\n")
-	sb.WriteString("- [ ] Concurrency risks: unowned goroutines/threads, shared mutable state without locks, race conditions.\n")
-	sb.WriteString("- [ ] Security hazards: hardcoded secrets/tokens, missing input sanitization, insecure defaults.\n")
-	sb.WriteString("- [ ] Undocumented quirks or tribal knowledge to seed the Pitfalls log.\n")
-	sb.WriteString("- [ ] Frontend design systems & UI patterns: conditionally evaluate font families, CSS frameworks, color themes, and component hierarchy ONLY if frontend assets are present.\n\n")
-
-	sb.WriteString("## Brownfield Living Document Synthesis Protocol\n")
-	sb.WriteString("Synthesize forensic findings directly into the project's living documents:\n")
-	sb.WriteString("1. **`TECH_STACK.md`:**\n")
-	sb.WriteString("   - Architecture & Directory Layout (§3, §4)\n")
-	sb.WriteString("   - Decision Register (`D-xxx`) for discovered frameworks, runtimes, and libraries (§6)\n")
-	sb.WriteString("   - Verified-Facts Log with dates and inspection sources (§7)\n")
-	sb.WriteString("   - Dependency Register for package and external service contracts (§8)\n")
-	sb.WriteString("2. **`SKILLS.md`:**\n")
-	sb.WriteString("   - Discovered language standards, naming conventions, and idioms (§1)\n")
-	sb.WriteString("   - Discovered quirks, gotchas, and architectural traps -> Pitfalls Log (§7)\n")
-	sb.WriteString("3. **`ROADMAP.md`:**\n")
-	sb.WriteString("   - Discovered technical debt, unmapped subsystems, and remediation items -> Parking Lot (§7)\n")
-	sb.WriteString("4. **`docs/architecture/` & `docs/business_flows/`:**\n")
-	sb.WriteString("   - Scaffold visual architecture & domain flows via `sdd doc init` and `sdd doc flow <name>`\n")
-	sb.WriteString("   - Document system topology using Mermaid `flowchart TD` in `docs/architecture/overview.md`\n")
-	sb.WriteString("   - Document entity relationships using Mermaid `erDiagram` in `docs/architecture/data_model.md`\n")
-	sb.WriteString("   - Document critical domain flows and state transitions in `docs/business_flows/`\n\n")
-
-	appendDiscoveryContextAndTask(&sb, root, detectedLangs, manifests, buildCmd, testCmd, lintCmd, stagedContext, taskID, taskDir, typology, reqs, plan)
-
-	return sb.String()
+	parts := PromptParts{
+		StaticPrefix:  prefix.String(),
+		DynamicSuffix: suffix.String(),
+	}
+	return parts.FullPrompt()
 }
 
 func buildDiscoveryEnsemblePrompt(
@@ -396,78 +398,78 @@ func buildDiscoveryEnsemblePrompt(
 	analystRouting role.ModelRouting,
 	challengerRouting *role.ModelRouting,
 ) string {
-	var sb strings.Builder
+	var prefix strings.Builder
 
-	targetHeader := filepath.Base(root)
-	if taskID != "" {
-		targetHeader = fmt.Sprintf("Task %s (%s)", taskID, taskDir)
-	}
+	prefix.WriteString("# Handover: Adversarial Discovery Ensemble\n\n")
+	prefix.WriteString("You are orchestrating an **Adversarial Multi-Agent Discovery Ensemble** for brownfield exploration.\n")
+	prefix.WriteString("To eliminate single-agent blind spots, discovery is partitioned into two specialized roles:\n")
+	prefix.WriteString("1. **Primary Analyst (`codebase-analyst`):** Conducts 4-pillar forensic extraction and living document drafting.\n")
+	prefix.WriteString("2. **Adversarial Challenger (`discovery-challenger`):** Operates under stateless reviewer isolation to audit findings across 7 blind-spot vectors.\n\n")
 
-	fmt.Fprintf(&sb, "# Handover: Adversarial Discovery Ensemble for %s\n\n", targetHeader)
-	sb.WriteString("You are orchestrating an **Adversarial Multi-Agent Discovery Ensemble** for brownfield exploration.\n")
-	sb.WriteString("To eliminate single-agent blind spots, discovery is partitioned into two specialized roles:\n")
-	sb.WriteString("1. **Primary Analyst (`codebase-analyst`):** Conducts 4-pillar forensic extraction and living document drafting.\n")
-	sb.WriteString("2. **Adversarial Challenger (`discovery-challenger`):** Operates under stateless reviewer isolation to audit findings across 7 blind-spot vectors.\n\n")
+	prefix.WriteString("## SDD Anthem & Principles\n")
+	prefix.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
 
-	sb.WriteString("## SDD Anthem & Principles\n")
-	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
+	prefix.WriteString("1. **Strictly Read-Only:** Neither agent mutates application source code during Phase Discovery.\n")
+	prefix.WriteString("2. **Stateless Reviewer Isolation:** The `discovery-challenger` is dispatched in a fresh, isolated context (tabula rasa) without conversational anchoring to the analyst.\n")
+	prefix.WriteString("3. **Evidence-Based Grounding:** Every discovery claim and adversarial challenge must cite exact repository-relative file paths and line numbers.\n")
+	prefix.WriteString("4. **Deterministic Reconciliation:** Discrepancies between analyst and challenger findings are reconciled before Gate 1 approval.\n\n")
 
-	sb.WriteString("1. **Strictly Read-Only:** Neither agent mutates application source code during Phase Discovery.\n")
-	sb.WriteString("2. **Stateless Reviewer Isolation:** The `discovery-challenger` is dispatched in a fresh, isolated context (tabula rasa) without conversational anchoring to the analyst.\n")
-	sb.WriteString("3. **Evidence-Based Grounding:** Every discovery claim and adversarial challenge must cite exact repository-relative file paths and line numbers.\n")
-	sb.WriteString("4. **Deterministic Reconciliation:** Discrepancies between analyst and challenger findings are reconciled before Gate 1 approval.\n\n")
-
-	if bundleDir != "" {
-		sb.WriteString("## Stateless Review Bundle (.sdd/review/)\n")
-		sb.WriteString("An isolated, frozen review bundle has been staged for the challenger with zero conversational history:\n")
-		fmt.Fprintf(&sb, "- **Bundle Directory:** `%s`\n", filepath.ToSlash(bundleDir))
-		fmt.Fprintf(&sb, "- **Staged Findings:** `%s/findings.md`\n", filepath.ToSlash(bundleDir))
-		fmt.Fprintf(&sb, "- **Challenger Rubric:** `%s/rubric.md`\n", filepath.ToSlash(bundleDir))
-		fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n\n", filepath.ToSlash(bundleDir))
-	}
-
-	sb.WriteString("## 1. Primary Analyst Briefing (codebase-analyst)\n")
-	sb.WriteString("The primary analyst executes the 4-pillar progressive extraction checklist:\n")
+	prefix.WriteString("## 1. Primary Analyst Briefing (codebase-analyst)\n")
+	prefix.WriteString("The primary analyst executes the 4-pillar progressive extraction checklist:\n")
 	for _, item := range getDiscoveryChecklist() {
-		fmt.Fprintf(&sb, "- %s\n", item)
+		fmt.Fprintf(&prefix, "- %s\n", item)
 	}
-	sb.WriteString("\n### Canonical Role Skill: Codebase Analyst\n")
-	sb.WriteString(strings.TrimSpace(roleSkill))
-	sb.WriteString("\n\n")
+	prefix.WriteString("\n### Canonical Role Skill: Codebase Analyst\n")
+	prefix.WriteString(strings.TrimSpace(roleSkill))
+	prefix.WriteString("\n\n")
 
-	sb.WriteString("## 2. Adversarial Challenger Rubric (discovery-challenger)\n")
-	sb.WriteString("The discovery challenger interrogates the draft findings against 7 comprehensive blind-spot vectors:\n")
+	prefix.WriteString("## 2. Adversarial Challenger Rubric (discovery-challenger)\n")
+	prefix.WriteString("The discovery challenger interrogates the draft findings against 7 comprehensive blind-spot vectors:\n")
 	for _, v := range getDiscoveryBlindSpotVectors() {
-		fmt.Fprintf(&sb, "- %s\n", v)
+		fmt.Fprintf(&prefix, "- %s\n", v)
 	}
-	sb.WriteString("\n### Canonical Role Skill: Discovery Challenger\n")
-	sb.WriteString(strings.TrimSpace(challengerSkill))
-	sb.WriteString("\n\n")
+	prefix.WriteString("\n### Canonical Role Skill: Discovery Challenger\n")
+	prefix.WriteString(strings.TrimSpace(challengerSkill))
+	prefix.WriteString("\n\n")
 
-	sb.WriteString("## Model Routing Guidance\n")
-	sb.WriteString("Multi-agent discovery dispatch recommendations:\n")
-	sb.WriteString("- **Primary Analyst (codebase-analyst):**\n")
-	fmt.Fprintf(&sb, "  - Model Tier: %s\n", analystRouting.Tier)
-	fmt.Fprintf(&sb, "  - Reasoning Effort: %s\n", analystRouting.ReasoningEffort)
-	fmt.Fprintf(&sb, "  - Recommended Family: %s\n", analystRouting.RecommendedFamily)
+	prefix.WriteString("## Model Routing Guidance\n")
+	prefix.WriteString("Multi-agent discovery dispatch recommendations:\n")
+	prefix.WriteString("- **Primary Analyst (codebase-analyst):**\n")
+	fmt.Fprintf(&prefix, "  - Model Tier: %s\n", analystRouting.Tier)
+	fmt.Fprintf(&prefix, "  - Reasoning Effort: %s\n", analystRouting.ReasoningEffort)
+	fmt.Fprintf(&prefix, "  - Recommended Family: %s\n", analystRouting.RecommendedFamily)
 	if challengerRouting != nil {
-		sb.WriteString("- **Adversarial Challenger (discovery-challenger):**\n")
-		fmt.Fprintf(&sb, "  - Model Tier: %s\n", challengerRouting.Tier)
-		fmt.Fprintf(&sb, "  - Reasoning Effort: %s\n", challengerRouting.ReasoningEffort)
-		fmt.Fprintf(&sb, "  - Recommended Family: %s\n", challengerRouting.RecommendedFamily)
+		prefix.WriteString("- **Adversarial Challenger (discovery-challenger):**\n")
+		fmt.Fprintf(&prefix, "  - Model Tier: %s\n", challengerRouting.Tier)
+		fmt.Fprintf(&prefix, "  - Reasoning Effort: %s\n", challengerRouting.ReasoningEffort)
+		fmt.Fprintf(&prefix, "  - Recommended Family: %s\n", challengerRouting.RecommendedFamily)
 	}
-	sb.WriteString("\n")
+	prefix.WriteString("\n")
 
-	sb.WriteString("## 3. Deterministic Reconciliation Protocol (Gate 1 Exit Criteria)\n")
-	sb.WriteString("Before presenting the brownfield discovery specifications to the human at Gate 1, the Task Coordinator executes this reconciliation:\n")
+	prefix.WriteString("## 3. Deterministic Reconciliation Protocol (Gate 1 Exit Criteria)\n")
+	prefix.WriteString("Before presenting the brownfield discovery specifications to the human at Gate 1, the Task Coordinator executes this reconciliation:\n")
 	for _, r := range getDiscoveryReconciliationChecklist() {
-		fmt.Fprintf(&sb, "- [ ] %s\n", r)
+		fmt.Fprintf(&prefix, "- [ ] %s\n", r)
 	}
-	sb.WriteString("\n")
+	prefix.WriteString("\n")
 
-	appendDiscoveryContextAndTask(&sb, root, detectedLangs, manifests, buildCmd, testCmd, lintCmd, stagedContext, taskID, taskDir, typology, reqs, plan)
+	var suffix strings.Builder
+	if bundleDir != "" {
+		suffix.WriteString("## Stateless Review Bundle (.sdd/review/)\n")
+		suffix.WriteString("An isolated, frozen review bundle has been staged for the challenger with zero conversational history:\n")
+		fmt.Fprintf(&suffix, "- **Bundle Directory:** `%s`\n", filepath.ToSlash(bundleDir))
+		fmt.Fprintf(&suffix, "- **Staged Findings:** `%s/findings.md`\n", filepath.ToSlash(bundleDir))
+		fmt.Fprintf(&suffix, "- **Challenger Rubric:** `%s/rubric.md`\n", filepath.ToSlash(bundleDir))
+		fmt.Fprintf(&suffix, "- **Bundle Manifest:** `%s/manifest.json`\n\n", filepath.ToSlash(bundleDir))
+	}
 
-	return sb.String()
+	appendDiscoveryContextAndTask(&suffix, root, detectedLangs, manifests, buildCmd, testCmd, lintCmd, stagedContext, taskID, taskDir, typology, reqs, plan)
+
+	parts := PromptParts{
+		StaticPrefix:  prefix.String(),
+		DynamicSuffix: suffix.String(),
+	}
+	return parts.FullPrompt()
 }
 
 func appendDiscoveryContextAndTask(
@@ -506,6 +508,7 @@ func appendDiscoveryContextAndTask(
 
 	if taskID != "" {
 		sb.WriteString("## Discovery Task Details\n")
+		fmt.Fprintf(sb, "- **Task Scope:** Task %s (%s)\n", taskID, taskDir)
 		fmt.Fprintf(sb, "- **Task ID:** %s\n", taskID)
 		fmt.Fprintf(sb, "- **Task Directory:** %s\n", taskDir)
 		if typology != "" {
