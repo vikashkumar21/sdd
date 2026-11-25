@@ -1,6 +1,3 @@
----
-status: active
----
 # Plan — T-061 Lens-scoped review bundles and diff filtering
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
@@ -98,6 +95,7 @@ Each step is small enough to review in one sitting and names its proving check.
 | `internal/audit/filter_test.go` | create | Unit tests for diff parsing, boundary preservation, zero-division, and finding filtering |
 | `internal/audit/bundle.go` | modify | Lens-scoped directory isolation (`.sdd/review/<TASK_ID>/<lens>/`), `"appsec"` normalization, prompt instruction refinement, bundle telemetry |
 | `internal/audit/bundle_test.go` | modify | Test assertions for lens directories, diff savings, and telemetry in `manifest.json` |
+| `internal/audit/audit_test.go` | modify | Update legacy test bundle path assertions for lens isolation |
 | `internal/cli/prompt.go` | modify | Expose lens-scoped bundle directory, bundle files, and filtering telemetry in `sdd prompt review` |
 | `internal/cli/prompt_test.go` | modify | Test assertions for lens-scoped prompt generation and JSON context export |
 | `internal/templates/templates.go` | modify | Bump `templates.Version` from `2.8.0` to `2.9.0` |
@@ -147,4 +145,6 @@ None. Go standard library only (`D-007`).
 - **Rule F-003 (Token telemetry):** Track and record session token consumption via `sdd record-tokens T-061` and report metrics at GATE 2.
 
 ## 10. Approval record
-Approved by: Vikash   Date: 2026-11-25   Phrase received: `APPROVED T-061`
+Approved by: Vikash
+Date: 2026-11-25
+Phrase received: `APPROVED T-061`

@@ -38,11 +38,11 @@ type ReviewPromptContext struct {
 	FeedbackRules      string                       `json:"feedbackRules"`
 	BundleDir          string                       `json:"bundleDir,omitempty"`
 	BundleFiles        []string                     `json:"bundleFiles,omitempty"`
-	RawDiffBytes       int                          `json:"rawDiffBytes,omitempty"`
-	FilteredDiffBytes  int                          `json:"filteredDiffBytes,omitempty"`
-	DiffSavingsPercent float64                      `json:"diffSavingsPercent,omitempty"`
-	RawFilesCount      int                          `json:"rawFilesCount,omitempty"`
-	FilteredFilesCount int                          `json:"filteredFilesCount,omitempty"`
+	RawDiffBytes       int                          `json:"rawDiffBytes"`
+	FilteredDiffBytes  int                          `json:"filteredDiffBytes"`
+	DiffSavingsPercent float64                      `json:"diffSavingsPercent"`
+	RawFilesCount      int                          `json:"rawFilesCount"`
+	FilteredFilesCount int                          `json:"filteredFilesCount"`
 	Prompt             string                       `json:"prompt"`
 }
 
@@ -595,10 +595,7 @@ func runPromptReview(args []string, env IO) int {
 		return 2
 	}
 
-	normLens := strings.ToLower(strings.TrimSpace(*lensFlag))
-	if normLens == "appsec" {
-		normLens = "security"
-	}
+	normLens := audit.NormalizeLens(*lensFlag)
 	switch normLens {
 	case "spec", "security", "pattern", "all":
 		// valid

@@ -224,6 +224,10 @@ func TestPromptReview_StatelessBundle(t *testing.T) {
 	}
 }
 
+func TestPromptReview_LensScoped(t *testing.T) {
+	TestPromptReview_StatelessBundle(t)
+}
+
 func TestPromptReview_Loop(t *testing.T) {
 	root := setupPromptTestProject(t, "T-088", "review-test")
 

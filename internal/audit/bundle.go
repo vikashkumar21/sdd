@@ -228,11 +228,11 @@ type ReviewBundle struct {
 	BundleDir          string    `json:"bundle_dir"`
 	CreatedAt          time.Time `json:"created_at"`
 	Files              []string  `json:"files"`
-	RawDiffBytes       int       `json:"raw_diff_bytes,omitempty"`
-	FilteredDiffBytes  int       `json:"filtered_diff_bytes,omitempty"`
-	DiffSavingsPercent float64   `json:"diff_savings_percent,omitempty"`
-	RawFilesCount      int       `json:"raw_files_count,omitempty"`
-	FilteredFilesCount int       `json:"filtered_files_count,omitempty"`
+	RawDiffBytes       int       `json:"raw_diff_bytes"`
+	FilteredDiffBytes  int       `json:"filtered_diff_bytes"`
+	DiffSavingsPercent float64   `json:"diff_savings_percent"`
+	RawFilesCount      int       `json:"raw_files_count"`
+	FilteredFilesCount int       `json:"filtered_files_count"`
 }
 
 // EnsureGitignoreReview ensures .sdd/review/ is ignored in the root .gitignore.
@@ -508,13 +508,7 @@ func StageReviewBundleWithLoop(root, taskID, lens string, loop int, now ...time.
 		return nil, fmt.Errorf("invalid task ID format %q (expected format like T-001)", taskID)
 	}
 
-	normLens := strings.ToLower(strings.TrimSpace(lens))
-	if normLens == "appsec" {
-		normLens = "security"
-	}
-	if normLens == "" {
-		normLens = "all"
-	}
+	normLens := NormalizeLens(lens)
 
 	taskRelDir, _, err := findTaskDirectory(root, normTaskID)
 	if err != nil {

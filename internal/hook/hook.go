@@ -451,16 +451,13 @@ func isPlanApproved(content string) bool {
 		// Check line-anchored frontmatter or section status
 		if strings.HasPrefix(lower, "status:") {
 			val := strings.TrimSpace(strings.TrimPrefix(lower, "status:"))
-			if strings.HasPrefix(val, "approved") || strings.HasPrefix(val, "implementing") || val == "active" || val == "completed" {
+			if val == "approved" || val == "implementing" || val == "completed" {
 				return true
 			}
 		}
 
-		if strings.HasPrefix(line, "Approved by:") && !strings.Contains(line, "<human>") && !strings.Contains(line, "Pending") && !strings.Contains(line, "______") {
+		if strings.HasPrefix(line, "Approved by:") && !strings.Contains(line, "<human>") && !strings.Contains(line, "Pending") {
 			hasApprovalRecord = true
-			if strings.Contains(line, "APPROVED") || strings.Contains(line, "`APPROVED") {
-				return true
-			}
 		}
 		if strings.HasPrefix(line, "Phrase received:") && (strings.Contains(line, "APPROVED") || strings.Contains(line, "`APPROVED")) {
 			if hasApprovalRecord {

@@ -12,31 +12,42 @@ type DiffFileHunk struct {
 	OldPath string
 	NewPath string
 	Header  string
-	Body    string
 	Raw     string
 }
 
 // TargetPath returns the effective path being evaluated (NewPath unless file was deleted).
 func (h *DiffFileHunk) TargetPath() string {
-	if h.NewPath != "" && h.NewPath != "/dev/null" {
+	if h.NewPath != "" && h.NewPath != "/dev/null" && h.NewPath != "dev/null" {
 		return h.NewPath
 	}
 	return h.OldPath
 }
 
+// NormalizeLens normalizes a lens identifier, mapping aliases like "appsec" to "security"
+// and empty string to "all".
+func NormalizeLens(lens string) string {
+	norm := strings.ToLower(strings.TrimSpace(lens))
+	switch norm {
+	case "appsec":
+		return "security"
+	case "":
+		return "all"
+	default:
+		return norm
+	}
+}
+
 // FilterGitDiffByLens filters a raw unified git diff according to the given lens
 // (spec, security, pattern, all) and computes token/byte savings metrics.
 func FilterGitDiffByLens(rawDiff, lens string) (filteredDiff string, rawBytes, filteredBytes, rawFiles, filteredFiles int, savingsPercent float64) {
-	normLens := strings.ToLower(strings.TrimSpace(lens))
-	if normLens == "appsec" {
-		normLens = "security"
-	}
-	if normLens == "" {
-		normLens = "all"
-	}
-
+	normLens := NormalizeLens(lens)
 	rawBytes = len(rawDiff)
-	hunks := splitDiffIntoHunks(rawDiff)
+
+	hunks, err := splitDiffIntoHunks(rawDiff)
+	if err != nil || (len(hunks) == 0 && strings.TrimSpace(rawDiff) != "") {
+		// Fail-safe fallback on malformed diff or scanner error
+		return rawDiff, rawBytes, rawBytes, 1, 1, 0.0
+	}
 	rawFiles = len(hunks)
 
 	if normLens == "all" || rawFiles == 0 {
@@ -144,6 +155,9 @@ func isSecurityRelevant(path string) bool {
 	if base == "go.mod" || base == "go.sum" || base == "package.json" || base == "pom.xml" || strings.HasPrefix(base, "build.gradle") {
 		return true
 	}
+	if base == ".gitignore" || base == ".dockerignore" || strings.HasPrefix(base, ".env") {
+		return true
+	}
 	if strings.HasPrefix(pLower, ".github/") || base == ".gitlab-ci.yml" || base == "cloudbuild.yaml" || base == "buildspec.yml" {
 		return true
 	}
@@ -214,13 +228,15 @@ func isSpecDirectlyRelevant(path string) bool {
 }
 
 // splitDiffIntoHunks parses a unified git diff into itemized file hunks.
-func splitDiffIntoHunks(rawDiff string) []DiffFileHunk {
+func splitDiffIntoHunks(rawDiff string) ([]DiffFileHunk, error) {
 	var hunks []DiffFileHunk
 	if strings.TrimSpace(rawDiff) == "" {
-		return hunks
+		return hunks, nil
 	}
 
 	scanner := bufio.NewScanner(strings.NewReader(rawDiff))
+	// 1MB buffer limit to prevent silent truncation on large diff lines
+	scanner.Buffer(make([]byte, 64*1024), 1024*1024)
 	var currentHunk *DiffFileHunk
 	var currentRaw strings.Builder
 	var currentHeader strings.Builder
@@ -256,35 +272,60 @@ func splitDiffIntoHunks(rawDiff string) []DiffFileHunk {
 		}
 	}
 
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("scanning diff hunks: %w", err)
+	}
+
 	if currentHunk != nil {
 		currentHunk.Raw = currentRaw.String()
 		currentHunk.Header = strings.TrimRight(currentHeader.String(), "\n")
 		hunks = append(hunks, *currentHunk)
 	}
 
-	return hunks
+	return hunks, nil
 }
 
 // parseDiffGitPaths extracts old and new paths from a "diff --git a/<old> b/<new>" header.
 func parseDiffGitPaths(line string) (oldPath, newPath string) {
 	trimmed := strings.TrimPrefix(line, "diff --git ")
-	parts := strings.Split(trimmed, " ")
-	if len(parts) >= 2 {
-		oldPath = strings.TrimPrefix(parts[0], "a/")
-		newPath = strings.TrimPrefix(parts[1], "b/")
-		oldPath = strings.Trim(oldPath, "\"")
-		newPath = strings.Trim(newPath, "\"")
+	trimmed = strings.TrimSpace(trimmed)
+
+	// Check if paths are double-quoted: "a/..." "b/..."
+	if strings.HasPrefix(trimmed, "\"") {
+		firstEnd := strings.Index(trimmed[1:], "\"")
+		if firstEnd != -1 {
+			oldPath = trimmed[1 : firstEnd+1]
+			rest := strings.TrimSpace(trimmed[firstEnd+2:])
+			if strings.HasPrefix(rest, "\"") && strings.HasSuffix(rest, "\"") && len(rest) >= 2 {
+				newPath = rest[1 : len(rest)-1]
+			}
+		}
+	} else {
+		// Look for " b/" separator
+		idx := strings.Index(trimmed, " b/")
+		if idx != -1 {
+			oldPath = trimmed[:idx]
+			newPath = trimmed[idx+1:]
+		} else {
+			parts := strings.Split(trimmed, " ")
+			if len(parts) >= 2 {
+				oldPath = parts[0]
+				newPath = parts[1]
+			}
+		}
 	}
+
+	oldPath = strings.TrimPrefix(oldPath, "a/")
+	newPath = strings.TrimPrefix(newPath, "b/")
+	oldPath = strings.Trim(oldPath, "\"")
+	newPath = strings.Trim(newPath, "\"")
 	return oldPath, newPath
 }
 
 // FilterFindingsForLens filters multi-loop remediation findings for a specific lens domain.
 func FilterFindingsForLens(findings []FindingItem, lens string) []FindingItem {
-	normLens := strings.ToLower(strings.TrimSpace(lens))
-	if normLens == "appsec" {
-		normLens = "security"
-	}
-	if normLens == "" || normLens == "all" || len(findings) == 0 {
+	normLens := NormalizeLens(lens)
+	if normLens == "all" || len(findings) == 0 {
 		return findings
 	}
 

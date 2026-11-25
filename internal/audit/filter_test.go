@@ -108,7 +108,7 @@ func TestFilterGitDiffByLens_Spec(t *testing.T) {
 	if !strings.Contains(filtered, "diff --git a/ROADMAP.md b/ROADMAP.md") {
 		t.Errorf("spec diff must retain file header for boundary verification:\n%s", filtered)
 	}
-	if strings.Contains(filtered, "+| 2026-11-25 | T-061 update |") {
+	if strings.Contains(filtered, "T-061 update: lens-scoped review bundles") {
 		t.Errorf("spec diff must elide non-code diff body:\n%s", filtered)
 	}
 	if !strings.Contains(filtered, "spec lens: non-code diff body elided") {
@@ -195,5 +195,83 @@ func TestFilterFindingsForLens(t *testing.T) {
 	allFindings := FilterFindingsForLens(findings, "all")
 	if len(allFindings) != 4 {
 		t.Fatalf("expected 4 findings for 'all', got %d", len(allFindings))
+	}
+}
+
+func TestFilterGitDiffByLens_OutOfScopeFallback(t *testing.T) {
+	TestFilterGitDiffByLens_100PercentOutOfScope(t)
+}
+
+func TestFilterGitDiffByLens_MalformedFallback(t *testing.T) {
+	malformedDiff := "this is not a valid diff header\njust some random text without diff git prefix\n"
+	filtered, rawBytes, filteredBytes, rawFiles, filteredFiles, savings := FilterGitDiffByLens(malformedDiff, "security")
+	if filtered != malformedDiff {
+		t.Errorf("malformed diff must safely fallback to rawDiff, got:\n%s", filtered)
+	}
+	if rawFiles != 1 || filteredFiles != 1 || rawBytes != filteredBytes || savings != 0.0 {
+		t.Errorf("unexpected fallback metrics: rawFiles=%d, filteredFiles=%d, savings=%f", rawFiles, filteredFiles, savings)
+	}
+}
+
+func TestFilterGitDiffByLens_UnknownLensFallback(t *testing.T) {
+	filtered, _, _, rawFiles, filteredFiles, _ := FilterGitDiffByLens(sampleGitDiff, "unrecognized_custom_lens")
+	if rawFiles != 4 || filteredFiles != 4 {
+		t.Errorf("unrecognized lens should retain all hunks: raw=%d, filtered=%d", rawFiles, filteredFiles)
+	}
+	if filtered != sampleGitDiff {
+		t.Errorf("unrecognized lens must preserve full diff without error")
+	}
+}
+
+func TestFilterGitDiffByLens_DeletedFile(t *testing.T) {
+	deletedDiff := `diff --git a/cmd/sdd/old_cmd.go b/dev/null
+deleted file mode 100644
+index 1111111..0000000
+--- a/cmd/sdd/old_cmd.go
++++ /dev/null
+@@ -1,5 +0,0 @@
+-package main
+`
+	filtered, _, _, rawFiles, filteredFiles, _ := FilterGitDiffByLens(deletedDiff, "security")
+	if rawFiles != 1 || filteredFiles != 1 {
+		t.Fatalf("expected deleted file to be evaluated via OldPath: raw=%d, filtered=%d", rawFiles, filteredFiles)
+	}
+	if !strings.Contains(filtered, "diff --git a/cmd/sdd/old_cmd.go") {
+		t.Errorf("expected deleted file diff to be retained for security lens:\n%s", filtered)
+	}
+}
+
+func TestFilterGitDiffByLens_SpacesInPath(t *testing.T) {
+	spaceDiff := `diff --git "a/internal/audit/path with space.go" "b/internal/audit/path with space.go"
+index 1111111..2222222 100644
+--- "a/internal/audit/path with space.go"
++++ "b/internal/audit/path with space.go"
+@@ -1,2 +1,3 @@
++// added line
+`
+	filtered, _, _, rawFiles, filteredFiles, _ := FilterGitDiffByLens(spaceDiff, "security")
+	if rawFiles != 1 || filteredFiles != 1 {
+		t.Fatalf("expected space path to be parsed correctly: raw=%d, filtered=%d", rawFiles, filteredFiles)
+	}
+	if !strings.Contains(filtered, "path with space.go") {
+		t.Errorf("expected space path diff to be retained:\n%s", filtered)
+	}
+}
+
+func TestFilterFindingsForLens_Unassigned(t *testing.T) {
+	findings := []FindingItem{
+		{ID: "F-001", Category: "", Finding: "Missing category"},
+		{ID: "GEN-001", Category: "General", Finding: "General feedback"},
+		{ID: "MISC-002", Category: "n/a", Finding: "Not applicable"},
+		{ID: "SPEC-003", Category: "Spec", Finding: "Spec finding"},
+	}
+	secFindings := FilterFindingsForLens(findings, "security")
+	if len(secFindings) != 3 {
+		t.Fatalf("expected 3 unassigned/general findings for security, got %d", len(secFindings))
+	}
+	for _, f := range secFindings {
+		if f.ID == "SPEC-003" {
+			t.Errorf("expected SPEC-003 to be excluded from security lens")
+		}
 	}
 }

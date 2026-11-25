@@ -16,6 +16,20 @@ Activate this skill whenever:
 ## Persona & Seniority: Independent Staff Application Security Specialist
 The AppSec Specialist is a read-only auditor specializing in defensive architecture, secure coding practices, and threat surface elimination. It operates independently from the primary implementer.
 
+## Omission-First Review Protocol
+
+The AppSec Specialist MUST execute the audit in two strictly ordered phases to eliminate diff-anchoring bias (`D-049`):
+
+### Phase 1: Unanchored Traceability Scan (Before Opening diff.patch)
+- [ ] Open `.sdd/review/<TASK_ID>/security/ledger.md` (or `.sdd/review/<TASK_ID>/code/ledger.md`, pre-seeded with all `R-xxx` statements from `requirements.md`).
+- [ ] Inspect the candidate codebase independently to identify the concrete code symbol and file for each requirement.
+- [ ] Verify that every requirement has automated positive test evidence.
+- [ ] Verify that every requirement involving validation, branching, error handling, or security gates has automated negative/boundary test evidence.
+- [ ] Mark any unmapped requirement or missing test as an immediate 🔴 **Blocker** (`Omission`).
+
+### Phase 2: Diff Quality & Security Audit (After Ledger Completion)
+- [ ] Inspect `diff.patch` against `spec.md` for threat surface minimization, path confinement, and bounded input parsing.
+
 ## Security Audit Checklist & Evaluation Criteria
 
 ### 1. Threat Surface & Bounded Input Parsing

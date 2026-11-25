@@ -477,9 +477,10 @@ func TestStageReviewBundle_LensScopedAndTelemetry(t *testing.T) {
 		}
 
 		expectedSubdir := l
-		if l == "all" {
+		switch l {
+		case "all":
 			expectedSubdir = "code"
-		} else if l == "appsec" {
+		case "appsec":
 			expectedSubdir = "security"
 		}
 		expectedDir := filepath.ToSlash(filepath.Join(".sdd", "review", "T-061", expectedSubdir))
@@ -499,7 +500,7 @@ func TestStageReviewBundle_LensScopedAndTelemetry(t *testing.T) {
 			t.Fatalf("unmarshaling manifest for lens %s: %v", l, err)
 		}
 
-		if decoded.Lens != l && !(l == "appsec" && decoded.Lens == "security") {
+		if decoded.Lens != l && (l != "appsec" || decoded.Lens != "security") {
 			t.Errorf("expected manifest lens %s, got %s", l, decoded.Lens)
 		}
 		if decoded.RawDiffBytes < 0 || decoded.FilteredDiffBytes < 0 {
@@ -508,5 +509,62 @@ func TestStageReviewBundle_LensScopedAndTelemetry(t *testing.T) {
 		if decoded.DiffSavingsPercent < 0.0 || decoded.DiffSavingsPercent > 100.0 {
 			t.Errorf("invalid diff savings percent: %f", decoded.DiffSavingsPercent)
 		}
+	}
+}
+
+func TestStageReviewBundle_ManifestTelemetry(t *testing.T) {
+	TestStageReviewBundle_LensScopedAndTelemetry(t)
+}
+
+func TestStageReviewBundle_LoopMultiLensFilter(t *testing.T) {
+	root := setupTestProject(t, "T-098", "multi-lens-task")
+	fixedTime := time.Date(2026, 11, 24, 10, 0, 0, 0, time.UTC)
+
+	reviewPath := filepath.Join(root, "tasks", "features", "T-098-multi-lens-task", "review.md")
+	reviewContent := `# Review
+## 3. Risk & Findings Register
+| ID | Category | Severity | Finding | Suggested Action | Status |
+|---|---|---|---|---|---|
+| SPEC-001 | Spec | 🔴 Blocker | Missing R-001 check | Add check | Resolved |
+| SEC-001 | Security | 🔴 Blocker | Path traversal risk | Clean path | Resolved |
+| PAT-001 | Pattern | 🟡 Warning | Not idiomatic Go | Refactor | Resolved |
+| F-001 | General | 🟢 Minor | Human feedback rule | Comply | Resolved |
+`
+	if err := os.WriteFile(reviewPath, []byte(reviewContent), 0644); err != nil {
+		t.Fatalf("writing review.md: %v", err)
+	}
+
+	// Security lens Loop 2
+	bundleSec, err := StageReviewBundleWithLoop(root, "T-098", "security", 2, fixedTime)
+	if err != nil {
+		t.Fatalf("StageReviewBundleWithLoop(security) failed: %v", err)
+	}
+	secData, err := os.ReadFile(filepath.Join(root, bundleSec.BundleDir, "findings_to_verify.md"))
+	if err != nil {
+		t.Fatalf("missing findings_to_verify.md for security: %v", err)
+	}
+	secStr := string(secData)
+	if !strings.Contains(secStr, "SEC-001") || !strings.Contains(secStr, "F-001") {
+		t.Errorf("security findings_to_verify.md missing SEC-001 or F-001:\n%s", secStr)
+	}
+	if strings.Contains(secStr, "SPEC-001") || strings.Contains(secStr, "PAT-001") {
+		t.Errorf("security findings_to_verify.md must not contain SPEC-001 or PAT-001:\n%s", secStr)
+	}
+
+	// Spec lens Loop 2
+	bundleSpec, err := StageReviewBundleWithLoop(root, "T-098", "spec", 2, fixedTime)
+	if err != nil {
+		t.Fatalf("StageReviewBundleWithLoop(spec) failed: %v", err)
+	}
+	specData, err := os.ReadFile(filepath.Join(root, bundleSpec.BundleDir, "findings_to_verify.md"))
+	if err != nil {
+		t.Fatalf("missing findings_to_verify.md for spec: %v", err)
+	}
+	specStr := string(specData)
+	if !strings.Contains(specStr, "SPEC-001") || !strings.Contains(specStr, "F-001") {
+		t.Errorf("spec findings_to_verify.md missing SPEC-001 or F-001:\n%s", specStr)
+	}
+	if strings.Contains(specStr, "SEC-001") || strings.Contains(specStr, "PAT-001") {
+		t.Errorf("spec findings_to_verify.md must not contain SEC-001 or PAT-001:\n%s", specStr)
 	}
 }
