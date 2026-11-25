@@ -413,3 +413,22 @@ invoke_subagent(
   - `skills/task-coordinator/SKILL.md` declares model tier dispatch and mandates `flash` / standard tier dispatch for `spec-auditor` and `pattern-auditor`.
   - Agent contracts (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`) codify tier-calibrated dispatch in Phase C.2 and Hard Rule 13.
   - Legacy kits without coordinator skills pass cleanly without false positives.
+
+## 19. Provider-Aligned Prompt Prefix Caching and Dynamic Suffix Pinning Standard
+
+To achieve 50–90% prompt token caching discounts and sub-second TTFT (Time To First Token) across Anthropic, OpenAI, and Gemini APIs, SDD mandates strict prefix/suffix boundary separation (`T-062`, `D-050`):
+
+### 1. Invariant Static Prefix Floor
+- **Activation Thresholds:** Major LLM providers require exact byte prefixes:
+  - Anthropic (Claude 3.5 Sonnet / 3.7 Sonnet / Opus): $\ge 1,024$ tokens.
+  - Anthropic (Claude 3.5 Haiku): $\ge 2,048$ tokens.
+  - OpenAI (GPT-4o, o3-mini): $\ge 1,024$ tokens in 128-token increments.
+  - Google Gemini: $\ge 1,024$ tokens automatic prefix caching.
+- **Byte Floor Guarantee:** All standard prompt builders (`plan-review`, `implement`, `review`, `discovery`, `repair`) enforce an invariant static prefix of at least 1,024 tokens ($\ge 4,096$ UTF-8 bytes, with a 4,200-byte safety target).
+- **Prefix Invariants:** The static prefix contains byte-stable instructions only: SDD Anthem, Canonical Role Mandates, Evaluation Rubrics & 3-Tier Severity Standards, Model Routing Guidance, Approved Architectural Decisions (`TECH_STACK.md`), and Active Feedback Rules (`SKILLS.md §8`).
+
+### 2. Strict Dynamic Suffix Pinning
+- **Dynamic Task Metadata:** All non-invariant parameters (Task ID, Typology, Directory, Worktree path, Remediation Loop number, Planned Files Boundary, Changed Files, Diff Patch path, Staged Review Bundle directories, and Step-by-Step Task Instructions) are pinned strictly to the prompt suffix following `<!-- sdd:cache-boundary:end-prefix -->`.
+- **Cross-Task & Multi-Loop Invariance:**
+  - Running prompt generation for task A and task B with the same role/lens generates 100% byte-identical static prefixes.
+  - Multi-loop remediation reviews (Loop 1, Loop 2, Loop 3) maintain 100% byte-identical static prefixes; defect checklists (`findings_to_verify.md`) and loop counters are pinned to the suffix.

@@ -10,6 +10,7 @@
 - a `.sdd/manifest.json` recording what was generated
 - heterogeneous agent role routing and tier-calibrated dispatch in `.sdd/roles.json` with copy-pasteable `invoke_subagent` snippets in `sdd prompt` commands (`Model: "flash"` for routine verification, reducing token usage by $\ge 60\%$)
 - lens-scoped review bundles and deterministic diff filtering in `.sdd/review/<TASK_ID>/<lens>/` (`spec/`, `security/`, `pattern/`), eliminating directory collisions and reducing Review Triad context tokens by 30–70%
+- provider-aligned prompt prefix caching and dynamic suffix pinning across all prompt generators, enforcing invariant $\ge 1,024$-token ($\ge 4,096$-byte) static prefixes for 50–90% prompt caching hit rates across Anthropic, OpenAI, and Gemini
 
 The workflow it installs: the agent drafts requirements and a plan, **the human approves before any code**, the agent implements and verifies, and **the human reviews and commits**. The anthem: *always be deterministic, and take human approval or decisions to accomplish that determinism.*
 

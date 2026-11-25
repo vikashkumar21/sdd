@@ -110,8 +110,11 @@ func TestPromptRepair_OutputAndStateLoopTracking(t *testing.T) {
 	}
 
 	outStr := out.String()
-	if !strings.Contains(outStr, "# Auto-Repair Handover Prompt — T-001") {
+	if !strings.Contains(outStr, "# Auto-Repair Handover Prompt") {
 		t.Errorf("expected title in prompt, got:\n%s", outStr)
+	}
+	if !strings.Contains(outStr, "- **Task ID:** T-001") {
+		t.Errorf("expected Task ID in prompt, got:\n%s", outStr)
 	}
 	if !strings.Contains(outStr, "AUTO-REPAIR LOOP: ATTEMPT 1 OF 3") {
 		t.Errorf("expected attempt 1 of 3 status, got:\n%s", outStr)

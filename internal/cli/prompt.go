@@ -310,79 +310,87 @@ func formatTriadModelRoutingSection(spec, sec, pat role.ModelRouting) string {
 }
 
 func buildPlanReviewPrompt(taskID, taskDir, typology string, plannedFiles []string, feedbackRules string, decisions, rubric []string, roleSkill string, bundle *audit.PlanBundle, routing role.ModelRouting) string {
-	var sb strings.Builder
+	var prefix strings.Builder
 
-	fmt.Fprintf(&sb, "# Handover: Independent Pre-GATE 1 Plan Review for %s\n\n", taskID)
-	fmt.Fprintf(&sb, "You are acting as an **Independent Plan Reviewer** for task `%s` (%s).\n", taskID, typology)
-	sb.WriteString("Your mandate is to impartially audit the Phase A specification and implementation plan **before** GATE 1 presentation to the human.\n")
-	sb.WriteString("**You are strictly independent; the author agent cannot review or approve its own plan.**\n\n")
+	prefix.WriteString("# Handover: Independent Pre-GATE 1 Plan Review\n\n")
+	prefix.WriteString("You are acting as an **Independent Plan Reviewer**.\n")
+	prefix.WriteString("Your mandate is to impartially audit the Phase A specification and implementation plan **before** GATE 1 presentation to the human.\n")
+	prefix.WriteString("**You are strictly independent; the author agent cannot review or approve its own plan.**\n\n")
 
-	sb.WriteString("## SDD Anthem & Principles\n")
-	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
-
-	if bundle != nil {
-		sb.WriteString("## Stateless Review Bundle (.sdd/review/)\n")
-		sb.WriteString("An isolated, frozen review bundle has been staged for tabula-rasa evaluation with zero conversational history:\n")
-		fmt.Fprintf(&sb, "- **Bundle Directory:** `%s/`\n", bundle.BundleDir)
-		fmt.Fprintf(&sb, "- **Frozen Specification:** `%s/spec.md` (frozen requirements and plan)\n", bundle.BundleDir)
-		fmt.Fprintf(&sb, "- **Review Rubric:** `%s/rubric.md` (canonical plan-reviewer role skill)\n", bundle.BundleDir)
-		fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n\n", bundle.BundleDir)
-		sb.WriteString("**You are an independent reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
-	}
-
-	sb.WriteString("## Plan Review Rubric\n")
-	for _, item := range rubric {
-		fmt.Fprintf(&sb, "- [ ] %s\n", item)
-	}
-	sb.WriteString("\n")
+	prefix.WriteString("## SDD Anthem & Principles\n")
+	prefix.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
 
 	if strings.TrimSpace(roleSkill) != "" {
-		sb.WriteString("## Canonical Role Skill: Plan Reviewer (plan-reviewer)\n")
-		sb.WriteString(strings.TrimSpace(roleSkill))
-		sb.WriteString("\n\n")
+		prefix.WriteString("## Canonical Role Skill: Plan Reviewer (plan-reviewer)\n")
+		prefix.WriteString(strings.TrimSpace(roleSkill))
+		prefix.WriteString("\n\n")
 	}
 
-	sb.WriteString(formatModelRoutingSection(routing, "plan-reviewer"))
-	sb.WriteString("\n")
-
-	sb.WriteString("## Task Details\n")
-	fmt.Fprintf(&sb, "- **Task ID:** %s\n", taskID)
-	fmt.Fprintf(&sb, "- **Task Directory:** %s\n", taskDir)
-	fmt.Fprintf(&sb, "- **Typology:** %s\n", typology)
-	sb.WriteString("- **Planned Files to Touch:**\n")
-	if len(plannedFiles) == 0 {
-		sb.WriteString("  - (none resolved from plan)\n")
-	} else {
-		for _, f := range plannedFiles {
-			fmt.Fprintf(&sb, "  - `%s`\n", f)
-		}
+	prefix.WriteString("## Plan Review Rubric & Audit Criteria\n")
+	for _, item := range rubric {
+		fmt.Fprintf(&prefix, "- [ ] %s\n", item)
 	}
-	sb.WriteString("\n")
+	prefix.WriteString("\n")
+
+	prefix.WriteString(formatModelRoutingSection(routing, "plan-reviewer"))
+	prefix.WriteString("\n")
 
 	if len(decisions) > 0 {
-		sb.WriteString("## Approved Architectural Decisions (TECH_STACK.md)\n")
+		prefix.WriteString("## Approved Architectural Decisions (TECH_STACK.md)\n")
 		for _, d := range decisions {
-			fmt.Fprintf(&sb, "- %s\n", d)
+			fmt.Fprintf(&prefix, "- %s\n", d)
 		}
-		sb.WriteString("\n")
+		prefix.WriteString("\n")
 	}
 
-	sb.WriteString("## Active Feedback Rules (SKILLS.md §8)\n")
-	sb.WriteString(feedbackRules)
-	sb.WriteString("\n\n")
+	prefix.WriteString("## Active Feedback Rules (SKILLS.md §8)\n")
+	prefix.WriteString(feedbackRules)
+	prefix.WriteString("\n\n")
 
-	sb.WriteString("## Plan Review Instructions\n")
-	if bundle != nil {
-		fmt.Fprintf(&sb, "1. Read `%s/spec.md` (or `%s/requirements.md` and `%s/plan.md`) and audit against the **Plan Review Rubric** above.\n", bundle.BundleDir, taskDir, taskDir)
+	prefix.WriteString("## Plan Review Evaluation Standards\n")
+	prefix.WriteString("1. Audit the specification and plan against the **Plan Review Rubric** above.\n")
+	prefix.WriteString("2. Report any 🔴 Blocker (missing step, boundary hole, untestable assertion, unapproved dependency) or 🟡 Warning.\n")
+	prefix.WriteString("3. Verify that the `Open questions` section in `requirements.md` is strictly empty.\n")
+	prefix.WriteString("4. Provide an explicit sign-off recommendation: `[Approved / Changes Requested]` with actionable remediation notes.\n")
+
+	var suffix strings.Builder
+	suffix.WriteString("## Dynamic Task Context & Scope\n")
+	fmt.Fprintf(&suffix, "- **Task ID:** %s\n", taskID)
+	fmt.Fprintf(&suffix, "- **Task Directory:** %s\n", taskDir)
+	fmt.Fprintf(&suffix, "- **Typology:** %s\n", typology)
+	suffix.WriteString("- **Planned Files to Touch:**\n")
+	if len(plannedFiles) == 0 {
+		suffix.WriteString("  - (none resolved from plan)\n")
 	} else {
-		fmt.Fprintf(&sb, "1. Read `%s/requirements.md`, `%s/plan.md`, and `%s/validation.md`.\n", taskDir, taskDir, taskDir)
+		for _, f := range plannedFiles {
+			fmt.Fprintf(&suffix, "  - `%s`\n", f)
+		}
 	}
-	sb.WriteString("2. Audit against the **Plan Review Rubric** above.\n")
-	sb.WriteString("3. Report any 🔴 Blocker (missing step, boundary hole, untestable assertion, unapproved dependency) or 🟡 Warning.\n")
-	sb.WriteString("4. Verify that the `Open questions` section in `requirements.md` is empty.\n")
-	sb.WriteString("5. Provide an explicit sign-off recommendation: `[Approved / Changes Requested]` with actionable remediation notes.\n")
+	suffix.WriteString("\n")
 
-	return sb.String()
+	if bundle != nil {
+		suffix.WriteString("## Staged Stateless Review Bundle (.sdd/review/)\n")
+		suffix.WriteString("An isolated, frozen review bundle has been staged for tabula-rasa evaluation with zero conversational history:\n")
+		fmt.Fprintf(&suffix, "- **Bundle Directory:** `%s/`\n", bundle.BundleDir)
+		fmt.Fprintf(&suffix, "- **Frozen Specification:** `%s/spec.md` (frozen requirements and plan)\n", bundle.BundleDir)
+		fmt.Fprintf(&suffix, "- **Review Rubric:** `%s/rubric.md` (canonical plan-reviewer role skill)\n", bundle.BundleDir)
+		fmt.Fprintf(&suffix, "- **Bundle Manifest:** `%s/manifest.json`\n\n", bundle.BundleDir)
+		suffix.WriteString("**You are an independent reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
+	}
+
+	suffix.WriteString("## Step-by-Step Plan Review Instructions\n")
+	if bundle != nil {
+		fmt.Fprintf(&suffix, "1. Read `%s/spec.md` (or `%s/requirements.md` and `%s/plan.md`) and audit against the **Plan Review Rubric** above.\n", bundle.BundleDir, taskDir, taskDir)
+	} else {
+		fmt.Fprintf(&suffix, "1. Read `%s/requirements.md`, `%s/plan.md`, and `%s/validation.md`.\n", taskDir, taskDir, taskDir)
+	}
+	suffix.WriteString("2. Record your findings and sign-off recommendation.\n")
+
+	parts := PromptParts{
+		StaticPrefix:  prefix.String(),
+		DynamicSuffix: suffix.String(),
+	}
+	return parts.FullPrompt()
 }
 
 func runPromptImplement(args []string, env IO) int {
@@ -506,71 +514,81 @@ func detectOperationalSkills(planContent string) []string {
 }
 
 func buildImplementPrompt(taskID, taskDir, typology, targetRole, roleSkill string, activatedSkills, plannedFiles []string, feedbackRules string, decisions []string, routing role.ModelRouting) string {
-	var sb strings.Builder
-
 	roleTitle := roleTitleFor(targetRole)
 
-	fmt.Fprintf(&sb, "# Handover: Phase B Implementation for %s (%s)\n\n", taskID, roleTitle)
-	fmt.Fprintf(&sb, "You are acting as the **%s** for task `%s` (%s).\n", roleTitle, taskID, typology)
-	sb.WriteString("Your mandate is to execute the approved specification and plan step-by-step within the isolated task worktree branch.\n\n")
+	var prefix strings.Builder
+	fmt.Fprintf(&prefix, "# Handover: Phase B Implementation & Engineering (%s)\n\n", roleTitle)
+	fmt.Fprintf(&prefix, "You are acting as the **%s** (%s).\n", roleTitle, targetRole)
+	prefix.WriteString("Your mandate is to execute the approved specification and plan step-by-step within the isolated task worktree branch.\n\n")
 
-	sb.WriteString("## SDD Anthem & Principles\n")
-	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
+	prefix.WriteString("## SDD Anthem & Principles\n")
+	prefix.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
 
 	if strings.TrimSpace(roleSkill) != "" {
-		fmt.Fprintf(&sb, "## Canonical Role Skill: %s (%s)\n", roleTitle, targetRole)
-		sb.WriteString(strings.TrimSpace(roleSkill))
-		sb.WriteString("\n\n")
+		fmt.Fprintf(&prefix, "## Canonical Role Skill: %s (%s)\n", roleTitle, targetRole)
+		prefix.WriteString(strings.TrimSpace(roleSkill))
+		prefix.WriteString("\n\n")
 	}
 
-	sb.WriteString(formatModelRoutingSection(routing, targetRole))
-	sb.WriteString("\n")
+	prefix.WriteString(formatModelRoutingSection(routing, targetRole))
+	prefix.WriteString("\n")
 
-	if len(activatedSkills) > 0 {
-		sb.WriteString("## Conditional Operational Skills Activated by Plan\n")
-		sb.WriteString("The implementation plan contains steps activating the following specialized operational skills:\n")
-		for _, s := range activatedSkills {
-			fmt.Fprintf(&sb, "- **%s**: Operational steps detected in plan.md\n", s)
-		}
-		sb.WriteString("\n")
-	}
-
-	sb.WriteString("## Task Details & Boundaries\n")
-	fmt.Fprintf(&sb, "- **Task ID:** %s\n", taskID)
-	fmt.Fprintf(&sb, "- **Task Directory:** %s\n", taskDir)
-	fmt.Fprintf(&sb, "- **Typology:** %s\n", typology)
-	fmt.Fprintf(&sb, "- **Active Role:** %s\n", targetRole)
-	sb.WriteString("- **Planned Files Boundary (Section 5):**\n")
-	if len(plannedFiles) == 0 {
-		sb.WriteString("  - (none resolved from plan)\n")
-	} else {
-		for _, f := range plannedFiles {
-			fmt.Fprintf(&sb, "  - `%s`\n", f)
-		}
-	}
-	sb.WriteString("\n")
+	prefix.WriteString("## Standard Engineering Policies & Language Standards\n")
+	prefix.WriteString("1. **Strict Boundary Precision (Hard Rule 11):** Modify ONLY files listed under Planned Files Boundary.\n")
+	prefix.WriteString("2. **Standard Library Purity (Decision D-007):** Zero third-party dependencies; standard library only.\n")
+	prefix.WriteString("3. **Determinism by Construction (Hard Rule 8):** Inject clocks and ID generators; table-driven tests; race detection (`-race`); determinism verification (`-count=2`).\n")
+	prefix.WriteString("4. **Git Governance:** Operate strictly within the isolated task worktree branch. Never modify `main`. The human reviews and commits at Gate 2.\n\n")
 
 	if len(decisions) > 0 {
-		sb.WriteString("## Approved Architectural Decisions (TECH_STACK.md)\n")
+		prefix.WriteString("## Approved Architectural Decisions (TECH_STACK.md)\n")
 		for _, d := range decisions {
-			fmt.Fprintf(&sb, "- %s\n", d)
+			fmt.Fprintf(&prefix, "- %s\n", d)
 		}
-		sb.WriteString("\n")
+		prefix.WriteString("\n")
 	}
 
-	sb.WriteString("## Active Feedback Rules (SKILLS.md §8)\n")
-	sb.WriteString(feedbackRules)
-	sb.WriteString("\n\n")
+	prefix.WriteString("## Active Feedback Rules (SKILLS.md §8)\n")
+	prefix.WriteString(feedbackRules)
+	prefix.WriteString("\n\n")
 
-	sb.WriteString("## Execution Instructions\n")
-	fmt.Fprintf(&sb, "1. Read `%s/requirements.md` and `%s/plan.md` carefully.\n", taskDir, taskDir)
-	sb.WriteString("2. Execute `plan.md` Section 4 step-by-step, running proving checks after each step.\n")
-	sb.WriteString("3. Enforce strict boundary precision (Hard Rule 11): modify ONLY files listed under Planned Files Boundary above.\n")
-	sb.WriteString("4. Standard library only (Decision D-007): introduce zero third-party dependencies.\n")
-	sb.WriteString("5. Determinism: inject clocks and ID generators; table-driven tests; verify tests pass with identical outputs.\n")
-	fmt.Fprintf(&sb, "6. After implementation, run all verification commands and record real outcomes in `%s/validation.md`.\n", taskDir)
+	var suffix strings.Builder
+	suffix.WriteString("## Dynamic Task Context & Boundaries\n")
+	fmt.Fprintf(&suffix, "- **Task ID:** %s\n", taskID)
+	fmt.Fprintf(&suffix, "- **Task Directory:** %s\n", taskDir)
+	fmt.Fprintf(&suffix, "- **Typology:** %s\n", typology)
+	suffix.WriteString("- **Active Role:** " + targetRole + "\n")
+	suffix.WriteString("- **Planned Files Boundary (Section 5):**\n")
+	if len(plannedFiles) == 0 {
+		suffix.WriteString("  - (none resolved from plan)\n")
+	} else {
+		for _, f := range plannedFiles {
+			fmt.Fprintf(&suffix, "  - `%s`\n", f)
+		}
+	}
+	suffix.WriteString("\n")
 
-	return sb.String()
+	if len(activatedSkills) > 0 {
+		suffix.WriteString("## Conditional Operational Skills Activated by Plan\n")
+		suffix.WriteString("The implementation plan contains steps activating the following specialized operational skills:\n")
+		for _, s := range activatedSkills {
+			fmt.Fprintf(&suffix, "- **%s**: Operational steps detected in plan.md\n", s)
+		}
+		suffix.WriteString("\n")
+	}
+
+	suffix.WriteString("## Step-by-Step Execution Instructions\n")
+	fmt.Fprintf(&suffix, "1. Read `%s/requirements.md` and `%s/plan.md` carefully.\n", taskDir, taskDir)
+	suffix.WriteString("2. Execute `plan.md` Section 4 step-by-step, running proving checks after each step.\n")
+	suffix.WriteString("3. Enforce strict boundary precision (Hard Rule 11): modify ONLY files listed under Planned Files Boundary above.\n")
+	suffix.WriteString("4. Standard library only (Decision D-007): introduce zero third-party dependencies.\n")
+	suffix.WriteString("5. Determinism: inject clocks and ID generators; table-driven tests; verify tests pass with identical outputs.\n")
+	fmt.Fprintf(&suffix, "6. After implementation, run all verification commands and record real outcomes in `%s/validation.md`.\n", taskDir)
+
+	parts := PromptParts{
+		StaticPrefix:  prefix.String(),
+		DynamicSuffix: suffix.String(),
+	}
+	return parts.FullPrompt()
 }
 
 func runPromptReview(args []string, env IO) int {
@@ -950,8 +968,6 @@ func extractActiveFeedbackRules(root string) string {
 }
 
 func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, feedbackRules string, focusItems []string, roleSkill string, bundle *audit.ReviewBundle, activeRouting role.ModelRouting, triadRouting map[string]role.ModelRouting) string {
-	var sb strings.Builder
-
 	lensTitle := "Ensemble Review Triad"
 	roleDesc := "across all three pillars (Spec Auditor, AppSec Specialist, Pattern Auditor)"
 	switch lens {
@@ -966,54 +982,29 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 		roleDesc = "with a dedicated focus on architectural decision conformance, determinism, language idioms, and feedback rules"
 	}
 
-	if bundle != nil && bundle.Loop > 1 {
-		fmt.Fprintf(&sb, "# Handover: Independent Remediation Review (Loop %d) for %s (%s)\n\n", bundle.Loop, taskID, lensTitle)
-		fmt.Fprintf(&sb, "You are acting as an **Independent Subagent Reviewer (%s)** for task `%s` on remediation **Loop %d**.\n", lensTitle, taskID, bundle.Loop)
-		fmt.Fprintf(&sb, "Your mandate is to impartially audit the remediated candidate implementation %s before GATE 2 human review.\n", roleDesc)
-		sb.WriteString("**You are an independent, tabula-rasa reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
-	} else {
-		fmt.Fprintf(&sb, "# Handover: Independent Subagent Code & Spec Review for %s (%s)\n\n", taskID, lensTitle)
-		fmt.Fprintf(&sb, "You are acting as an **Independent Subagent Reviewer (%s)** for task `%s`.\n", lensTitle, taskID)
-		fmt.Fprintf(&sb, "Your mandate is to impartially audit the implementation %s before GATE 2 human review.\n", roleDesc)
-		sb.WriteString("**You are strictly independent; the author agent cannot review or approve its own work.**\n\n")
-	}
+	var prefix strings.Builder
+	fmt.Fprintf(&prefix, "# Handover: Independent Subagent Review Triad (%s)\n\n", lensTitle)
+	fmt.Fprintf(&prefix, "You are acting as an **Independent Subagent Reviewer (%s)**.\n", lensTitle)
+	fmt.Fprintf(&prefix, "Your mandate is to impartially audit candidate implementations %s before GATE 2 human review.\n", roleDesc)
+	prefix.WriteString("**You are an independent, tabula-rasa reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
 
-	sb.WriteString("## SDD Anthem & Principles\n")
-	sb.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
+	prefix.WriteString("## SDD Anthem & Principles\n")
+	prefix.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
 
-	if bundle != nil {
-		sb.WriteString("## Stateless Review Bundle (.sdd/review/)\n")
-		sb.WriteString("An isolated, frozen review bundle has been staged for tabula-rasa evaluation with zero conversational history:\n")
-		fmt.Fprintf(&sb, "- **Bundle Directory:** `%s/`\n", bundle.BundleDir)
-		fmt.Fprintf(&sb, "- **Frozen Specification:** `%s/spec.md` (frozen requirements and plan)\n", bundle.BundleDir)
-		fmt.Fprintf(&sb, "- **Traceability Ledger:** `%s/ledger.md` (unanchored requirements ledger to complete before reading diff.patch)\n", bundle.BundleDir)
-		if bundle.Loop > 1 {
-			fmt.Fprintf(&sb, "- **Findings to Verify:** `%s/findings_to_verify.md` (objective checklist of previous defects to verify without developer prose)\n", bundle.BundleDir)
-		}
-		fmt.Fprintf(&sb, "- **Git Diff Patch:** `%s/diff.patch` (working tree changes and untracked files)\n", bundle.BundleDir)
-		fmt.Fprintf(&sb, "- **Review Rubric:** `%s/rubric.md` (canonical role skill instructions for %s)\n", bundle.BundleDir, bundle.Lens)
-		fmt.Fprintf(&sb, "- **Bundle Manifest:** `%s/manifest.json`\n", bundle.BundleDir)
-		if bundle.DiffSavingsPercent > 0.0 {
-			fmt.Fprintf(&sb, "- **Diff Optimization:** %d bytes filtered from %d raw bytes (%.1f%% token savings across %d files)\n", bundle.FilteredDiffBytes, bundle.RawDiffBytes, bundle.DiffSavingsPercent, bundle.FilteredFilesCount)
-		}
-		sb.WriteString("\n")
-		sb.WriteString("**You are an independent reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
-	}
-
-	sb.WriteString("## Review Rubric (3-Tier Severity)\n")
-	sb.WriteString("- 🔴 **Blocker (Developer Attention Needed):** Spec violation (`requirements.md` not met), plan drift (files touched outside `plan.md`), security hazard (secrets/unvalidated inputs), test gaps, unapproved dependency. MUST BE RESOLVED before commit.\n")
-	sb.WriteString("- 🟡 **Warning (Attention Suggested):** Sub-optimal pattern, edge case risk, missing doc or comment.\n")
-	sb.WriteString("- 🟢 **Minor (Safe / Informational):** Style, minor naming or non-critical improvement.\n\n")
+	prefix.WriteString("## Review Rubric (3-Tier Severity)\n")
+	prefix.WriteString("- 🔴 **Blocker (Developer Attention Needed):** Spec violation (`requirements.md` not met), plan drift (files touched outside `plan.md`), security hazard (secrets/unvalidated inputs), test gaps, unapproved dependency. MUST BE RESOLVED before commit.\n")
+	prefix.WriteString("- 🟡 **Warning (Attention Suggested):** Sub-optimal pattern, edge case risk, missing doc or comment.\n")
+	prefix.WriteString("- 🟢 **Minor (Safe / Informational):** Style, minor naming or non-critical improvement.\n\n")
 
 	if strings.TrimSpace(roleSkill) != "" {
-		sb.WriteString("## Canonical Role Skill Instructions\n")
-		sb.WriteString(strings.TrimSpace(roleSkill))
-		sb.WriteString("\n\n")
+		prefix.WriteString("## Canonical Role Skill Instructions\n")
+		prefix.WriteString(strings.TrimSpace(roleSkill))
+		prefix.WriteString("\n\n")
 	}
 
 	if lens == "all" && triadRouting != nil {
-		sb.WriteString(formatTriadModelRoutingSection(triadRouting["spec-auditor"], triadRouting["appsec-specialist"], triadRouting["pattern-auditor"]))
-		sb.WriteString("\n")
+		prefix.WriteString(formatTriadModelRoutingSection(triadRouting["spec-auditor"], triadRouting["appsec-specialist"], triadRouting["pattern-auditor"]))
+		prefix.WriteString("\n")
 	} else {
 		targetRole := "spec-auditor"
 		switch lens {
@@ -1022,58 +1013,93 @@ func buildReviewPromptWithLens(taskID, taskDir, lens string, files []string, fee
 		case "pattern":
 			targetRole = "pattern-auditor"
 		}
-		sb.WriteString(formatModelRoutingSection(activeRouting, targetRole))
-		sb.WriteString("\n")
+		prefix.WriteString(formatModelRoutingSection(activeRouting, targetRole))
+		prefix.WriteString("\n")
 	}
 
-	sb.WriteString("## Lens Focus & Verification Questions\n")
+	prefix.WriteString("## Lens Focus & Verification Questions\n")
 	for _, item := range focusItems {
-		fmt.Fprintf(&sb, "- [ ] %s\n", item)
+		fmt.Fprintf(&prefix, "- [ ] %s\n", item)
 	}
-	sb.WriteString("\n")
-
-	sb.WriteString("## Task Details\n")
-	fmt.Fprintf(&sb, "- **Task ID:** %s\n", taskID)
-	fmt.Fprintf(&sb, "- **Task Directory:** %s\n", taskDir)
-	fmt.Fprintf(&sb, "- **Review Lens:** %s\n", lens)
-	sb.WriteString("- **Changed Files:**\n")
-	if len(files) == 0 {
-		sb.WriteString("  - (none resolved from git diff or plan)\n")
-	} else {
-		for _, f := range files {
-			fmt.Fprintf(&sb, "  - `%s`\n", f)
-		}
-	}
-	sb.WriteString("\n")
-
-	sb.WriteString("## Active Feedback Rules (SKILLS.md §8)\n")
-	sb.WriteString(feedbackRules)
-	sb.WriteString("\n\n")
+	prefix.WriteString("\n")
 
 	if lens != "all" {
-		sb.WriteString("## Parallel Review Triad Protocol\n")
-		fmt.Fprintf(&sb, "You are one of three parallel subagents in the **3-Subagent Parallel Review Triad** (Spec Auditor, AppSec Specialist, Pattern Auditor).\n")
-		fmt.Fprintf(&sb, "Your evaluation focus is EXCLUSIVELY the %s. Record your findings under the `%s` section in `%s/review.md`.\n", lensTitle, lensTitle, taskDir)
-		sb.WriteString("If multiple subagents report findings, the primary agent will remediate all findings together in a single batched fix commit (consuming 1 loop in the 3-loop circuit breaker).\n\n")
+		prefix.WriteString("## Parallel Review Triad Protocol\n")
+		fmt.Fprintf(&prefix, "You are one of three parallel subagents in the **3-Subagent Parallel Review Triad** (Spec Auditor, AppSec Specialist, Pattern Auditor).\n")
+		fmt.Fprintf(&prefix, "Your evaluation focus is EXCLUSIVELY the %s. Record your findings under the `%s` section in `review.md`.\n", lensTitle, lensTitle)
+		prefix.WriteString("If multiple subagents report findings, the primary agent will remediate all findings together in a single batched fix commit (consuming 1 loop in the 3-loop circuit breaker).\n\n")
 	}
 
-	sb.WriteString("## Review Instructions\n")
+	prefix.WriteString("## Active Feedback Rules (SKILLS.md §8)\n")
+	prefix.WriteString(feedbackRules)
+	prefix.WriteString("\n\n")
+
+	prefix.WriteString("## General Review Standards & Traceability Protocol\n")
+	prefix.WriteString("1. **Step 1 (Unanchored Traceability Scan):** Open `ledger.md` and verify each requirement against codebase implementation and tests before opening `diff.patch`. Ensure every requirement has concrete code symbols, positive test evidence, and negative/boundary test evidence. Any missing requirement is an automatic 🔴 Blocker.\n")
+	prefix.WriteString("2. **Step 2 (Defect Remediation Verification):** Open `findings_to_verify.md` (when present on remediation loops) and verify whether each previous defect has been genuinely resolved in `diff.patch`. Do not accept conversational developer explanations or unverified assertions.\n")
+	prefix.WriteString("3. **Step 3 (Diff Quality & Lens Audit):** Inspect `diff.patch` against `spec.md` using the rubric in `rubric.md`.\n")
+	prefix.WriteString("4. Per Rule F-001, all findings (🔴 Blockers, 🟡 Warnings, 🟢 Minors) must be cataloged clearly; the worker agent is required to resolve all findings or provide explicit justification before GATE 2.\n")
+
+	var suffix strings.Builder
+	suffix.WriteString("## Dynamic Task Context & Scope\n")
+	fmt.Fprintf(&suffix, "- **Task ID:** %s\n", taskID)
+	fmt.Fprintf(&suffix, "- **Task Directory:** %s\n", taskDir)
+	fmt.Fprintf(&suffix, "- **Review Lens:** %s\n", lens)
 	if bundle != nil && bundle.Loop > 1 {
-		fmt.Fprintf(&sb, "1. **Step 1 (Unanchored Traceability Scan):** Open `%s/ledger.md` and verify each requirement against codebase implementation and tests before opening `%s/diff.patch`. Ensure every requirement has concrete code symbols, positive test evidence, and negative/boundary test evidence. Any missing requirement is an automatic 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
-		fmt.Fprintf(&sb, "2. **Step 2 (Defect Remediation Verification):** Open `%s/findings_to_verify.md` and verify whether each previous defect has been genuinely resolved in `%s/diff.patch`. Do not accept conversational developer explanations or unverified assertions.\n", bundle.BundleDir, bundle.BundleDir)
-		fmt.Fprintf(&sb, "3. **Step 3 (Diff Quality & Lens Audit):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md` to ensure no new regressions, plan drift, or security flaws were introduced during remediation.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
-	} else if bundle != nil {
-		fmt.Fprintf(&sb, "1. **Step 1 (Unanchored Traceability Scan):** Open `%s/ledger.md` and verify each requirement against codebase implementation and tests before opening `%s/diff.patch`. Ensure every requirement has concrete code symbols, positive test evidence, and negative/boundary test evidence. Any missing requirement is an automatic 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
-		fmt.Fprintf(&sb, "2. **Step 2 (Diff Quality & Lens Audit):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md`.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&suffix, "- **Remediation Loop:** Remediation Review (Loop %d)\n", bundle.Loop)
 	} else {
-		fmt.Fprintf(&sb, "1. **Step 1 (Unanchored Traceability Scan):** Inspect candidate implementation and tests against `%s/requirements.md` before reading git diff. Ensure every requirement has concrete code symbols, positive test evidence, and negative/boundary test evidence.\n", taskDir)
-		fmt.Fprintf(&sb, "2. **Step 2 (Diff Quality & Lens Audit):** Inspect the git diff and changed files against `%s/requirements.md` and `%s/plan.md`.\n", taskDir, taskDir)
+		suffix.WriteString("- **Remediation Loop:** Initial Review (Loop 1)\n")
 	}
-	fmt.Fprintf(&sb, "3. Verify each point listed under **Lens Focus & Verification Questions**.\n")
-	fmt.Fprintf(&sb, "4. Record all findings, the completed Requirements Traceability Ledger, and sign-off in `%s/review.md`.\n", taskDir)
-	sb.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")
-	sb.WriteString("   - Per Rule F-001, all findings (🔴 Blockers, 🟡 Warnings, 🟢 Minors) must be cataloged clearly; the worker agent is required to resolve all findings or provide explicit justification before GATE 2.\n")
-	sb.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution (including your lens name).\n")
+	suffix.WriteString("- **Changed Files:**\n")
+	if len(files) == 0 {
+		suffix.WriteString("  - (none resolved from git diff or plan)\n")
+	} else {
+		for _, f := range files {
+			fmt.Fprintf(&suffix, "  - `%s`\n", f)
+		}
+	}
+	suffix.WriteString("\n")
 
-	return sb.String()
+	if bundle != nil {
+		suffix.WriteString("## Staged Stateless Review Bundle (.sdd/review/)\n")
+		suffix.WriteString("An isolated, frozen review bundle has been staged for tabula-rasa evaluation with zero conversational history:\n")
+		fmt.Fprintf(&suffix, "- **Bundle Directory:** `%s/`\n", bundle.BundleDir)
+		fmt.Fprintf(&suffix, "- **Frozen Specification:** `%s/spec.md` (frozen requirements and plan)\n", bundle.BundleDir)
+		fmt.Fprintf(&suffix, "- **Traceability Ledger:** `%s/ledger.md` (unanchored requirements ledger to complete before reading diff.patch)\n", bundle.BundleDir)
+		if bundle.Loop > 1 {
+			fmt.Fprintf(&suffix, "- **Findings to Verify:** `%s/findings_to_verify.md` (objective checklist of previous defects to verify without developer prose)\n", bundle.BundleDir)
+		}
+		fmt.Fprintf(&suffix, "- **Git Diff Patch:** `%s/diff.patch` (working tree changes and untracked files)\n", bundle.BundleDir)
+		fmt.Fprintf(&suffix, "- **Review Rubric:** `%s/rubric.md` (canonical role skill instructions for %s)\n", bundle.BundleDir, bundle.Lens)
+		fmt.Fprintf(&suffix, "- **Bundle Manifest:** `%s/manifest.json`\n", bundle.BundleDir)
+		if bundle.DiffSavingsPercent > 0.0 {
+			fmt.Fprintf(&suffix, "- **Diff Optimization:** %d bytes filtered from %d raw bytes (%.1f%% token savings across %d files)\n", bundle.FilteredDiffBytes, bundle.RawDiffBytes, bundle.DiffSavingsPercent, bundle.FilteredFilesCount)
+		}
+		suffix.WriteString("\n")
+		suffix.WriteString("**You are an independent reviewer evaluating this task in fresh, isolated context. Rely strictly on the staged artifacts in your review bundle without conversational bias or assumptions.**\n\n")
+	}
+
+	suffix.WriteString("## Step-by-Step Task Review Instructions\n")
+	if bundle != nil && bundle.Loop > 1 {
+		fmt.Fprintf(&suffix, "1. **Step 1 (Unanchored Traceability Scan):** Open `%s/ledger.md` and verify each requirement against codebase implementation and tests before opening `%s/diff.patch`. Ensure every requirement has concrete code symbols, positive test evidence, and negative/boundary test evidence. Any missing requirement is an automatic 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&suffix, "2. **Step 2 (Defect Remediation Verification):** Open `%s/findings_to_verify.md` and verify whether each previous defect has been genuinely resolved in `%s/diff.patch`. Do not accept conversational developer explanations or unverified assertions.\n", bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&suffix, "3. **Step 3 (Diff Quality & Lens Audit):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md` to ensure no new regressions, plan drift, or security flaws were introduced during remediation.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
+	} else if bundle != nil {
+		fmt.Fprintf(&suffix, "1. **Step 1 (Unanchored Traceability Scan):** Open `%s/ledger.md` and verify each requirement against codebase implementation and tests before opening `%s/diff.patch`. Ensure every requirement has concrete code symbols, positive test evidence, and negative/boundary test evidence. Any missing requirement is an automatic 🔴 Blocker.\n", bundle.BundleDir, bundle.BundleDir)
+		fmt.Fprintf(&suffix, "2. **Step 2 (Diff Quality & Lens Audit):** Inspect `%s/diff.patch` against `%s/spec.md` using the rubric in `%s/rubric.md`.\n", bundle.BundleDir, bundle.BundleDir, bundle.BundleDir)
+	} else {
+		fmt.Fprintf(&suffix, "1. **Step 1 (Unanchored Traceability Scan):** Inspect candidate implementation and tests against `%s/requirements.md` before reading git diff. Ensure every requirement has concrete code symbols, positive test evidence, and negative/boundary test evidence.\n", taskDir)
+		fmt.Fprintf(&suffix, "2. **Step 2 (Diff Quality & Lens Audit):** Inspect the git diff and changed files against `%s/requirements.md` and `%s/plan.md`.\n", taskDir, taskDir)
+	}
+	suffix.WriteString("3. Verify each point listed under **Lens Focus & Verification Questions**.\n")
+	fmt.Fprintf(&suffix, "4. Record all findings, the completed Requirements Traceability Ledger, and sign-off in `%s/review.md`.\n", taskDir)
+	suffix.WriteString("   - If findings include any 🔴 Blocker, set status to `Changes requested` with specific remediation steps.\n")
+	suffix.WriteString("   - Per Rule F-001, all findings (🔴 Blockers, 🟡 Warnings, 🟢 Minors) must be cataloged clearly; the worker agent is required to resolve all findings or provide explicit justification before GATE 2.\n")
+	suffix.WriteString("   - If 0 Blockers remain, set status to `Approved` with your reviewer attribution (including your lens name).\n")
+
+	parts := PromptParts{
+		StaticPrefix:  prefix.String(),
+		DynamicSuffix: suffix.String(),
+	}
+	return parts.FullPrompt()
 }

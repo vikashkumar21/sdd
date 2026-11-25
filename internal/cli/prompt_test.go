@@ -536,3 +536,368 @@ func TestRoleTitleFor(t *testing.T) {
 		})
 	}
 }
+
+func TestPromptPrefixCaching_ByteInvariance(t *testing.T) {
+	root := setupPromptTestProject(t, "T-088", "prefix-caching-test")
+
+	// Ensure bugfix folder exists for repair
+	bugDir := filepath.Join(root, "tasks", "bugfixes", "T-088-prefix-caching-test")
+	_ = os.MkdirAll(bugDir, 0o755)
+	_ = os.WriteFile(filepath.Join(bugDir, "requirements.md"), []byte("# Requirements\nRepro details\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(bugDir, "plan.md"), []byte("# Plan\nRepair step\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(bugDir, "validation.md"), []byte("# Validation\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(bugDir, "review.md"), []byte("# Review\n"), 0o644)
+
+	var runCmd = func(args ...string) string {
+		var outBuf, errBuf bytes.Buffer
+		env := IO{
+			In:  strings.NewReader(""),
+			Out: &outBuf,
+			Err: &errBuf,
+		}
+		var code int
+		switch args[0] {
+		case "plan-review":
+			code = runPromptPlanReview(args[1:], env)
+		case "implement":
+			code = runPromptImplement(args[1:], env)
+		case "review":
+			code = runPromptReview(args[1:], env)
+		case "discovery":
+			code = runPromptDiscovery(args[1:], env)
+		case "repair":
+			code = runPromptRepair(args[1:], env)
+		default:
+			t.Fatalf("unknown subcmd: %s", args[0])
+		}
+		if code != 0 {
+			t.Fatalf("command failed %v: %s", args, errBuf.String())
+		}
+		return outBuf.String()
+	}
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"plan-review", []string{"plan-review", "T-088", "--dir", root}},
+		{"implement", []string{"implement", "T-088", "--role", "implementer", "--dir", root}},
+		{"review-spec", []string{"review", "T-088", "--lens", "spec", "--dir", root}},
+		{"review-security", []string{"review", "T-088", "--lens", "security", "--dir", root}},
+		{"review-pattern", []string{"review", "T-088", "--lens", "pattern", "--dir", root}},
+		{"review-all", []string{"review", "T-088", "--lens", "all", "--dir", root}},
+		{"implement-qa", []string{"implement", "T-088", "--role", "qa", "--dir", root}},
+		{"implement-devops", []string{"implement", "T-088", "--role", "devops", "--dir", root}},
+		{"discovery", []string{"discovery", "--dir", root, "T-088"}},
+		{"discovery-ensemble", []string{"discovery", "--dir", root, "--ensemble", "T-088"}},
+		{"repair", []string{"repair", "T-088", "--dir", root}},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			rendered := runCmd(tc.args...)
+			parts := SplitPromptAtCacheBoundary(rendered)
+
+			if parts.DynamicSuffix == "" {
+				t.Fatalf("%s prompt missing dynamic suffix after %s", tc.name, CacheBoundaryMarker)
+			}
+
+			if err := ValidateCacheBoundary(parts); err != nil {
+				t.Fatalf("%s failed cache boundary validation: %v\nStaticPrefix byte count: %d",
+					tc.name, err, len(parts.StaticPrefix))
+			}
+
+			// Must be at least MinStaticPrefixBytes (4,096 bytes) and TargetStaticPrefixBytes (4,200 bytes target)
+			byteLen := len(parts.StaticPrefix)
+			if byteLen < MinStaticPrefixBytes {
+				t.Errorf("%s static prefix has %d bytes, want >= %d", tc.name, byteLen, MinStaticPrefixBytes)
+			}
+			if byteLen < TargetStaticPrefixBytes {
+				t.Errorf("%s static prefix has %d bytes, want >= %d (TargetStaticPrefixBytes)", tc.name, byteLen, TargetStaticPrefixBytes)
+			}
+			tokens := EstimateTokens(parts.StaticPrefix)
+			if tokens < MinStaticPrefixTokens {
+				t.Errorf("%s estimated tokens = %d, want >= %d", tc.name, tokens, MinStaticPrefixTokens)
+			}
+		})
+	}
+}
+
+func TestPromptPrefixCaching_CrossTaskInvariance(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Create task 1: T-088
+	task1Dir := filepath.Join(tempDir, "tasks", "features", "T-088-first-feature")
+	if err := os.MkdirAll(task1Dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(task1Dir, "requirements.md"), []byte("# Requirements T-088\n| ID | Requirement |\n|---|---|\n| R-001 | First |\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(task1Dir, "plan.md"), []byte("# Plan T-088\n## 5. Files to create or modify\n| Path | Action | Reason |\n|---|---|---|\n| internal/first.go | create | first |\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(task1Dir, "validation.md"), []byte("# Validation T-088\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(task1Dir, "review.md"), []byte("# Review T-088\n"), 0o644)
+
+	// Bugfix dir for repair on task 1
+	bug1Dir := filepath.Join(tempDir, "tasks", "bugfixes", "T-088-first-feature")
+	_ = os.MkdirAll(bug1Dir, 0o755)
+	_ = os.WriteFile(filepath.Join(bug1Dir, "requirements.md"), []byte("# Repro T-088\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(bug1Dir, "plan.md"), []byte("# Plan T-088\n"), 0o644)
+
+	// Create task 2: T-089
+	task2Dir := filepath.Join(tempDir, "tasks", "features", "T-089-second-feature")
+	if err := os.MkdirAll(task2Dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(task2Dir, "requirements.md"), []byte("# Requirements T-089\n| ID | Requirement |\n|---|---|\n| R-001 | Second |\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(task2Dir, "plan.md"), []byte("# Plan T-089\n## 5. Files to create or modify\n| Path | Action | Reason |\n|---|---|---|\n| internal/second.go | create | second |\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(task2Dir, "validation.md"), []byte("# Validation T-089\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(task2Dir, "review.md"), []byte("# Review T-089\n"), 0o644)
+
+	// Bugfix dir for repair on task 2
+	bug2Dir := filepath.Join(tempDir, "tasks", "bugfixes", "T-089-second-feature")
+	_ = os.MkdirAll(bug2Dir, 0o755)
+	_ = os.WriteFile(filepath.Join(bug2Dir, "requirements.md"), []byte("# Repro T-089\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(bug2Dir, "plan.md"), []byte("# Plan T-089\n"), 0o644)
+
+	// Create shared living docs
+	_ = os.WriteFile(filepath.Join(tempDir, "TECH_STACK.md"), []byte("# TECH_STACK\n## 6. Decision register\n| ID | Decision | Status |\n|---|---|---|\n| D-001 | Invariance | Approved |\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(tempDir, "SKILLS.md"), []byte("# SKILLS\n## 8. Human feedback rules\n### Register\n| ID | Date | Rule | Applies to | Source | Verified by | Status |\n|---|---|---|---|---|---|---|\n| F-001 | 2026-11-10 | Rule 1 | All | Rev | Check | Active |\n"), 0o644)
+
+	var runPrompt = func(args ...string) PromptParts {
+		var outBuf, errBuf bytes.Buffer
+		env := IO{
+			In:  strings.NewReader(""),
+			Out: &outBuf,
+			Err: &errBuf,
+		}
+		var code int
+		switch args[0] {
+		case "plan-review":
+			code = runPromptPlanReview(args[1:], env)
+		case "implement":
+			code = runPromptImplement(args[1:], env)
+		case "review":
+			code = runPromptReview(args[1:], env)
+		case "discovery":
+			code = runPromptDiscovery(args[1:], env)
+		case "repair":
+			code = runPromptRepair(args[1:], env)
+		}
+		if code != 0 {
+			t.Fatalf("command failed %v: %s", args, errBuf.String())
+		}
+		return SplitPromptAtCacheBoundary(outBuf.String())
+	}
+
+	scenarios := []struct {
+		name string
+		cmd  string
+		args []string
+	}{
+		{"plan-review", "plan-review", nil},
+		{"implement-implementer", "implement", []string{"--role", "implementer"}},
+		{"implement-qa", "implement", []string{"--role", "qa"}},
+		{"review-spec", "review", []string{"--lens", "spec"}},
+		{"review-security", "review", []string{"--lens", "security"}},
+		{"review-pattern", "review", []string{"--lens", "pattern"}},
+		{"review-all", "review", []string{"--lens", "all"}},
+		{"discovery", "discovery", nil},
+		{"discovery-ensemble", "discovery", []string{"--ensemble"}},
+		{"repair", "repair", nil},
+	}
+
+	for _, sc := range scenarios {
+		sc := sc
+		t.Run(sc.name, func(t *testing.T) {
+			args1 := append([]string{sc.cmd, "T-088", "--dir", tempDir}, sc.args...)
+			parts1 := runPrompt(args1...)
+
+			args2 := append([]string{sc.cmd, "T-089", "--dir", tempDir}, sc.args...)
+			parts2 := runPrompt(args2...)
+
+			if parts1.StaticPrefix != parts2.StaticPrefix {
+				t.Errorf("%s static prefix differs across tasks!\nTask 1 Prefix:\n%s\n---\nTask 2 Prefix:\n%s",
+					sc.name, parts1.StaticPrefix, parts2.StaticPrefix)
+			}
+
+			// Dynamic suffixes must differ
+			if parts1.DynamicSuffix == parts2.DynamicSuffix {
+				t.Errorf("%s dynamic suffixes are unexpectedly identical across different tasks", sc.name)
+			}
+		})
+	}
+}
+
+func TestPromptReview_LoopInvariance(t *testing.T) {
+	root := setupPromptTestProject(t, "T-088", "loop-invariance-test")
+
+	var runReview = func(loop string) PromptParts {
+		var outBuf, errBuf bytes.Buffer
+		env := IO{
+			In:  strings.NewReader(""),
+			Out: &outBuf,
+			Err: &errBuf,
+		}
+		code := runPromptReview([]string{"T-088", "--lens", "spec", "--loop", loop, "--dir", root}, env)
+		if code != 0 {
+			t.Fatalf("runPromptReview failed: %s", errBuf.String())
+		}
+		return SplitPromptAtCacheBoundary(outBuf.String())
+	}
+
+	partsLoop1 := runReview("1")
+	partsLoop2 := runReview("2")
+	partsLoop3 := runReview("3")
+
+	if partsLoop1.StaticPrefix != partsLoop2.StaticPrefix {
+		t.Errorf("review static prefix differs between loop 1 and loop 2")
+	}
+	if partsLoop2.StaticPrefix != partsLoop3.StaticPrefix {
+		t.Errorf("review static prefix differs between loop 2 and loop 3")
+	}
+
+	// Suffixes must reflect the remediation loop
+	if !strings.Contains(partsLoop1.DynamicSuffix, "Initial Review (Loop 1)") {
+		t.Errorf("expected Loop 1 in dynamic suffix, got:\n%s", partsLoop1.DynamicSuffix)
+	}
+	if !strings.Contains(partsLoop2.DynamicSuffix, "Remediation Review (Loop 2)") {
+		t.Errorf("expected Loop 2 in dynamic suffix, got:\n%s", partsLoop2.DynamicSuffix)
+	}
+	if !strings.Contains(partsLoop3.DynamicSuffix, "Remediation Review (Loop 3)") {
+		t.Errorf("expected Loop 3 in dynamic suffix, got:\n%s", partsLoop3.DynamicSuffix)
+	}
+}
+
+func TestPromptPrefixCaching_DynamicSuffix(t *testing.T) {
+	root := setupPromptTestProject(t, "T-088", "suffix-pinning-test")
+
+	// Ensure bugfix dir exists for repair test
+	bugDir := filepath.Join(root, "tasks", "bugfixes", "T-088-suffix-pinning-test")
+	_ = os.MkdirAll(bugDir, 0o755)
+	_ = os.WriteFile(filepath.Join(bugDir, "requirements.md"), []byte("# Repro T-088\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(bugDir, "plan.md"), []byte("# Plan T-088\n"), 0o644)
+
+	var runCmd = func(args ...string) string {
+		var outBuf, errBuf bytes.Buffer
+		env := IO{
+			In:  strings.NewReader(""),
+			Out: &outBuf,
+			Err: &errBuf,
+		}
+		var code int
+		switch args[0] {
+		case "plan-review":
+			code = runPromptPlanReview(args[1:], env)
+		case "implement":
+			code = runPromptImplement(args[1:], env)
+		case "review":
+			code = runPromptReview(args[1:], env)
+		case "discovery":
+			code = runPromptDiscovery(args[1:], env)
+		case "repair":
+			code = runPromptRepair(args[1:], env)
+		}
+		if code != 0 {
+			t.Fatalf("command failed %v: %s", args, errBuf.String())
+		}
+		return outBuf.String()
+	}
+
+	tests := []struct {
+		name string
+		args []string
+	}{
+		{"plan-review", []string{"plan-review", "T-088", "--dir", root}},
+		{"implement", []string{"implement", "T-088", "--role", "implementer", "--dir", root}},
+		{"review", []string{"review", "T-088", "--lens", "spec", "--dir", root}},
+		{"discovery", []string{"discovery", "--dir", root, "T-088"}},
+		{"repair", []string{"repair", "T-088", "--dir", root}},
+	}
+
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			rendered := runCmd(tc.args...)
+			parts := SplitPromptAtCacheBoundary(rendered)
+
+			// Dynamic identifiers MUST NOT appear in static prefix
+			if strings.Contains(parts.StaticPrefix, "T-088") {
+				t.Errorf("%s static prefix contains task ID T-088:\n%s", tc.name, parts.StaticPrefix)
+			}
+			if strings.Contains(parts.StaticPrefix, "suffix-pinning-test") {
+				t.Errorf("%s static prefix contains task directory name:\n%s", tc.name, parts.StaticPrefix)
+			}
+
+			// Dynamic identifiers MUST appear in dynamic suffix
+			if !strings.Contains(parts.DynamicSuffix, "T-088") {
+				t.Errorf("%s dynamic suffix missing task ID T-088", tc.name)
+			}
+			if !strings.Contains(parts.DynamicSuffix, "suffix-pinning-test") {
+				t.Errorf("%s dynamic suffix missing task directory name", tc.name)
+			}
+		})
+	}
+}
+
+func TestPromptPrefixCaching_EmptyLivingDocs(t *testing.T) {
+	tempDir := t.TempDir()
+
+	taskDir := filepath.Join(tempDir, "tasks", "features", "T-088-empty-docs")
+	if err := os.MkdirAll(taskDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	_ = os.WriteFile(filepath.Join(taskDir, "requirements.md"), []byte("# Requirements T-088\n| ID | Requirement |\n|---|---|\n| R-001 | Test |\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(taskDir, "plan.md"), []byte("# Plan T-088\n## 5. Files to create or modify\n| Path | Action | Reason |\n|---|---|---|\n| internal/test.go | create | test |\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(taskDir, "validation.md"), []byte("# Validation T-088\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(taskDir, "review.md"), []byte("# Review T-088\n"), 0o644)
+
+	// Empty SKILLS.md and empty TECH_STACK.md (no rules, no decisions)
+	_ = os.WriteFile(filepath.Join(tempDir, "TECH_STACK.md"), []byte("# TECH_STACK\n"), 0o644)
+	_ = os.WriteFile(filepath.Join(tempDir, "SKILLS.md"), []byte("# SKILLS\n"), 0o644)
+
+	var runCmd = func(subcmd string, extra ...string) PromptParts {
+		var outBuf, errBuf bytes.Buffer
+		env := IO{
+			In:  strings.NewReader(""),
+			Out: &outBuf,
+			Err: &errBuf,
+		}
+		args := append([]string{"T-088", "--dir", tempDir}, extra...)
+		var code int
+		switch subcmd {
+		case "plan-review":
+			code = runPromptPlanReview(args, env)
+		case "implement":
+			code = runPromptImplement(args, env)
+		case "review":
+			code = runPromptReview(args, env)
+		}
+		if code != 0 {
+			t.Fatalf("%s failed: %s", subcmd, errBuf.String())
+		}
+		return SplitPromptAtCacheBoundary(outBuf.String())
+	}
+
+	scenarios := []struct {
+		subcmd string
+		extra  []string
+	}{
+		{"plan-review", nil},
+		{"implement", []string{"--role", "implementer"}},
+		{"review", []string{"--lens", "spec"}},
+	}
+
+	for _, sc := range scenarios {
+		t.Run(sc.subcmd, func(t *testing.T) {
+			parts := runCmd(sc.subcmd, sc.extra...)
+			if err := ValidateCacheBoundary(parts); err != nil {
+				t.Fatalf("%s with empty living docs failed cache boundary: %v (len=%d)",
+					sc.subcmd, err, len(parts.StaticPrefix))
+			}
+			if len(parts.StaticPrefix) < MinStaticPrefixBytes {
+				t.Errorf("%s static prefix %d bytes < %d floor with empty living docs",
+					sc.subcmd, len(parts.StaticPrefix), MinStaticPrefixBytes)
+			}
+		})
+	}
+}

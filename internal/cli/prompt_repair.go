@@ -184,85 +184,104 @@ func runPromptRepair(args []string, env IO) int {
 }
 
 func buildRepairPrompt(taskID, taskDir, typology string, attempt, maxLoops int, halted bool, haltReason, reproDoc, rcaDoc, planDoc, valDoc, feedbackRules string, decisions []string, roleSkill string, routing role.ModelRouting) string {
-	var b strings.Builder
+	var prefix strings.Builder
 
-	fmt.Fprintf(&b, "# Auto-Repair Handover Prompt — %s (%s)\n\n", taskID, taskDir)
+	prefix.WriteString("# Auto-Repair Handover Prompt\n\n")
+	prefix.WriteString("You are acting as an **Auto-Repair Implementer** tasked with resolving a verified automated test or CI defect under strict gate isolation.\n")
+	prefix.WriteString("Your mandate is to restore a passing verification state with minimum blast radius and zero unapproved dependencies.\n\n")
 
-	if halted {
-		fmt.Fprintf(&b, "> [!CAUTION]\n> **CIRCUIT BREAKER ACTIVATED: ATTEMPT %d OF %d CEILING REACHED**\n", attempt, maxLoops)
-		fmt.Fprintf(&b, "> The automated repair loop has reached its configured ceiling of %d attempts.\n", maxLoops)
-		b.WriteString("> In accordance with SDD safety and determinism rules, you MUST:\n")
-		b.WriteString("> 1. **HALT IMMEDIATELY.** Cease all automated code edits.\n")
-		fmt.Fprintf(&b, "> 2. Mark the task status in ROADMAP.md as `Blocked (%s)`.\n", haltReason)
-		b.WriteString("> 3. Escalate the failure diagnostics, root cause findings, and reproduction outputs to the human for guidance.\n\n")
-	} else {
-		fmt.Fprintf(&b, "> [!IMPORTANT]\n> **AUTO-REPAIR LOOP: ATTEMPT %d OF %d**\n", attempt, maxLoops)
-		fmt.Fprintf(&b, "> You are executing automated repair attempt %d of %d.\n", attempt, maxLoops)
-		fmt.Fprintf(&b, "> If this attempt fails, the auto-repair loop will terminate at attempt %d.\n\n", maxLoops)
-	}
+	prefix.WriteString("## SDD Anthem & Principles\n")
+	prefix.WriteString("> **ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**\n\n")
 
-	b.WriteString("## Model Routing Guidance\n")
-	b.WriteString("- **Role:** implementer\n")
-	fmt.Fprintf(&b, "- **Model Tier:** %s\n", routing.Tier)
-	fmt.Fprintf(&b, "- **Reasoning Effort:** %s\n", routing.ReasoningEffort)
-	fmt.Fprintf(&b, "- **Recommended Family:** %s\n\n", routing.RecommendedFamily)
+	prefix.WriteString(formatModelRoutingSection(routing, "implementer"))
+	prefix.WriteString("\n")
 
-	b.WriteString("## 1. Mandatory Step 0: Minimal Failing Test Case\n")
-	b.WriteString("> **MANDATORY PREREQUISITE:** Before applying any fixes or modifying production code:\n")
-	b.WriteString("1. Author a minimal, standalone reproduction test case reproducing the reported CI defect.\n")
-	b.WriteString("2. Execute the test on unpatched code to prove it fails deterministically.\n")
-	b.WriteString("3. Record the exact execution command and failing output in the task reproduction doc.\n")
-	b.WriteString("4. NEVER proceed to modify production code without proving failure reproduction.\n\n")
+	prefix.WriteString("## Mandatory Step 0: Minimal Failing Test Case\n")
+	prefix.WriteString("> **MANDATORY PREREQUISITE:** Before applying any fixes or modifying production code:\n")
+	prefix.WriteString("1. Author a minimal, standalone reproduction test case reproducing the reported CI defect.\n")
+	prefix.WriteString("2. Execute the test on unpatched code to prove it fails deterministically.\n")
+	prefix.WriteString("3. Record the exact execution command and failing output in the task reproduction doc.\n")
+	prefix.WriteString("4. NEVER proceed to modify production code without proving failure reproduction.\n\n")
 
-	if reproDoc != "" {
-		b.WriteString("## 2. Failure Diagnostics & Reproduction\n")
-		b.WriteString("```markdown\n")
-		b.WriteString(reproDoc)
-		b.WriteString("\n```\n\n")
-	}
-
-	if rcaDoc != "" {
-		b.WriteString("## 3. Root Cause Analysis (RCA)\n")
-		b.WriteString("```markdown\n")
-		b.WriteString(rcaDoc)
-		b.WriteString("\n```\n\n")
-	}
-
-	if planDoc != "" {
-		b.WriteString("## 4. Approved Plan & Boundaries\n")
-		b.WriteString("```markdown\n")
-		b.WriteString(planDoc)
-		b.WriteString("\n```\n\n")
-	}
-
-	if feedbackRules != "" {
-		b.WriteString("## 5. Active Human Feedback Rules (Binding)\n")
-		b.WriteString("```markdown\n")
-		b.WriteString(feedbackRules)
-		b.WriteString("\n```\n\n")
+	if strings.TrimSpace(roleSkill) != "" {
+		prefix.WriteString("## Implementer Role Skill Reference\n")
+		prefix.WriteString("```markdown\n")
+		prefix.WriteString(strings.TrimSpace(roleSkill))
+		prefix.WriteString("\n```\n\n")
 	}
 
 	if len(decisions) > 0 {
-		b.WriteString("## 6. Approved Decisions\n")
+		prefix.WriteString("## Approved Architectural Decisions (TECH_STACK.md)\n")
 		for _, d := range decisions {
-			fmt.Fprintf(&b, "- %s\n", d)
+			fmt.Fprintf(&prefix, "- %s\n", d)
 		}
-		b.WriteString("\n")
+		prefix.WriteString("\n")
 	}
 
-	if roleSkill != "" {
-		b.WriteString("## 7. Implementer Role Skill Reference\n")
-		b.WriteString("```markdown\n")
-		b.WriteString(roleSkill)
-		b.WriteString("\n```\n\n")
+	if feedbackRules != "" {
+		prefix.WriteString("## Active Human Feedback Rules (Binding)\n")
+		prefix.WriteString("```markdown\n")
+		prefix.WriteString(feedbackRules)
+		prefix.WriteString("\n```\n\n")
 	}
 
-	b.WriteString("## 8. Definition of Done for Auto-Repair\n")
-	b.WriteString("- [ ] Step 0 minimal reproduction test authored and verified failing on unpatched code\n")
-	b.WriteString("- [ ] Code repair strictly confined to planned files\n")
-	b.WriteString("- [ ] Reproduction test passes cleanly on patched code\n")
-	b.WriteString("- [ ] Full regression suite passes (`make verify`, race detector, determinism `-count=2`)\n")
-	b.WriteString("- [ ] All findings resolved and recorded in `validation.md`\n")
+	prefix.WriteString("## Definition of Done for Auto-Repair\n")
+	prefix.WriteString("- [ ] Step 0 minimal reproduction test authored and verified failing on unpatched code\n")
+	prefix.WriteString("- [ ] Code repair strictly confined to planned files\n")
+	prefix.WriteString("- [ ] Reproduction test passes cleanly on patched code\n")
+	prefix.WriteString("- [ ] Full regression suite passes (`make verify`, race detector, determinism `-count=2`)\n")
+	prefix.WriteString("- [ ] All findings resolved and recorded in `validation.md`\n")
 
-	return b.String()
+	var suffix strings.Builder
+	suffix.WriteString("## Dynamic Task Context & Circuit Breaker Status\n")
+	if halted {
+		fmt.Fprintf(&suffix, "> [!CAUTION]\n> **CIRCUIT BREAKER ACTIVATED: ATTEMPT %d OF %d CEILING REACHED**\n", attempt, maxLoops)
+		fmt.Fprintf(&suffix, "> The automated repair loop has reached its configured ceiling of %d attempts.\n", maxLoops)
+		suffix.WriteString("> In accordance with SDD safety and determinism rules, you MUST:\n")
+		suffix.WriteString("> 1. **HALT IMMEDIATELY.** Cease all automated code edits.\n")
+		fmt.Fprintf(&suffix, "> 2. Mark the task status in ROADMAP.md as `Blocked (%s)`.\n", haltReason)
+		suffix.WriteString("> 3. Escalate the failure diagnostics, root cause findings, and reproduction outputs to the human for guidance.\n\n")
+	} else {
+		fmt.Fprintf(&suffix, "> [!IMPORTANT]\n> **AUTO-REPAIR LOOP: ATTEMPT %d OF %d**\n", attempt, maxLoops)
+		fmt.Fprintf(&suffix, "> You are executing automated repair attempt %d of %d.\n", attempt, maxLoops)
+		fmt.Fprintf(&suffix, "> If this attempt fails, the auto-repair loop will terminate at attempt %d.\n\n", maxLoops)
+	}
+
+	fmt.Fprintf(&suffix, "- **Task ID:** %s\n", taskID)
+	fmt.Fprintf(&suffix, "- **Task Directory:** %s\n", taskDir)
+	fmt.Fprintf(&suffix, "- **Typology:** %s\n\n", typology)
+
+	if reproDoc != "" {
+		suffix.WriteString("## Failure Diagnostics & Reproduction\n")
+		suffix.WriteString("```markdown\n")
+		suffix.WriteString(reproDoc)
+		suffix.WriteString("\n```\n\n")
+	}
+
+	if rcaDoc != "" {
+		suffix.WriteString("## Root Cause Analysis (RCA)\n")
+		suffix.WriteString("```markdown\n")
+		suffix.WriteString(rcaDoc)
+		suffix.WriteString("\n```\n\n")
+	}
+
+	if planDoc != "" {
+		suffix.WriteString("## Approved Plan & Boundaries\n")
+		suffix.WriteString("```markdown\n")
+		suffix.WriteString(planDoc)
+		suffix.WriteString("\n```\n\n")
+	}
+
+	if valDoc != "" {
+		suffix.WriteString("## Validation State\n")
+		suffix.WriteString("```markdown\n")
+		suffix.WriteString(valDoc)
+		suffix.WriteString("\n```\n\n")
+	}
+
+	parts := PromptParts{
+		StaticPrefix:  prefix.String(),
+		DynamicSuffix: suffix.String(),
+	}
+	return parts.FullPrompt()
 }
