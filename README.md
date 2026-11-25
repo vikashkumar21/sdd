@@ -11,6 +11,7 @@
 - heterogeneous agent role routing and tier-calibrated dispatch in `.sdd/roles.json` with copy-pasteable `invoke_subagent` snippets in `sdd prompt` commands (`Model: "flash"` for routine verification, reducing token usage by $\ge 60\%$)
 - lens-scoped review bundles and deterministic diff filtering in `.sdd/review/<TASK_ID>/<lens>/` (`spec/`, `security/`, `pattern/`), eliminating directory collisions and reducing Review Triad context tokens by 30–70%
 - provider-aligned prompt prefix caching and dynamic suffix pinning across all prompt generators, enforcing invariant $\ge 1,024$-token ($\ge 4,096$-byte) static prefixes for 50–90% prompt caching hit rates across Anthropic, OpenAI, and Gemini
+- living document progressive disclosure and Rule 1 micro-index (`sdd passport`, `sdd status --compact`), reducing session startup context tokens by up to ~94% with deterministic $\le 500$-token budget compliance
 
 The workflow it installs: the agent drafts requirements and a plan, **the human approves before any code**, the agent implements and verifies, and **the human reviews and commits**. The anthem: *always be deterministic, and take human approval or decisions to accomplish that determinism.*
 
@@ -71,7 +72,9 @@ sdd check --fix --dry-run # preview repairs with unified diffs without modifying
 sdd check --fix --yes    # apply repairs without confirmation (backs up to .sdd/backup/)
 
 sdd status               # summarise roadmap milestones, active tasks, and pending gates
+sdd status --compact     # display compact project passport micro-index (<= 500 tokens)
 sdd status --json        # machine-readable JSON summary for agent orchestration and CI
+sdd passport             # display compact project passport micro-index (--json, --dir)
 
 sdd task new --type feature T-003 upgrade-command # unified task scaffolding across all 4 typologies under tasks/
 sdd feature new T-003 upgrade-command         # creates tasks/features/T-003-upgrade-command/ from your templates

@@ -235,6 +235,9 @@ func TestCanonicalTaskCoordinatorSkillValid(t *testing.T) {
 	if !strings.Contains(CanonicalTaskCoordinatorSkill, "sdd task state") {
 		t.Errorf("missing sdd task state in canonical task-coordinator skill")
 	}
+	if !strings.Contains(CanonicalTaskCoordinatorSkill, "Progressive Disclosure & Context Orientation Protocol") {
+		t.Errorf("missing Progressive Disclosure protocol in canonical task-coordinator skill")
+	}
 }
 
 func TestExportSkillsAll(t *testing.T) {

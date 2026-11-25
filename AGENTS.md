@@ -1,6 +1,6 @@
 # AGENTS.md — sdd agent contract (all agents)
 
-<!-- sdd:begin contract templates=2.10.0 -->
+<!-- sdd:begin contract templates=2.11.0 -->
 > **ANTHEM: ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**
 
 This is the operating contract for AI agents working on `sdd`. The rules are identical in every agent file (CLAUDE.md, GEMINI.md, AGENTS.md); only the title line differs. If you change a rule in one file, mirror it in the others in the same change set (§9). `sdd check` verifies that they match.
@@ -9,12 +9,14 @@ This is the operating contract for AI agents working on `sdd`. The rules are ide
 
 ## 1. Read first — every session, in this order
 
-1. `MISSION.md` — why this exists, scope, principles, non-goals
-2. `TECH_STACK.md` — stack, architecture, the Decision register (D-xxx), the verified-facts log
-3. `ROADMAP.md` — milestones, tasks (T-xxx), statuses, parking lot
-4. `SKILLS.md` — standards, playbooks, and the Human feedback rules (F-xxx)
-5. `README.md` — current public-facing state
-6. If a task is active: `tasks/<typology>/T-xxx-<slug>/requirements.md`, `plan.md`, `validation.md`
+1. Orient first: `sdd passport` (or `sdd status --compact`) — project passport micro-index (mission, stack, active milestone, active/next tasks, feedback rules)
+2. If a task is active: `tasks/<typology>/T-xxx-<slug>/requirements.md`, `plan.md`, `validation.md`, `review.md`
+3. Load full living documents on-demand as needed for the active task:
+   - `MISSION.md` — scope, principles, non-goals
+   - `TECH_STACK.md` — stack, architecture, Decision register (§6), verified facts (§7)
+   - `ROADMAP.md` — milestones, tasks (T-xxx), statuses, parking lot
+   - `SKILLS.md` — standards (§1), playbooks, Human feedback rules (§8)
+   - `README.md` — current public-facing state
 
 Start every session by stating: the active task (or "none"), the files you read, and its current status in `ROADMAP.md`. If two files contradict each other, STOP and report the conflict. Do not pick a winner.
 

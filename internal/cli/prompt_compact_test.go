@@ -34,6 +34,7 @@ func TestPromptCompact(t *testing.T) {
 		"acting as Task Coordinator",
 		"ANTHEM: ALWAYS BE DETERMINISTIC",
 		"Operating Contract: GEMINI.md",
+		"sdd passport",
 		".sdd/roles.json",
 		"GATE 1 (Plan Approval)",
 		"`APPROVED T-xxx`",

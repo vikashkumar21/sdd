@@ -8,8 +8,8 @@ import (
 )
 
 func TestVersion(t *testing.T) {
-	if Version != "2.10.0" {
-		t.Errorf("Version = %q, want 2.10.0", Version)
+	if Version != "2.11.0" {
+		t.Errorf("Version = %q, want 2.11.0", Version)
 	}
 }
 
@@ -319,6 +319,9 @@ func TestPromptTemplateOrder(t *testing.T) {
 	renderedPrefix := rendered[:renderedMarkerIdx]
 	if len(renderedPrefix) < 4096 {
 		t.Errorf("rendered base/prompt.md static prefix without skills is %d bytes, want >= 4096 bytes", len(renderedPrefix))
+	}
+	if !strings.Contains(renderedPrefix, "sdd passport") {
+		t.Errorf("rendered base/prompt.md static prefix missing progressive disclosure passport guidance")
 	}
 
 	anthemIdx := strings.Index(promptContent, "ANTHEM")

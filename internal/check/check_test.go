@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vikashkumar21/sdd/internal/block"
 	"github.com/vikashkumar21/sdd/internal/detect"
 	"github.com/vikashkumar21/sdd/internal/scaffold"
 	"github.com/vikashkumar21/sdd/internal/templates"
@@ -1967,5 +1968,95 @@ func TestCitationHygiene_CheckIntegration(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("expected citation-hygiene warning in README.md, got findings: %+v", r.Findings)
+	}
+}
+
+func TestCheckContractsMatch(t *testing.T) {
+	repoRoot, err := filepath.Abs("../..")
+	if err != nil {
+		t.Fatalf("resolving repo root: %v", err)
+	}
+
+	agentFiles := []string{"AGENTS.md", "CLAUDE.md", "GEMINI.md"}
+	var inners []string
+	for _, file := range agentFiles {
+		content, err := os.ReadFile(filepath.Join(repoRoot, file))
+		if err != nil {
+			t.Fatalf("reading %s: %v", file, err)
+		}
+		inner, ok := block.Inner(string(content))
+		if !ok {
+			t.Fatalf("%s missing managed contract block", file)
+		}
+		inners = append(inners, strings.ReplaceAll(inner, "\r\n", "\n"))
+	}
+
+	for i := 1; i < len(inners); i++ {
+		if inners[0] != inners[i] {
+			t.Errorf("contract block mismatch between %s and %s", agentFiles[0], agentFiles[i])
+		}
+	}
+
+	// Verify Progressive Disclosure Protocol in Section 1
+	if !strings.Contains(inners[0], "Orient first: `sdd passport`") {
+		t.Errorf("contract missing progressive disclosure protocol:\n%s", inners[0])
+	}
+	if !strings.Contains(inners[0], "TECH_STACK.md` — stack, architecture, Decision register (§6), verified facts (§7)") {
+		t.Errorf("contract missing canonical TECH_STACK section numbers:\n%s", inners[0])
+	}
+	if !strings.Contains(inners[0], "SKILLS.md` — standards (§1), playbooks, Human feedback rules (§8)") {
+		t.Errorf("contract missing canonical SKILLS section numbers:\n%s", inners[0])
+	}
+
+	// Verify parity with rendered base/contract.md.tmpl
+	manifestData, err := os.ReadFile(filepath.Join(repoRoot, ".sdd", "manifest.json"))
+	if err != nil {
+		t.Fatalf("reading manifest: %v", err)
+	}
+	var manifest struct {
+		Answers struct {
+			Project    string   `json:"project"`
+			Agents     []string `json:"agents"`
+			Languages  []string `json:"languages"`
+			ExtraRules []string `json:"extraRules"`
+		} `json:"answers"`
+	}
+	if err := json.Unmarshal(manifestData, &manifest); err != nil {
+		t.Fatalf("unmarshalling manifest: %v", err)
+	}
+	tmplSet, err := templates.New("")
+	if err != nil {
+		t.Fatalf("loading templates: %v", err)
+	}
+	var agentFilesList []string
+	for _, a := range manifest.Answers.Agents {
+		agentFilesList = append(agentFilesList, scaffold.AgentFile(a))
+	}
+	var packs []templates.Pack
+	for _, lang := range manifest.Answers.Languages {
+		p, err := tmplSet.Pack(lang)
+		if err != nil {
+			t.Fatalf("loading pack %s: %v", lang, err)
+		}
+		packs = append(packs, p)
+	}
+	rendered, err := tmplSet.Render("base/contract.md.tmpl", struct {
+		Project    string
+		AgentFiles []string
+		ExtraRules []string
+		Packs      []templates.Pack
+	}{
+		Project:    manifest.Answers.Project,
+		AgentFiles: agentFilesList,
+		ExtraRules: manifest.Answers.ExtraRules,
+		Packs:      packs,
+	})
+	if err != nil {
+		t.Fatalf("rendering base/contract.md.tmpl: %v", err)
+	}
+	normRendered := strings.TrimSpace(strings.ReplaceAll(rendered, "\r\n", "\n"))
+	normInner := strings.TrimSpace(inners[0])
+	if normRendered != normInner {
+		t.Errorf("rendered base/contract.md.tmpl does not match contract in %s", agentFiles[0])
 	}
 }

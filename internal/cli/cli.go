@@ -55,7 +55,8 @@ usage: sdd <command> [flags]
 commands:
   init                       generate the spec-driven kit in this project (new or existing)
   check                      verify the kit is consistent (--json for structured output, --strict for warnings)
-  status                     summarise roadmap milestones, active tasks, and gate status
+  status                     summarise roadmap milestones, active tasks, and gate status (--compact for passport)
+  passport                   display compact project passport micro-index (--json for structured output)
   task new <T-xxx> <slug>    create a task folder (--type feature|bugfix|hotfix|spike)
   task start <T-xxx>         provision an isolated Git worktree for the task
   task clean <T-xxx>         safely remove a task's worktree with backup
@@ -110,6 +111,8 @@ func Run(args []string, env IO) int {
 		return runCheck(args[1:], env)
 	case "status":
 		return runStatus(args[1:], env)
+	case "passport":
+		return runPassport(args[1:], env)
 	case "task":
 		return runTask(args[1:], env)
 	case "record-tokens":

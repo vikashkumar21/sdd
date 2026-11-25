@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"unicode/utf8"
+
+	"github.com/vikashkumar21/sdd/internal/passport"
 )
 
 // MinStaticPrefixTokens defines the minimum token count required to activate
@@ -43,15 +44,7 @@ func (p PromptParts) FullPrompt() string {
 // EstimateTokens calculates an approximate token count from UTF-8 string content
 // using deterministic character heuristics (~3.7 chars per token for markdown/code).
 func EstimateTokens(s string) int {
-	if s == "" {
-		return 0
-	}
-	runes := utf8.RuneCountInString(s)
-	tokens := (runes * 10) / 37
-	if tokens == 0 && runes > 0 {
-		return 1
-	}
-	return tokens
+	return passport.EstimateTokens(s)
 }
 
 // ValidateCacheBoundary verifies that a generated prompt possesses an invariant

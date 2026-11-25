@@ -432,3 +432,33 @@ To achieve 50–90% prompt token caching discounts and sub-second TTFT (Time To 
 - **Cross-Task & Multi-Loop Invariance:**
   - Running prompt generation for task A and task B with the same role/lens generates 100% byte-identical static prefixes.
   - Multi-loop remediation reviews (Loop 1, Loop 2, Loop 3) maintain 100% byte-identical static prefixes; defect checklists (`findings_to_verify.md`) and loop counters are pinned to the suffix.
+
+## 20. Living Document Progressive Disclosure Standard
+
+To reduce AI coding agent session startup overhead by up to ~94% while maintaining strict alignment, SDD mandates progressive disclosure through project passports and micro-indexes (`T-063`, `D-050`):
+
+### 1. Two-Tier Document Ingestion Protocol (Rule 1)
+Instead of forcing agents to ingest thousands of lines across five living documents at session kickoff:
+1. **Tier 1 (Orientation):** The agent or coordinator runs `sdd passport` (or `sdd status --compact`) to read a lightweight, high-density project passport micro-index ($\le 500$ estimated tokens / $\le 2,000$ bytes). This summarizes project mission, polyglot stack, active milestone progress, active/next tasks, active feedback rules, and canonical living document pointers.
+2. **Tier 2 (On-Demand Loading):** Full living documents are loaded only when explicitly required by the active task:
+   - `MISSION.md` — scope, principles, non-goals.
+   - `TECH_STACK.md` — stack, architecture, Decision register (§6), verified facts (§7).
+   - `ROADMAP.md` — milestones, tasks (T-xxx), statuses, parking lot.
+   - `SKILLS.md` — language standards (§1), playbooks, and Human feedback rules (§8).
+   - `README.md` — current public-facing overview and quickstart.
+
+### 2. Micro-Index Generation & Budget Bounds (`sdd passport`)
+- **Determinism:** `internal/passport.Generate(root string, now time.Time)` accepts an injected clock and performs pure read-only extraction, ensuring byte-identical outputs across repeated invocations on identical repository state.
+- **Budget Ceilings:** The rendered Markdown passport strictly adheres to $\le 500$ tokens ($\le 2,000$ UTF-8 bytes). If document contents grow, deterministic compaction priorities apply:
+  1. Active tasks: capped at 3 tasks + `+N more active tasks`.
+  2. Active rules: capped at 5 rules with 60-character summaries + `+N more rules in SKILLS.md §8`.
+  3. Further multi-level compaction truncates rule text and simplifies stack descriptions before budget overflow.
+- **Ergonomics:** Available via `sdd passport [--json] [--dir <dir>]` and `sdd status --compact [--json]`.
+
+### 3. Mechanical Consistency Verification (`sdd check`)
+- Rule `passport-consistency` mechanically verifies:
+  1. Passport generates cleanly from repository living documents.
+  2. Rendered Markdown satisfies token and byte budget limits ($\le 500$ tokens / $\le 2,000$ bytes).
+  3. Active tasks match `ROADMAP.md` task states.
+  4. Linked living document paths are confined within the repository root (`os.OpenRoot`) and exist.
+  5. Greenfield repositories without `ROADMAP.md` skip validation cleanly without errors.
