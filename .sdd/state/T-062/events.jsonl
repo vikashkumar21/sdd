@@ -1,0 +1,2 @@
+{"delta":{"cache":0,"input":0,"output":0},"recorded_at":"2026-11-25T10:52:31Z","task_id":"T-062","totals":{"input_tokens":0,"cache_read_tokens":0,"output_tokens":0,"total_tokens":0},"type":"token_recorded"}
+{"delta":{"cache":132000,"input":29700,"output":8050},"recorded_at":"2026-11-25T10:52:49Z","task_id":"T-062","totals":{"input_tokens":29700,"cache_read_tokens":132000,"output_tokens":8050,"total_tokens":169750},"type":"token_recorded"}

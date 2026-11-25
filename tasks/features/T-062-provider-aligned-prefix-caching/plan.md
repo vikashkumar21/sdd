@@ -1,5 +1,5 @@
 ---
-status: draft
+status: completed
 ---
 # Plan — T-062 Provider-aligned prompt prefix caching and dynamic suffix pinning
 
