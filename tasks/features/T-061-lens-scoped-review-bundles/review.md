@@ -1,13 +1,10 @@
----
-status: active
----
 # Code Review — T-061 Lens-scoped review bundles and diff filtering
 
 > ALWAYS BE DETERMINISTIC. Human approval resolves every decision.
 
 Status: Approved
 Reviewer: Independent Review Triad (Spec Auditor, AppSec Specialist, Pattern Auditor)
-Commit / Diff Ref: `feature/T-061-lens-scoped-review-bundles` (commit 5379403 + batch remediation)
+Commit / Diff Ref: `feature/T-061-lens-scoped-review-bundles` (commit 97aada3)
 
 ## 1. Requirements Traceability Ledger
 
@@ -43,20 +40,23 @@ Commit / Diff Ref: `feature/T-061-lens-scoped-review-bundles` (commit 5379403 + 
 - [x] Deterministic by construction (injected clocks, fixed random seeds, canonical map order)
 - [x] Language standards: Effective Go conventions, context.Context first, clean linting (staticcheck clean)
 
-## 3. Risk & Findings Register (Unified Batch Remediation Ledger)
+## 3. Risk & Findings Register
 
 | ID | Category | Severity | Finding | Suggested Action | Status |
 |---|---|---|---|---|---|
-| `SEC-001` / `SPEC-001` / `PAT-005` | Access Control / Scope | 🔴 Blocker | `internal/hook/hook.go` was modified outside approved plan, introducing `val == "active"` in `isPlanApproved`. | Reverted `internal/hook/hook.go` to match `main` byte-for-byte; formatted `plan.md` Section 10 with separate lines for `Approved by:` and `Phrase received:` to conform to standard hook validation. Added `internal/audit/audit_test.go` to `plan.md` Section 5. | **Resolved** |
-| `SPEC-002` / `PAT-002` | Verification Integrity | 🔴 Blocker | `validation.md` referenced non-existent test names and pending token telemetry. | Added all missing unit tests with exact names; recorded token telemetry via `sdd record-tokens T-061` (151,800 tokens). | **Resolved** |
-| `PAT-001` | Lint / Quality | 🔴 Blocker | `make lint` failed with 2 staticcheck issues in `internal/audit/bundle_test.go` (switch on `l` and De Morgan's law simplification). | Replaced `if/else if` with `switch l` and simplified boolean logic. | **Resolved** |
-| `SPEC-003` | Test Coverage | 🔴 Blocker | Missing negative/boundary test cases for R-002 and R-003 (malformed diff, unknown lens, deleted file, spaces in path, Loop 2 multi-lens filtering). | Implemented `TestFilterGitDiffByLens_MalformedFallback`, `_UnknownLensFallback`, `_DeletedFile`, `_SpacesInPath`, `TestFilterFindingsForLens_Unassigned`, and `TestStageReviewBundle_LoopMultiLensFilter`. | **Resolved** |
-| `SEC-002` / `SPEC-006` / `PAT-003` | Input Parsing / Bounds | 🟡 Warning | `bufio.Scanner` default 64KB token limit and unhandled `scanner.Err()`. | Configured 1MB scanner buffer (`make([]byte, 64*1024), 1024*1024`) and added `if err := scanner.Err(); err != nil` check with fail-safe fallback to raw diff. | **Resolved** |
-| `SEC-003` | Security Whitelist | 🟡 Warning | Exclusion of `.gitignore`, `.dockerignore`, `.env*` from `isSecurityRelevant`. | Added `.gitignore`, `.dockerignore`, `.env*` to `isSecurityRelevant` in `internal/audit/filter.go`. | **Resolved** |
-| `SPEC-004` / `PAT-004` | Telemetry Schema | 🟡 Warning | Telemetry fields using `,omitempty` dropped zero-valued metrics from `manifest.json` and JSON output. | Removed `,omitempty` from `raw_diff_bytes`, `filtered_diff_bytes`, `diff_savings_percent`, `raw_files_count`, `filtered_files_count` in `ReviewBundle` and `ReviewPromptContext`. | **Resolved** |
-| `SPEC-005` | Role Skills Sync | 🟡 Warning | Incomplete lens path sync in embedded role skills & unverified temp kit generation. | Updated `appsec-specialist` and `pattern-auditor` embedded skills with `.sdd/review/<TASK_ID>/<lens>/ledger.md` paths; verified temporary directory kit generation with `templates=2.9.0`. | **Resolved** |
-| `SEC-005` / `PAT-006` | Code Quality / Idioms | 🟢 Minor | Space-separated diff path parsing, unused `DiffFileHunk.Body`, and duplicated lens normalization. | Removed `DiffFileHunk.Body`, added `audit.NormalizeLens` helper, and implemented robust space/quote path parsing in `parseDiffGitPaths`. | **Resolved** |
-| `SPEC-007` | Test Assertion | 🟢 Minor | Substring assertion in `TestFilterGitDiffByLens_Spec` was vacuously true. | Updated assertion substring to match exact changelog text. | **Resolved** |
+| (none) | n/a | 🟢 Minor | All findings remediated across all 3 lenses | Ready for Gate 2 close | Resolved |
+
+### Remediated Findings Ledger (Loop 1 Batch Remediation History):
+1. **`SEC-001` / `SPEC-001` / `PAT-005` (Access Control & Scope, Blocker):** `internal/hook/hook.go` modified outside plan with `val == "active"`. Remediated: Reverted `internal/hook/hook.go` to match `main` byte-for-byte; formatted `plan.md` Section 10 with separate lines for `Approved by:` and `Phrase received:` to conform to standard hook validation. Added `internal/audit/audit_test.go` to `plan.md` Section 5. Status: `Resolved`.
+2. **`SPEC-002` / `PAT-002` (Verification Integrity, Blocker):** `validation.md` referenced non-existent test names and pending token telemetry. Remediated: Added all missing unit tests with exact names; recorded token telemetry via `sdd record-tokens T-061` (151,800 tokens). Status: `Resolved`.
+3. **`PAT-001` (Lint Quality, Blocker):** `make lint` failed with 2 staticcheck issues in `internal/audit/bundle_test.go`. Remediated: Replaced `if/else if` with `switch l` and simplified boolean logic. Status: `Resolved`.
+4. **`SPEC-003` (Test Coverage, Blocker):** Missing negative/boundary test cases for R-002 and R-003. Remediated: Implemented `TestFilterGitDiffByLens_MalformedFallback`, `_UnknownLensFallback`, `_DeletedFile`, `_SpacesInPath`, `TestFilterFindingsForLens_Unassigned`, and `TestStageReviewBundle_LoopMultiLensFilter`. Status: `Resolved`.
+5. **`SEC-002` / `SPEC-006` / `PAT-003` (Input Parsing & Bounds, Warning):** `bufio.Scanner` default 64KB token limit and unhandled `scanner.Err()`. Remediated: Configured 1MB scanner buffer (`make([]byte, 64*1024), 1024*1024`) and added `if err := scanner.Err(); err != nil` check with fail-safe fallback to raw diff. Status: `Resolved`.
+6. **`SEC-003` (Security Whitelist, Warning):** Exclusion of `.gitignore`, `.dockerignore`, `.env*` from `isSecurityRelevant`. Remediated: Added `.gitignore`, `.dockerignore`, `.env*` to `isSecurityRelevant` in `internal/audit/filter.go`. Status: `Resolved`.
+7. **`SPEC-004` / `PAT-004` (Telemetry Schema, Warning):** Telemetry fields using `,omitempty` dropped zero-valued metrics from `manifest.json` and JSON output. Remediated: Removed `,omitempty` from `raw_diff_bytes`, `filtered_diff_bytes`, `diff_savings_percent`, `raw_files_count`, `filtered_files_count` in `ReviewBundle` and `ReviewPromptContext`. Status: `Resolved`.
+8. **`SPEC-005` (Role Skills Sync, Warning):** Incomplete lens path sync in embedded role skills & unverified temp kit generation. Remediated: Updated `appsec-specialist` and `pattern-auditor` embedded skills with `.sdd/review/<TASK_ID>/<lens>/ledger.md` paths; verified temporary directory kit generation with `templates=2.9.0`. Status: `Resolved`.
+9. **`SEC-005` / `PAT-006` (Code Quality & Idioms, Minor):** Space-separated diff path parsing, unused `DiffFileHunk.Body`, and duplicated lens normalization. Remediated: Removed `DiffFileHunk.Body`, added `audit.NormalizeLens` helper, and implemented robust space/quote path parsing in `parseDiffGitPaths`. Status: `Resolved`.
+10. **`SPEC-007` (Test Assertion, Minor):** Substring assertion in `TestFilterGitDiffByLens_Spec` was vacuously true. Remediated: Updated assertion substring to match exact changelog text. Status: `Resolved`.
 
 ## 4. Reusable Knowledge & Feedback Synthesis
 - **Feedback Rule F-001 Compliance:** All 10 findings across all 3 review lenses (4 Blockers, 4 Warnings, 2 Minors) were completely resolved in unified batch remediation. 0 Blockers, 0 Warnings, and 0 Minors remain open.
