@@ -219,7 +219,7 @@ Unfamiliar technology derails projects. To prevent that:
 ## 8. Next action
 
 1. M0 through M14 are complete (58 tasks delivered).
-2. Release v1.10.0 tagged and cross-platform release binaries built.
+2. Release v1.11.0 tagged and cross-platform release binaries built.
 3. Milestone 15: Token Optimization, Context Hygiene & Provider Caching is complete (5/5 complete, 100%).
 4. Active task: none (M15 complete; 63 tasks delivered).
 
@@ -227,6 +227,7 @@ Unfamiliar technology derails projects. To prevent that:
 
 | Date | Change |
 |---|---|
+| 2026-11-26 | Release v1.11.0: cross-platform static binaries (darwin, linux, windows), template version 2.11.0, Milestone 15 complete (tier routing, lens review bundles, prefix caching, passport micro-index, native transcript token ingestion) |
 | 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens done |
 | 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens awaiting review |
 | 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens implementing |
