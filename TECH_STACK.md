@@ -90,6 +90,7 @@ internal/install/     cross-platform user-level binary self-installation and PAT
 internal/permissions/ agent permission manifest generation (.claude, .cursor, .gemini)
 internal/docflow/     domain flow & visual architecture documentation engine (init, flow)
 internal/passport/    deterministic project passport and micro-index generator for progressive disclosure
+internal/transcript/  bounded Antigravity JSONL transcript summariser and confined source resolver
 internal/repair/      safe interactive mechanical repair engine (contract parity, table alignment)
 internal/suppress/    finding waivers and baseline suppression register (.sdd/suppressions.json)
 internal/version/     build version (set with -ldflags)
@@ -156,6 +157,9 @@ internal/version/     build version (set with -ldflags)
 | D-048 | Forensic brownfield discovery hardening, coverage ledger, and multi-language review templates | **Approved** 2026-11-23 | n/a | Option A: Add M13 and Task T-056 delivering Coverage Ledger standard with sdd check verification, language-pack-aware review.md scaffolding (Java, TypeScript, Python, Go), unanchored inventory-first challenger protocol, review bundle enrichment (include validation.md in plan review; copy staged context into discovery bundle), and generalized codebase-analyst and discovery-challenger vectors |
 | D-049 | Cognitive bias immunity: unanchored traceability ledger, ephemeral reviewer spawning, and heterogeneous model routing | **Approved** 2026-11-24 | n/a | Option A: Author Unanchored Requirements Traceability Ledger in skills/code-review/ and internal/audit/ (Step 1 omission scan before opening diff.patch; negative path execution proof), enforce Ephemeral Tabula-Rasa Reviewer Lifecycle (forbid subagent reuse across remediation loops; re-stage fresh candidate diffs with zero developer transcripts), and extend .sdd/roles.json with heterogeneous model routing (model_tier, reasoning_effort, recommended_family) |
 | D-050 | Token consumption mitigation, context hygiene, and provider-aligned caching architecture | **Approved** 2026-11-25 | T-060 | Option A: Subagent model routing & tier enforcement in skills and contracts, lens-scoped review bundles, provider-aligned prompt prefix caching, living document progressive disclosure, and native transcript telemetry ingestion |
+| D-051 | Transcript source and trust boundary for native token ingestion | **Approved** 2026-11-26 | T-064 | Option B: `sdd record-tokens` accepts an explicit `--transcript <file>` or a strictly validated `--conversation <id>` resolved under a documented, overridable root through `os.OpenRoot`; regular files only; no directory listing, globbing, or scanning |
+| D-052 | Task attribution and idempotent ingestion | **Approved** 2026-11-26 | T-064 | Option A: `--from-step/--to-step` window (first ingestion of a source requires `--from-step`) plus a per-task, per-source ingested-step cursor in `state.json`, updated atomically with the token totals; replays add nothing |
+| D-053 | Counted transcript records and subagent attribution | **Approved** 2026-11-26 | T-064 | Option A: count only `MODEL`/`PLANNER_RESPONSE` records; subagents are ingested one run each via their own `--conversation` plus a `--role` label; no automatic discovery of subagent IDs |
 
 ## 7. Verified facts log (re-verify at the task shown; do not treat as permanent)
 
@@ -215,6 +219,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-25 | Lens-scoped review bundles (.sdd/review/<TASK_ID>/<lens>/), deterministic diff filtering engine (FilterGitDiffByLens), remediation finding filtering (FilterFindingsForLens), manifest diff telemetry, 30–70% context token savings, and template version 2.9.0 verified | Run in internal/audit, internal/cli, internal/templates, and internal/upgrade tests (T-061) | M15 |
 | 2026-11-25 | Provider-aligned prompt prefix caching (>=1,024 tokens / >=4,096 bytes invariant static prefixes across Anthropic, OpenAI, Gemini), dynamic suffix pinning, cross-task & multi-loop byte-stability, and template version 2.10.0 verified (noting Claude 3.5 Haiku 2,048-token floor) | Run in internal/cli and internal/templates tests (T-062) | M15 |
 | 2026-11-25 | Living document progressive disclosure, sdd passport (--json, --dir), sdd status --compact, contract Rule 1 micro-index protocol, mechanical passport-consistency check, <=500 token ceiling, and template version 2.11.0 verified | Run in internal/passport, internal/cli, internal/check, and internal/templates tests (T-063) | M15 |
+| 2026-11-26 | Antigravity compact transcript (`<id>/.system_generated/logs/transcript.jsonl`) stores JSONL steps with `step_index`, `source`, `type`, `input_tokens`, `cache_read_tokens`, `output_tokens` on `MODEL`/`PLANNER_RESPONSE` and `SYSTEM`/`CHECKPOINT` records; bounded ingestion and cursor idempotency verified (Antigravity format only) | Observed on maintainer Mac transcript and verified in `internal/transcript`, `internal/state`, `internal/cli` tests (T-064) | M16 |
 
 ## 8. Dependency register
 

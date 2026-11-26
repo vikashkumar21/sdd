@@ -12,7 +12,7 @@ import (
 
 func runTaskState(args []string, env IO) int {
 	if len(args) == 0 {
-		fprintln(env.Err, "usage: sdd task state <command> [flags]\n\ncommands:\n  show <T-xxx>          show task state snapshot and event journal (--json supported)\n  save <T-xxx>          atomically save task state snapshot (--state or --stdin, --json)\n  append-event <T-xxx>  append lifecycle event to event journal (--event or --stdin, --json)\n  record-tokens <T-xxx> record token telemetry delta (--input, --cache, --output, --json)\n  purge <T-xxx>         completely remove task state directory (--force, --json)")
+		fprintln(env.Err, "usage: sdd task state <command> [flags]\n\ncommands:\n  show <T-xxx>          show task state snapshot and event journal (--json supported)\n  save <T-xxx>          atomically save task state snapshot (--state or --stdin, --json)\n  append-event <T-xxx>  append lifecycle event to event journal (--event or --stdin, --json)\n  record-tokens <T-xxx> record token telemetry delta or ingest transcript (--input, --cache, --output, --conversation, --transcript, --json)\n  purge <T-xxx>         completely remove task state directory (--force, --json)")
 		return 2
 	}
 	switch args[0] {
@@ -338,6 +338,13 @@ func doRecordTokens(cmdName string, args []string, env IO) int {
 	cacheFlag := fs.Int64("cache", 0, "cache read token delta")
 	outputFlag := fs.Int64("output", 0, "output token delta")
 	stdinFlag := fs.Bool("stdin", false, "read token delta from stdin as JSON")
+	convFlag := fs.String("conversation", "", "Antigravity conversation UUID to ingest")
+	transcriptFlag := fs.String("transcript", "", "explicit transcript JSONL file path to ingest")
+	transcriptRootFlag := fs.String("transcript-root", "", "override transcript root directory for --conversation")
+	fromStepFlag := fs.Int("from-step", 0, "first step_index to include (required on first ingestion)")
+	toStepFlag := fs.Int("to-step", 0, "last step_index to include (optional, inclusive)")
+	roleFlag := fs.String("role", "coordinator", "role attribution label for transcript ingestion")
+	dryRunFlag := fs.Bool("dry-run", false, "preview transcript ingestion without writing state")
 	jsonFlag := fs.Bool("json", false, "output structured JSON")
 
 	pos, err := parseInterspersed(fs, args)
@@ -345,14 +352,44 @@ func doRecordTokens(cmdName string, args []string, env IO) int {
 		return parseExit(err)
 	}
 	if len(pos) != 1 {
-		fprintf(env.Err, "usage: sdd %s <T-xxx> [--input <N>] [--cache <N>] [--output <N>] [--stdin] [--json] [--dir <project>]\n", cmdName)
+		fprintf(env.Err, "usage: sdd %s <T-xxx> [--input <N>] [--cache <N>] [--output <N>] [--stdin] [--conversation <id> | --transcript <file>] [--from-step <N>] [--to-step <N>] [--role <name>] [--dry-run] [--json] [--dir <project>]\n", cmdName)
 		return 2
+	}
+
+	visited := collectVisitedFlags(fs)
+	useTranscript, exitCode := validateTranscriptFlags(cmdName, visited, *convFlag, *transcriptFlag, *fromStepFlag, *toStepFlag, *roleFlag, env)
+	if exitCode != 0 {
+		return exitCode
 	}
 
 	normID, err := state.ValidateTaskID(pos[0])
 	if err != nil {
 		fprintf(env.Err, "sdd %s: %v\n", cmdName, err)
 		return 1
+	}
+
+	root, err := filepath.Abs(*dir)
+	if err != nil {
+		fprintf(env.Err, "sdd %s: %v\n", cmdName, err)
+		return 1
+	}
+
+	if useTranscript {
+		return ingestTranscript(transcriptIngestOpts{
+			cmdName:        cmdName,
+			taskID:         normID,
+			root:           root,
+			conversationID: *convFlag,
+			transcriptFile: *transcriptFlag,
+			transcriptRoot: *transcriptRootFlag,
+			fromStep:       *fromStepFlag,
+			fromSet:        visited["from-step"],
+			toStep:         *toStepFlag,
+			toSet:          visited["to-step"],
+			role:           *roleFlag,
+			dryRun:         *dryRunFlag,
+			jsonOut:        *jsonFlag,
+		}, env)
 	}
 
 	input := *inputFlag
@@ -396,12 +433,6 @@ func doRecordTokens(cmdName string, args []string, env IO) int {
 
 	if input < 0 || cache < 0 || output < 0 {
 		fprintf(env.Err, "sdd %s: token values cannot be negative\n", cmdName)
-		return 1
-	}
-
-	root, err := filepath.Abs(*dir)
-	if err != nil {
-		fprintf(env.Err, "sdd %s: %v\n", cmdName, err)
 		return 1
 	}
 

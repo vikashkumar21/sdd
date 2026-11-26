@@ -90,6 +90,7 @@ sdd task state save T-003 --state '<json>'    # atomically save task state snaps
 sdd task state append-event T-003 --event '<json>' # append lifecycle event to .sdd/state/T-003/events.jsonl
 sdd task state record-tokens T-003 --input 1200 --cache 4000 --output 300 # record task token consumption delta (--stdin, --json)
 sdd record-tokens T-003 --input 1200 --cache 4000 --output 300 # turnkey top-level shorthand for task token recording
+sdd record-tokens T-003 --conversation <uuid> --from-step 10 --role coordinator # ingest Antigravity-only transcript tokens (--transcript, --transcript-root, --to-step, --dry-run, --json)
 sdd task state purge T-003 --force            # remove task state store from .sdd/state/T-003 (--json supported)
 sdd task deconflict                           # analyze plan file collisions across in-flight tasks
 sdd task deconflict T-003 T-004               # analyze collisions between specific tasks (--json, --all)

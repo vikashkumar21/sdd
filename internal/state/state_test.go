@@ -470,3 +470,144 @@ func TestTokenTelemetry_Negative(t *testing.T) {
 		t.Errorf("expected overflow error on max int64 input, got nil")
 	}
 }
+
+func TestRecordIngest(t *testing.T) {
+	tempDir := t.TempDir()
+	taskID := "T-064"
+	fixedTime := time.Date(2026, 11, 26, 10, 0, 0, 0, time.UTC)
+
+	ing1 := Ingest{
+		Source:   "11111111-1111-1111-1111-111111111111",
+		Role:     "coordinator",
+		FromStep: 10,
+		ToStep:   20,
+		Steps:    4,
+		Delta:    TokenTelemetry{InputTokens: 100, CacheReadTokens: 2000, OutputTokens: 50, TotalTokens: 999999}, // TotalTokens ignored; recomputed
+	}
+	res1, totals1, err := RecordIngest(tempDir, taskID, ing1, fixedTime)
+	if err != nil {
+		t.Fatalf("RecordIngest 1 failed: %v", err)
+	}
+	if !res1.Saved || totals1.TotalTokens != 2150 {
+		t.Fatalf("unexpected totals1: %+v, saved=%v", totals1, res1.Saved)
+	}
+
+	state1, has, err := ReadState(tempDir, taskID)
+	if err != nil || !has {
+		t.Fatalf("ReadState failed: err=%v has=%v", err, has)
+	}
+	last, role, ok := CursorFor(state1, ing1.Source)
+	if !ok || last != 20 || role != "coordinator" {
+		t.Fatalf("CursorFor got (%d, %q, %v), want (20, coordinator, true)", last, role, ok)
+	}
+
+	// Overlapping FromStep rejected without changing state
+	overlap := Ingest{
+		Source:   ing1.Source,
+		Role:     "coordinator",
+		FromStep: 20,
+		ToStep:   25,
+		Steps:    1,
+		Delta:    TokenTelemetry{InputTokens: 10, CacheReadTokens: 10, OutputTokens: 10},
+	}
+	if _, _, err := RecordIngest(tempDir, taskID, overlap, fixedTime); err == nil {
+		t.Fatalf("expected overlap error when FromStep <= cursor")
+	}
+
+	// Role mismatch rejected
+	badRole := Ingest{
+		Source:   ing1.Source,
+		Role:     "spec-auditor",
+		FromStep: 21,
+		ToStep:   25,
+		Steps:    1,
+		Delta:    TokenTelemetry{InputTokens: 10, CacheReadTokens: 10, OutputTokens: 10},
+	}
+	if _, _, err := RecordIngest(tempDir, taskID, badRole, fixedTime); err == nil {
+		t.Fatalf("expected role mismatch error")
+	}
+
+	// Subsequent slice accumulates cleanly
+	ing2 := Ingest{
+		Source:   ing1.Source,
+		Role:     "coordinator",
+		FromStep: 21,
+		ToStep:   30,
+		Steps:    2,
+		Delta:    TokenTelemetry{InputTokens: 50, CacheReadTokens: 500, OutputTokens: 25},
+	}
+	_, totals2, err := RecordIngest(tempDir, taskID, ing2, fixedTime.Add(time.Minute))
+	if err != nil {
+		t.Fatalf("RecordIngest 2 failed: %v", err)
+	}
+	if totals2.InputTokens != 150 || totals2.CacheReadTokens != 2500 || totals2.OutputTokens != 75 || totals2.TotalTokens != 2725 {
+		t.Fatalf("unexpected totals2: %+v", totals2)
+	}
+
+	events, err := ReadEvents(tempDir, taskID)
+	if err != nil {
+		t.Fatalf("ReadEvents: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(events))
+	}
+	ev, ok := events[1].(map[string]any)
+	if !ok || ev["type"] != "token_ingested" || ev["source"] != ing1.Source || ev["role"] != "coordinator" {
+		t.Errorf("unexpected token_ingested event: %+v", events[1])
+	}
+}
+
+func TestRecordIngest_Guards(t *testing.T) {
+	tempDir := t.TempDir()
+	taskID := "T-064"
+	fixedTime := time.Date(2026, 11, 26, 10, 0, 0, 0, time.UTC)
+
+	// Invalid inputs
+	for _, bad := range []Ingest{
+		{Source: "", Role: "coordinator", FromStep: 0, ToStep: 1, Steps: 1},
+		{Source: "s", Role: "", FromStep: 0, ToStep: 1, Steps: 1},
+		{Source: "s", Role: "coordinator", FromStep: -1, ToStep: 1, Steps: 1},
+		{Source: "s", Role: "coordinator", FromStep: 5, ToStep: 4, Steps: 1},
+		{Source: "s", Role: "coordinator", FromStep: 0, ToStep: 1, Steps: 0},
+		{Source: "s", Role: "coordinator", FromStep: 0, ToStep: 1, Steps: 1, Delta: TokenTelemetry{InputTokens: -1}},
+	} {
+		if _, _, err := RecordIngest(tempDir, taskID, bad, fixedTime); err == nil {
+			t.Errorf("expected error for invalid Ingest %+v", bad)
+		}
+	}
+
+	// Malformed ingest field in state.json must error rather than overwrite
+	if _, err := SaveState(tempDir, taskID, []byte(`{"ingest":"corrupt"}`), fixedTime); err != nil {
+		t.Fatalf("setup SaveState: %v", err)
+	}
+	_, _, err := RecordIngest(tempDir, taskID, Ingest{
+		Source: "s", Role: "coordinator", FromStep: 0, ToStep: 1, Steps: 1,
+		Delta: TokenTelemetry{InputTokens: 1},
+	}, fixedTime)
+	if err == nil {
+		t.Fatalf("expected error on malformed ingest table in state.json")
+	}
+	if _, err := SaveState(tempDir, taskID, []byte(`{"ingest":{"s":{"last_step":-1}}}`), fixedTime); err != nil {
+		t.Fatalf("setup SaveState negative last_step: %v", err)
+	}
+	if err := ValidateIngestState(map[string]any{"ingest": map[string]any{"s": map[string]any{"last_step": float64(-1)}}}); err == nil {
+		t.Fatalf("expected error on negative last_step")
+	}
+
+	// Overflow guard (use values representable cleanly across JSON float64 round-trip)
+	tempDir2 := t.TempDir()
+	_, _, err = RecordIngest(tempDir2, taskID, Ingest{
+		Source: "s", Role: "coordinator", FromStep: 0, ToStep: 1, Steps: 1,
+		Delta: TokenTelemetry{InputTokens: 8000000000000000000},
+	}, fixedTime)
+	if err != nil {
+		t.Fatalf("setup overflow: %v", err)
+	}
+	_, _, err = RecordIngest(tempDir2, taskID, Ingest{
+		Source: "s", Role: "coordinator", FromStep: 2, ToStep: 3, Steps: 1,
+		Delta: TokenTelemetry{InputTokens: 2000000000000000000},
+	}, fixedTime)
+	if err == nil {
+		t.Fatalf("expected overflow error")
+	}
+}

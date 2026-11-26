@@ -144,6 +144,101 @@ func ExtractTokens(stateMap map[string]any) (TokenTelemetry, bool) {
 	return tt, true
 }
 
+// Ingest describes one transcript-derived token recording delta and its source cursor.
+type Ingest struct {
+	Source   string
+	Role     string
+	FromStep int
+	ToStep   int
+	Steps    int
+	Delta    TokenTelemetry
+}
+
+// CursorFor returns the last ingested step and role recorded for source in stateMap, if any.
+func CursorFor(stateMap map[string]any, source string) (lastStep int, role string, ok bool) {
+	ingestMap, err := parseIngestMap(stateMap)
+	if err != nil || ingestMap == nil {
+		return 0, "", false
+	}
+	entry, exists := ingestMap[source]
+	if !exists {
+		return 0, "", false
+	}
+	rawStep, hasStep := entry["last_step"]
+	if !hasStep {
+		return 0, "", false
+	}
+	stepFloat, isNum := rawStep.(float64)
+	if !isNum {
+		return 0, "", false
+	}
+	r, _ := entry["role"].(string)
+	return int(stepFloat), r, true
+}
+
+func parseIngestMap(stateMap map[string]any) (map[string]map[string]any, error) {
+	if stateMap == nil {
+		return map[string]map[string]any{}, nil
+	}
+	raw, exists := stateMap["ingest"]
+	if !exists || raw == nil {
+		return map[string]map[string]any{}, nil
+	}
+	top, ok := raw.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("malformed ingest cursor table in state.json")
+	}
+	out := make(map[string]map[string]any, len(top))
+	for src, v := range top {
+		entry, ok := v.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("malformed ingest cursor entry for %q", src)
+		}
+		rawStep, hasStep := entry["last_step"]
+		if !hasStep {
+			return nil, fmt.Errorf("ingest cursor entry for %q missing last_step", src)
+		}
+		if _, isNum := rawStep.(float64); !isNum {
+			return nil, fmt.Errorf("ingest cursor entry for %q has non-numeric last_step", src)
+		}
+		if stepFloat := rawStep.(float64); stepFloat < 0 {
+			return nil, fmt.Errorf("ingest cursor entry for %q has negative last_step", src)
+		}
+		out[src] = entry
+	}
+	return out, nil
+}
+
+// ValidateIngestState verifies that any existing "ingest" cursor table in stateMap is well-formed.
+func ValidateIngestState(stateMap map[string]any) error {
+	_, err := parseIngestMap(stateMap)
+	return err
+}
+
+// AccumulateTokens validates non-negative token deltas, guards against int64 overflow,
+// and returns the updated TokenTelemetry totals.
+func AccumulateTokens(existing TokenTelemetry, input, cache, output int64) (TokenTelemetry, error) {
+	if input < 0 || cache < 0 || output < 0 {
+		return TokenTelemetry{}, fmt.Errorf("token values cannot be negative (got input=%d, cache=%d, output=%d)", input, cache, output)
+	}
+	if math.MaxInt64-existing.InputTokens < input ||
+		math.MaxInt64-existing.CacheReadTokens < cache ||
+		math.MaxInt64-existing.OutputTokens < output {
+		return TokenTelemetry{}, fmt.Errorf("token accumulation would overflow int64")
+	}
+	totals := TokenTelemetry{
+		InputTokens:     existing.InputTokens + input,
+		CacheReadTokens: existing.CacheReadTokens + cache,
+		OutputTokens:    existing.OutputTokens + output,
+	}
+	if math.MaxInt64-totals.InputTokens < totals.CacheReadTokens ||
+		math.MaxInt64-(totals.InputTokens+totals.CacheReadTokens) < totals.OutputTokens {
+		return TokenTelemetry{}, fmt.Errorf("total token calculation would overflow int64")
+	}
+	totals.TotalTokens = totals.InputTokens + totals.CacheReadTokens + totals.OutputTokens
+	return totals, nil
+}
+
 // RecordTokens validates non-negative token deltas, guards against overflow, accumulates into
 // existing state.json under key "tokens", atomically saves the state snapshot, appends a
 // "token_recorded" event to events.jsonl, and returns the SaveResult and updated TokenTelemetry.
@@ -151,9 +246,6 @@ func RecordTokens(root, taskID string, input, cache, output int64, now time.Time
 	normID, err := ValidateTaskID(taskID)
 	if err != nil {
 		return SaveResult{}, TokenTelemetry{}, err
-	}
-	if input < 0 || cache < 0 || output < 0 {
-		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("token values cannot be negative (got input=%d, cache=%d, output=%d)", input, cache, output)
 	}
 
 	stateMap, hasState, err := ReadState(root, normID)
@@ -165,23 +257,10 @@ func RecordTokens(root, taskID string, input, cache, output int64, now time.Time
 	}
 
 	existing, _ := ExtractTokens(stateMap)
-
-	if math.MaxInt64-existing.InputTokens < input ||
-		math.MaxInt64-existing.CacheReadTokens < cache ||
-		math.MaxInt64-existing.OutputTokens < output {
-		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("token accumulation would overflow int64")
+	totals, err := AccumulateTokens(existing, input, cache, output)
+	if err != nil {
+		return SaveResult{}, TokenTelemetry{}, err
 	}
-
-	totals := TokenTelemetry{
-		InputTokens:     existing.InputTokens + input,
-		CacheReadTokens: existing.CacheReadTokens + cache,
-		OutputTokens:    existing.OutputTokens + output,
-	}
-	if math.MaxInt64-totals.InputTokens < totals.CacheReadTokens ||
-		math.MaxInt64-(totals.InputTokens+totals.CacheReadTokens) < totals.OutputTokens {
-		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("total token calculation would overflow int64")
-	}
-	totals.TotalTokens = totals.InputTokens + totals.CacheReadTokens + totals.OutputTokens
 
 	stateMap["tokens"] = totals
 	payload, err := json.Marshal(stateMap)
@@ -215,6 +294,102 @@ func RecordTokens(root, taskID string, input, cache, output int64, now time.Time
 	}
 	if _, err := AppendEvent(root, normID, eventPayload); err != nil {
 		return res, totals, fmt.Errorf("append token event: %w", err)
+	}
+
+	return res, totals, nil
+}
+
+// RecordIngest atomically accumulates transcript-derived token deltas into "tokens",
+// updates the per-source cursor under "ingest", and appends a "token_ingested" event.
+func RecordIngest(root, taskID string, ing Ingest, now time.Time) (SaveResult, TokenTelemetry, error) {
+	normID, err := ValidateTaskID(taskID)
+	if err != nil {
+		return SaveResult{}, TokenTelemetry{}, err
+	}
+	if ing.Source == "" {
+		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("ingest source must not be empty")
+	}
+	if ing.Role == "" {
+		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("ingest role must not be empty")
+	}
+	if ing.FromStep < 0 || ing.ToStep < ing.FromStep {
+		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("invalid ingest step range %d..%d", ing.FromStep, ing.ToStep)
+	}
+	if ing.Steps <= 0 {
+		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("ingest steps must be positive (got %d)", ing.Steps)
+	}
+
+	stateMap, hasState, err := ReadState(root, normID)
+	if err != nil {
+		return SaveResult{}, TokenTelemetry{}, err
+	}
+	if !hasState || stateMap == nil {
+		stateMap = make(map[string]any)
+	}
+
+	ingestMap, err := parseIngestMap(stateMap)
+	if err != nil {
+		return SaveResult{}, TokenTelemetry{}, err
+	}
+	if prev, exists := ingestMap[ing.Source]; exists {
+		prevStep := int(prev["last_step"].(float64))
+		if ing.FromStep <= prevStep {
+			return SaveResult{}, TokenTelemetry{}, fmt.Errorf("from-step %d overlaps already-ingested cursor %d for source %s", ing.FromStep, prevStep, ing.Source)
+		}
+		if prevRole, _ := prev["role"].(string); prevRole != "" && prevRole != ing.Role {
+			return SaveResult{}, TokenTelemetry{}, fmt.Errorf("role %q does not match stored role %q for source %s", ing.Role, prevRole, ing.Source)
+		}
+	}
+
+	existing, _ := ExtractTokens(stateMap)
+	totals, err := AccumulateTokens(existing, ing.Delta.InputTokens, ing.Delta.CacheReadTokens, ing.Delta.OutputTokens)
+	if err != nil {
+		return SaveResult{}, TokenTelemetry{}, err
+	}
+
+	ingestMap[ing.Source] = map[string]any{
+		"last_step": ing.ToStep,
+		"role":      ing.Role,
+	}
+	stateMap["tokens"] = totals
+	stateMap["ingest"] = ingestMap
+
+	payload, err := json.Marshal(stateMap)
+	if err != nil {
+		return SaveResult{}, TokenTelemetry{}, fmt.Errorf("marshal state with ingest: %w", err)
+	}
+
+	if now.IsZero() {
+		now = time.Now()
+	}
+
+	res, err := SaveState(root, normID, payload, now)
+	if err != nil {
+		return SaveResult{}, TokenTelemetry{}, err
+	}
+
+	eventMap := map[string]any{
+		"type":      "token_ingested",
+		"task_id":   normID,
+		"source":    ing.Source,
+		"role":      ing.Role,
+		"from_step": ing.FromStep,
+		"to_step":   ing.ToStep,
+		"steps":     ing.Steps,
+		"delta": map[string]int64{
+			"input":  ing.Delta.InputTokens,
+			"cache":  ing.Delta.CacheReadTokens,
+			"output": ing.Delta.OutputTokens,
+		},
+		"totals":      totals,
+		"recorded_at": now.UTC().Format(time.RFC3339),
+	}
+	eventPayload, err := json.Marshal(eventMap)
+	if err != nil {
+		return res, totals, fmt.Errorf("marshal token_ingested event: %w", err)
+	}
+	if _, err := AppendEvent(root, normID, eventPayload); err != nil {
+		return res, totals, fmt.Errorf("append token_ingested event: %w", err)
 	}
 
 	return res, totals, nil

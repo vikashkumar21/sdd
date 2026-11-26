@@ -65,7 +65,7 @@ commands:
   task merge <T-xxx>         qualify pre-merge matrix and merge task into target branch
   task state <cmd>           manage deterministic task state, events, and token telemetry
   task audit <T-xxx>         run outside validation audit executing validation.md commands (--json, --verbose)
-  record-tokens <T-xxx>      record task token consumption telemetry (--input, --cache, --output, --stdin, --json)
+  record-tokens <T-xxx>      record task token telemetry (--input/--cache/--output, or --conversation/--transcript)
   feature new <T-xxx> <slug> create tasks/features/T-xxx-<slug>/ from project templates
   bugfix new <T-xxx> <slug>  create tasks/bugfixes/T-xxx-<slug>/ with reproduction test template
   hotfix new <T-xxx> <slug>  create tasks/hotfixes/T-xxx-<slug>/ with incident patch template

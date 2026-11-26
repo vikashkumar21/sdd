@@ -462,3 +462,12 @@ Instead of forcing agents to ingest thousands of lines across five living docume
   3. Active tasks match `ROADMAP.md` task states.
   4. Linked living document paths are confined within the repository root (`os.OpenRoot`) and exist.
   5. Greenfield repositories without `ROADMAP.md` skip validation cleanly without errors.
+
+## 21. Native Transcript Token Ingestion Standard
+
+To replace estimated token counts with measured usage while remaining deterministic and safe across multi-task sessions (`T-064`, `D-051`..`D-053`):
+
+- **Supported format (v1):** Antigravity JSONL transcripts (`<id>/.system_generated/logs/transcript.jsonl`), counting only `source == "MODEL"` and `type == "PLANNER_RESPONSE"` records. Other IDE formats are unverified and out of scope until explicitly added.
+- **Bounded, confined, path-free:** Reads are capped at 256 MiB total and 1 MiB per line; `--conversation <uuid>` opens strictly via `os.OpenRoot`; `--transcript <file>` rejects symlinks and directories via `Lstat` + `os.SameFile`. No absolute paths or transcript content are written to `state.json` or `events.jsonl`.
+- **Window & idempotency:** First ingestion of a source requires `--from-step <N>`. Subsequent runs default to `cursor + 1`, reject overlapping windows or role changes, and update `tokens` and `ingest[source]` in one atomic write (`token_ingested` event).
+- **Coordinator workflow:** Ingest the coordinator transcript with `--conversation <own-id> --from-step <start> --role coordinator`, and ingest each subagent once with `--conversation <subagent-id> --from-step 0 --role <role>`. Never type estimated numbers when measured ingestion is available; label any remaining estimate explicitly.

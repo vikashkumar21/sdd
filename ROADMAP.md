@@ -188,8 +188,8 @@ Status: living document · Last updated: 2026-10-26
 | T-060 | Subagent model routing, tier enforcement, and calibrated reasoning dispatch | M | T-059 | Orchestrator and coordinator skills mandate model tier pinning in invoke_subagent, calibrated reasoning effort, and sdd check verification | D-050 | Done |
 | T-061 | Lens-scoped review bundles and diff filtering | M | T-060 | Internal audit bundle generator produces tailored diff and spec slices per reviewer lens (spec/security/pattern), reducing redundant Review Triad context | D-050 | Done |
 | T-062 | Provider-aligned prompt prefix caching and dynamic suffix pinning | M | T-061 | Reorganize all sdd prompt templates to enforce invariant >=1024 token prefixes with dynamic metadata pinned to suffix for optimal Anthropic/OpenAI/Gemini KV cache hits | D-050 | Done |
-| T-063 | Living document progressive disclosure and Rule 1 micro-index | M | T-062 | Compact project passport/status index for low-token session startup, fetching full living documents on-demand | D-050 | Awaiting review |
-| T-064 | Native IDE transcript discovery and ingestion in sdd record-tokens | S | T-060 | Auto-discovery and JSONL parsing of IDE conversation transcripts in sdd record-tokens, eliminating manual extraction scripts | D-050 | Not started |
+| T-063 | Living document progressive disclosure and Rule 1 micro-index | M | T-062 | Compact project passport/status index for low-token session startup, fetching full living documents on-demand | D-050 | Done |
+| T-064 | Native IDE transcript discovery and ingestion in sdd record-tokens | S | T-060 | Explicit-source JSONL parsing of IDE conversation transcripts in sdd record-tokens (Antigravity), eliminating manual estimation | D-050, D-051, D-052, D-053 | Awaiting review |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -212,18 +212,26 @@ Unfamiliar technology derails projects. To prevent that:
 - Optional shell completion
 - Enhance table markdown parser to treat backslashes inside inline code spans as non-escaping backticks
 - Align internal/coordinator/qualify.go blocker parsing with internal/taskpr/taskpr.go to respect resolved status
+- Auto-fill `validation.md` §8 token table from `sdd record-tokens` transcript ingestion
+- Add `--conversation` transcript ingestion guidance to coordinator skill and handover prompts (bumps `templates.Version`)
+- Add verified transcript parsers for Claude Code, Cursor, and Gemini CLI once formats are verified
 
 ## 8. Next action
 
 1. M0 through M14 are complete (58 tasks delivered).
 2. Release v1.10.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 15: Token Optimization, Context Hygiene & Provider Caching (3/5 complete, 60%).
-4. Active task: T-063 Living document progressive disclosure and Rule 1 micro-index (awaiting review).
+3. Active milestone: Milestone 15: Token Optimization, Context Hygiene & Provider Caching (4/5 complete, 80%).
+4. Active task: T-064 Native IDE transcript discovery and ingestion in sdd record-tokens (awaiting review).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens awaiting review |
+| 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens implementing |
+| 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens awaiting plan approval |
+| 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens specifying |
+| 2026-11-25 | T-063: Living document progressive disclosure and Rule 1 micro-index done |
 | 2026-11-25 | T-063: Living document progressive disclosure and Rule 1 micro-index awaiting review |
 | 2026-11-25 | T-063: Living document progressive disclosure and Rule 1 micro-index implementing |
 | 2026-11-25 | T-063: Living document progressive disclosure and Rule 1 micro-index awaiting plan approval |
