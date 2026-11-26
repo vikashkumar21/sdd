@@ -189,7 +189,7 @@ Status: living document · Last updated: 2026-10-26
 | T-061 | Lens-scoped review bundles and diff filtering | M | T-060 | Internal audit bundle generator produces tailored diff and spec slices per reviewer lens (spec/security/pattern), reducing redundant Review Triad context | D-050 | Done |
 | T-062 | Provider-aligned prompt prefix caching and dynamic suffix pinning | M | T-061 | Reorganize all sdd prompt templates to enforce invariant >=1024 token prefixes with dynamic metadata pinned to suffix for optimal Anthropic/OpenAI/Gemini KV cache hits | D-050 | Done |
 | T-063 | Living document progressive disclosure and Rule 1 micro-index | M | T-062 | Compact project passport/status index for low-token session startup, fetching full living documents on-demand | D-050 | Done |
-| T-064 | Native IDE transcript discovery and ingestion in sdd record-tokens | S | T-060 | Explicit-source JSONL parsing of IDE conversation transcripts in sdd record-tokens (Antigravity), eliminating manual estimation | D-050, D-051, D-052, D-053 | Awaiting review |
+| T-064 | Native IDE transcript discovery and ingestion in sdd record-tokens | S | T-060 | Explicit-source JSONL parsing of IDE conversation transcripts in sdd record-tokens (Antigravity), eliminating manual estimation | D-050, D-051, D-052, D-053 | Done |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -220,13 +220,14 @@ Unfamiliar technology derails projects. To prevent that:
 
 1. M0 through M14 are complete (58 tasks delivered).
 2. Release v1.10.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 15: Token Optimization, Context Hygiene & Provider Caching (4/5 complete, 80%).
-4. Active task: T-064 Native IDE transcript discovery and ingestion in sdd record-tokens (awaiting review).
+3. Milestone 15: Token Optimization, Context Hygiene & Provider Caching is complete (5/5 complete, 100%).
+4. Active task: none (M15 complete; 63 tasks delivered).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens done |
 | 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens awaiting review |
 | 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens implementing |
 | 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens awaiting plan approval |
