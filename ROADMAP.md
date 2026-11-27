@@ -227,7 +227,7 @@ Unfamiliar technology derails projects. To prevent that:
 ## 8. Next action
 
 1. M0 through M14 are complete (58 tasks delivered).
-2. Release v1.11.0 tagged and cross-platform release binaries built.
+2. Release v1.11.1 tagged and cross-platform release binaries built.
 3. Milestone 16: Documentation & Contract Hygiene is complete (1/1 complete, 100%).
 4. Active task: none (M16 complete; 64 tasks delivered).
 
@@ -235,6 +235,7 @@ Unfamiliar technology derails projects. To prevent that:
 
 | Date | Change |
 |---|---|
+| 2026-11-27 | Release v1.11.1: cross-platform static binaries (darwin, linux, windows), template version 2.12.0 (`MISSION.md` & contract git-write alignment, `internal/hook` lint fixes) |
 | 2026-11-27 | T-065: Align MISSION.md scope and contract git-write rules done |
 | 2026-11-27 | T-065: Align MISSION.md scope and contract git-write rules awaiting review |
 | 2026-11-27 | T-065: Align MISSION.md scope and contract git-write rules implementing |
