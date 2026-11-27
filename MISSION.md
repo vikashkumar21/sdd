@@ -2,7 +2,7 @@
 
 > **ALWAYS BE DETERMINISTIC. Human approval resolves every decision.**
 
-Status: living document · Last updated: 2026-10-26 · Maintainer: Vikash (human)
+Status: living document · Last updated: 2026-11-26 · Maintainer: Vikash (human)
 
 ## 1. One-liner
 
@@ -19,21 +19,22 @@ Giving an AI coding agent a project without a fixed contract produces inconsiste
 
 ## 4. Scope
 
-**In scope (v1)**
+**In scope**
 
 - `sdd init` for greenfield and brownfield projects: detect, ask, show a plan, write without overwriting, record a manifest.
-- `sdd check`: mechanical consistency checks of a kit.
-- `sdd feature new`: create a task folder from the project's own templates.
-- `sdd prompt`: print a handover prompt for an agent.
+- `sdd check` & `sdd check --fix`: mechanical consistency checks and safe repairs of a kit.
+- `sdd upgrade` and `sdd adopt`: refresh generated files without overwriting human edits, and adopt pre-existing kits.
+- `sdd task` / `sdd feature` / `sdd bugfix` / `sdd hotfix` / `sdd spike`: create and manage task folders, worktree isolation, deconfliction, pre-merge qualification, outside validation audit, and state/token telemetry (`sdd record-tokens` with native Antigravity transcript ingestion).
+- `sdd prompt` & `sdd passport` / `sdd status`: progressive-disclosure project passport, handover/review/discovery prompts, and provider-aligned caching.
+- Cross-platform support (Linux, macOS, Windows), self-install/update (`sdd install`, `sdd self-update`), git hooks (`sdd hook`), and per-agent permission manifests (`sdd permissions`).
 - Embedded templates with an override directory; language packs for Go, Java, Python, TypeScript, and a generic fallback.
 - Agent contracts for Claude (`CLAUDE.md`), Gemini (`GEMINI.md`), and any agent that reads `AGENTS.md`.
 
-**Out of scope for now** (see the ROADMAP Parking lot)
+**Out of scope / boundaries** (see also the `ROADMAP.md` Parking lot)
 
-- Understanding a codebase (the agent does that, under the gates, in the Discovery task).
-- Calling any AI model, or any network access.
-- Upgrading existing kits (T-003) and adopting kits made before sdd (T-004).
-- Windows support; generating per-agent permission settings that deny git writes.
+- Understanding a codebase (performed by the agent under the gates, not by the `sdd` binary itself).
+- Calling any AI model (`sdd` kit operations are offline and deterministic; only optional `sdd self-update` uses HTTPS to fetch GitHub Releases).
+- Queued enhancements and unverified IDE transcript formats listed in the `ROADMAP.md` Parking lot.
 
 ## 5. Principles
 
