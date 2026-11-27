@@ -196,7 +196,7 @@ Status: living document · Last updated: 2026-10-26
 
 | ID | Title | Size | Depends on | Outcome | Decisions | Status |
 |---|---|---|---|---|---|---|
-| T-065 | Align MISSION.md scope and contract git-write rules (GATE 2 / Rule 2 vs Rule 13) | S | T-064 | MISSION.md scope matches delivered capabilities; GATE 2 and Rule 2 explicitly carve out isolated task-branch commits per Rule 13; templates.Version bumped to 2.12.0 | none | Awaiting review |
+| T-065 | Align MISSION.md scope and contract git-write rules (GATE 2 / Rule 2 vs Rule 13) | S | T-064 | MISSION.md scope matches delivered capabilities; GATE 2 and Rule 2 explicitly carve out isolated task-branch commits per Rule 13; templates.Version bumped to 2.12.0 | none | Done |
 
 ## 5. Unknown-technology protocol (spikes)
 
@@ -228,13 +228,14 @@ Unfamiliar technology derails projects. To prevent that:
 
 1. M0 through M14 are complete (58 tasks delivered).
 2. Release v1.11.0 tagged and cross-platform release binaries built.
-3. Active milestone: Milestone 16: Documentation & Contract Hygiene (0/1 complete, 0%).
-4. Active task: T-065 Align MISSION.md scope and contract git-write rules (awaiting review).
+3. Milestone 16: Documentation & Contract Hygiene is complete (1/1 complete, 100%).
+4. Active task: none (M16 complete; 64 tasks delivered).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-27 | T-065: Align MISSION.md scope and contract git-write rules done |
 | 2026-11-27 | T-065: Align MISSION.md scope and contract git-write rules awaiting review |
 | 2026-11-27 | T-065: Align MISSION.md scope and contract git-write rules implementing |
 | 2026-11-26 | T-065: Align MISSION.md scope and contract git-write rules awaiting plan approval |
