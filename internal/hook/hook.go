@@ -230,9 +230,10 @@ func Install(root string, opts InstallOptions) (*InstallReport, error) {
 		// Ensure mode is 0o755 (umask might restrict it)
 		_ = os.Chmod(hookPath, 0o755)
 
-		if hookName == "pre-commit" {
+		switch hookName {
+		case "pre-commit":
 			report.PreCommitPath = hookPath
-		} else if hookName == "pre-merge-commit" {
+		case "pre-merge-commit":
 			report.PreMergeCommitPath = hookPath
 		}
 	}
@@ -265,9 +266,10 @@ func Status(root string) (*StatusReport, error) {
 			continue
 		}
 
-		if hookName == "pre-commit" {
+		switch hookName {
+		case "pre-commit":
 			report.PreCommitExists = true
-		} else if hookName == "pre-merge-commit" {
+		case "pre-merge-commit":
 			report.PreMergeExists = true
 		}
 
@@ -474,7 +476,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer func() { _ = in.Close() }()
 
 	fi, err := in.Stat()
 	if err != nil {
@@ -485,7 +487,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer out.Close()
+	defer func() { _ = out.Close() }()
 
 	if _, err := io.Copy(out, in); err != nil {
 		return err

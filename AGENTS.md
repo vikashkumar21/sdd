@@ -1,6 +1,6 @@
 # AGENTS.md — sdd agent contract (all agents)
 
-<!-- sdd:begin contract templates=2.11.0 -->
+<!-- sdd:begin contract templates=2.12.0 -->
 > **ANTHEM: ALWAYS BE DETERMINISTIC. When a decision is needed, STOP and ask the human. Never guess. Never silently choose.**
 
 This is the operating contract for AI agents working on `sdd`. The rules are identical in every agent file (CLAUDE.md, GEMINI.md, AGENTS.md); only the title line differs. If you change a rule in one file, mirror it in the others in the same change set (§9). `sdd check` verifies that they match.
@@ -59,7 +59,7 @@ Start every session by stating: the active task (or "none"), the files you read,
 
 - The agent presents: what changed (file list and summary), validation evidence, subagent review sign-off (0 Blockers and all findings resolved per F-001), session token consumption metrics (from `sdd task state show` or `record-tokens`), deviations from the plan (should be none), and a suggested commit message.
 - The **human** reviews the diff and runs the commit. Afterwards the human replies `COMMITTED T-xxx`; only then does the agent set the task to `Done` in `ROADMAP.md`.
-- The agent never runs `git add`, `commit`, `push`, `tag`, `reset`, `rebase`, `stash`, `checkout --`, or any other command that writes git state. Read-only git (`status`, `diff`, `log`, `show`) is allowed.
+- The agent never runs `git add`, `commit`, `push`, `tag`, `reset`, `rebase`, `stash`, `checkout --`, or any other command that writes git state on `main` (or outside an isolated task branch). Read-only git (`status`, `diff`, `log`, `show`) is allowed; workers may commit only on their isolated task branch per Rule 13, and merges to `main` require human approval via `sdd task merge` or human commit.
 
 ### Task status values (`ROADMAP.md`)
 
@@ -83,7 +83,7 @@ The human's reply is recorded in the Decision register (status `Approved`, date,
 ## 4. Hard rules
 
 1. **No code before GATE 1** for the task. Only `tasks/<typology>/T-xxx-*/` docs may be written during Phase A.
-2. **Never commit or push.** Suggest; the human commits.
+2. **Never commit, push, or merge directly on `main`.** Suggest; the human commits or approves `sdd task merge`. (Workers may commit only on their isolated task branch per Rule 13.)
 3. **One task at a time. No scope creep.** Anything discovered but out of scope goes to the `ROADMAP.md` Parking lot, not into the code.
 4. **Fail safe.** When input, state, or intent is unknown or ambiguous, choose the most restrictive outcome or stop and ask. Never default to the permissive path.
 5. **Never touch production or shared systems.** Run anything with side effects (databases, cloud resources, external services, destructive file operations) only against local or test resources, and verify the target first.

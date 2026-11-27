@@ -43,6 +43,7 @@ Status: living document · Last updated: 2026-10-26
 | M13 | Forensic Brownfield Hardening, Coverage Auditing & Multi-Language Rubrics | T-056 | 6 | Coverage ledger standard, mechanical verification in sdd check, language-pack review templates, unanchored challenger inventorying, and enriched review bundles |
 | M14 | Cognitive Bias Immunity, Unanchored Auditing & Heterogeneous Model Routing | T-057 – T-059 | 15 | Unanchored traceability ledger, ephemeral reviewer lifecycle, zero-negotiation loop isolation, heterogeneous role model routing in .sdd/roles.json |
 | M15 | Token Optimization, Context Hygiene & Provider Caching | T-060 – T-064 | 22 | Subagent model tier routing, lens-scoped review bundles, provider-aligned prefix caching, living doc micro-index, native transcript ingestion |
+| M16 | Documentation & Contract Hygiene | T-065 | 2 | Align MISSION.md scope and agent contract git-write rules across template and root contracts |
 
 ## 4. Tasks
 
@@ -191,6 +192,12 @@ Status: living document · Last updated: 2026-10-26
 | T-063 | Living document progressive disclosure and Rule 1 micro-index | M | T-062 | Compact project passport/status index for low-token session startup, fetching full living documents on-demand | D-050 | Done |
 | T-064 | Native IDE transcript discovery and ingestion in sdd record-tokens | S | T-060 | Explicit-source JSONL parsing of IDE conversation transcripts in sdd record-tokens (Antigravity), eliminating manual estimation | D-050, D-051, D-052, D-053 | Done |
 
+### M16 — Documentation & Contract Hygiene
+
+| ID | Title | Size | Depends on | Outcome | Decisions | Status |
+|---|---|---|---|---|---|---|
+| T-065 | Align MISSION.md scope and contract git-write rules (GATE 2 / Rule 2 vs Rule 13) | S | T-064 | MISSION.md scope matches delivered capabilities; GATE 2 and Rule 2 explicitly carve out isolated task-branch commits per Rule 13; templates.Version bumped to 2.12.0 | none | Awaiting review |
+
 ## 5. Unknown-technology protocol (spikes)
 
 Unfamiliar technology derails projects. To prevent that:
@@ -215,18 +222,23 @@ Unfamiliar technology derails projects. To prevent that:
 - Auto-fill `validation.md` §8 token table from `sdd record-tokens` transcript ingestion
 - Add `--conversation` transcript ingestion guidance to coordinator skill and handover prompts (bumps `templates.Version`)
 - Add verified transcript parsers for Claude Code, Cursor, and Gemini CLI once formats are verified
+- Align git-rule summaries in `internal/templates/data/base/prompt.md.tmpl`, `skills/sdd-protocol/SKILL.md`, and `internal/skill/export.go` with Rule 13 task-branch carve-out
 
 ## 8. Next action
 
 1. M0 through M14 are complete (58 tasks delivered).
 2. Release v1.11.0 tagged and cross-platform release binaries built.
-3. Milestone 15: Token Optimization, Context Hygiene & Provider Caching is complete (5/5 complete, 100%).
-4. Active task: none (M15 complete; 63 tasks delivered).
+3. Active milestone: Milestone 16: Documentation & Contract Hygiene (0/1 complete, 0%).
+4. Active task: T-065 Align MISSION.md scope and contract git-write rules (awaiting review).
 
 ## 9. Change log
 
 | Date | Change |
 |---|---|
+| 2026-11-27 | T-065: Align MISSION.md scope and contract git-write rules awaiting review |
+| 2026-11-27 | T-065: Align MISSION.md scope and contract git-write rules implementing |
+| 2026-11-26 | T-065: Align MISSION.md scope and contract git-write rules awaiting plan approval |
+| 2026-11-26 | T-065: Align MISSION.md scope and contract git-write rules specifying |
 | 2026-11-26 | Release v1.11.0: cross-platform static binaries (darwin, linux, windows), template version 2.11.0, Milestone 15 complete (tier routing, lens review bundles, prefix caching, passport micro-index, native transcript token ingestion) |
 | 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens done |
 | 2026-11-26 | T-064: Native IDE transcript discovery and ingestion in sdd record-tokens awaiting review |

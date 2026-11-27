@@ -1,0 +1,1 @@
+{"delta":{"cache":12840352,"input":528946,"output":31697},"from_step":23831,"recorded_at":"2026-11-27T02:48:08Z","role":"coordinator","source":"file:8a70100cf53182db","steps":32,"task_id":"T-065","to_step":23960,"totals":{"input_tokens":528946,"cache_read_tokens":12840352,"output_tokens":31697,"total_tokens":13400995},"type":"token_ingested"}

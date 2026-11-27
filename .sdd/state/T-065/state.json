@@ -1,0 +1,14 @@
+{
+  "ingest": {
+    "file:8a70100cf53182db": {
+      "last_step": 23960,
+      "role": "coordinator"
+    }
+  },
+  "tokens": {
+    "cache_read_tokens": 12840352,
+    "input_tokens": 528946,
+    "output_tokens": 31697,
+    "total_tokens": 13400995
+  }
+}

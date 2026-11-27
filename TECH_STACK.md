@@ -221,6 +221,7 @@ internal/version/     build version (set with -ldflags)
 | 2026-11-25 | Living document progressive disclosure, sdd passport (--json, --dir), sdd status --compact, contract Rule 1 micro-index protocol, mechanical passport-consistency check, <=500 token ceiling, and template version 2.11.0 verified | Run in internal/passport, internal/cli, internal/check, and internal/templates tests (T-063) | M16 |
 | 2026-11-26 | Antigravity compact transcript (`<id>/.system_generated/logs/transcript.jsonl`) stores JSONL steps with `step_index`, `source`, `type`, `input_tokens`, `cache_read_tokens`, `output_tokens` on `MODEL`/`PLANNER_RESPONSE` and `SYSTEM`/`CHECKPOINT` records; bounded ingestion and cursor idempotency verified (Antigravity format only) | Observed on maintainer Mac transcript and verified in `internal/transcript`, `internal/state`, `internal/cli` tests (T-064) | M16 |
 | 2026-11-26 | Release v1.11.0 cross-platform static binaries (darwin, linux, windows), template version 2.11.0, and SHA256SUMS verified | Build, tests, and make dist | M16 |
+| 2026-11-26 | Contract git-write alignment (`GATE 2` & `Rule 2` aligned with `Rule 13`), `MISSION.md` §4 scope alignment, and template version `2.12.0` verified | Run in `internal/templates`, `internal/check`, and `internal/cli` tests (T-065) | M16 |
 
 ## 8. Dependency register
 
